@@ -7,7 +7,7 @@ passwords.  They also provide input validation for endpoints.
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 from typing import List, Optional
 
 from pydantic import BaseModel, Field, ConfigDict
@@ -209,3 +209,28 @@ class InvoiceListResponse(BaseModel):
     total: int
     page: int
     page_size: int
+
+# --------------------
+# Reports
+# --------------------
+
+class DailySalesSummary(BaseModel):
+    date: date
+    total_amount: float
+    eggs_sold_pcs: int
+    invoice_count: int
+
+
+class InventoryTurnoverMetric(BaseModel):
+    classification_id: int
+    size: SizeEnum
+    color: ColorEnum
+    total_in_pcs: int
+    total_out_pcs: int
+    turnover_ratio: Optional[float] = None
+
+
+class CumulativeEggsSold(BaseModel):
+    total_eggs_pcs: int
+    total_eggs_tray: float
+    total_eggs_dozen: float

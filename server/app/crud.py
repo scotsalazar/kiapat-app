@@ -8,10 +8,10 @@ from __future__ import annotations
 
 import base64
 import os
-from datetime import datetime
+from datetime import date, datetime
 from typing import Any, Dict, List, Optional, Tuple
 
-from sqlalchemy import or_
+from sqlalchemy import case, func, or_
 from sqlalchemy.orm import Session, selectinload
 from sqlalchemy.exc import IntegrityError
 
@@ -564,3 +564,135 @@ def list_invoices(
     total = query.count()
     items = query.offset((page - 1) * page_size).limit(page_size).all()
     return items, total
+
+
+def get_daily_sales_summary(
+    db: Session,
+    start_date: Optional[datetime] = None,
+    end_date: Optional[datetime] = None,
+) -> List[schemas.DailySalesSummary]:
+    """Aggregate invoices into daily sales metrics."""
+    qty_case = case(
+        (models.InvoiceItem.unit == models.UnitEnum.TRAY, models.InvoiceItem.qty * utils.TRAY_SIZE),
+        (models.InvoiceItem.unit == models.UnitEnum.DOZEN, models.InvoiceItem.qty * utils.DOZEN_SIZE),
+        else_=models.InvoiceItem.qty,
+    )
+    date_expr = func.date(models.Invoice.created_at)
+    query = (
+        db.query(
+            date_expr.label("sale_date"),
+            func.sum(models.Invoice.total_amount).label("total_amount"),
+            func.sum(qty_case).label("eggs_sold_pcs"),
+            func.count(func.distinct(models.Invoice.id)).label("invoice_count"),
+        )
+        .join(models.InvoiceItem, models.InvoiceItem.invoice_id == models.Invoice.id)
+    )
+    if start_date:
+        query = query.filter(models.Invoice.created_at >= start_date)
+    if end_date:
+        query = query.filter(models.Invoice.created_at <= end_date)
+    query = query.group_by(date_expr).order_by(date_expr)
+    summaries: List[schemas.DailySalesSummary] = []
+    for row in query.all():
+        sale_date = row.sale_date
+        if isinstance(sale_date, datetime):
+            sale_date_value = sale_date.date()
+        elif isinstance(sale_date, str):
+            sale_date_value = datetime.strptime(sale_date, "%Y-%m-%d").date()
+        elif isinstance(sale_date, date):
+            sale_date_value = sale_date
+        else:
+            sale_date_value = datetime.utcfromtimestamp(0).date()
+        summaries.append(
+            schemas.DailySalesSummary(
+                date=sale_date_value,
+                total_amount=float(row.total_amount or 0.0),
+                eggs_sold_pcs=int(row.eggs_sold_pcs or 0),
+                invoice_count=int(row.invoice_count or 0),
+            )
+        )
+    return summaries
+
+
+def get_inventory_turnover(
+    db: Session,
+    start_date: Optional[datetime] = None,
+    end_date: Optional[datetime] = None,
+) -> List[schemas.InventoryTurnoverMetric]:
+    """Compute inventory turnover metrics per classification."""
+    total_in_expr = func.sum(
+        case(
+            (models.InventoryMovement.type == models.MovementType.IN, models.InventoryMovement.qty_pcs),
+            else_=0,
+        )
+    ).label("total_in_pcs")
+    total_out_expr = func.sum(
+        case(
+            (models.InventoryMovement.type == models.MovementType.OUT, models.InventoryMovement.qty_pcs),
+            else_=0,
+        )
+    ).label("total_out_pcs")
+    query = (
+        db.query(
+            models.InventoryMovement.classification_id.label("classification_id"),
+            models.Classification.size.label("size"),
+            models.Classification.color.label("color"),
+            total_in_expr,
+            total_out_expr,
+        )
+        .join(
+            models.Classification,
+            models.Classification.id == models.InventoryMovement.classification_id,
+        )
+        .filter(models.InventoryMovement.status == models.MovementStatus.COMMITTED)
+    )
+    if start_date:
+        query = query.filter(models.InventoryMovement.created_at >= start_date)
+    if end_date:
+        query = query.filter(models.InventoryMovement.created_at <= end_date)
+    query = query.group_by(
+        models.InventoryMovement.classification_id,
+        models.Classification.size,
+        models.Classification.color,
+    ).order_by(models.InventoryMovement.classification_id)
+    metrics: List[schemas.InventoryTurnoverMetric] = []
+    for row in query.all():
+        total_in = int(row.total_in_pcs or 0)
+        total_out = int(row.total_out_pcs or 0)
+        turnover_ratio = (total_out / total_in) if total_in else None
+        metrics.append(
+            schemas.InventoryTurnoverMetric(
+                classification_id=row.classification_id,
+                size=row.size,
+                color=row.color,
+                total_in_pcs=total_in,
+                total_out_pcs=total_out,
+                turnover_ratio=turnover_ratio,
+            )
+        )
+    return metrics
+
+
+def get_cumulative_eggs_sold(
+    db: Session,
+    start_date: Optional[datetime] = None,
+    end_date: Optional[datetime] = None,
+) -> schemas.CumulativeEggsSold:
+    """Return the total eggs sold in the period in multiple units."""
+    query = db.query(func.sum(models.InventoryMovement.qty_pcs)).filter(
+        models.InventoryMovement.type == models.MovementType.OUT,
+        models.InventoryMovement.status == models.MovementStatus.COMMITTED,
+    )
+    if start_date:
+        query = query.filter(models.InventoryMovement.created_at >= start_date)
+    if end_date:
+        query = query.filter(models.InventoryMovement.created_at <= end_date)
+    total_pcs = query.scalar() or 0
+    total_pcs_int = int(total_pcs)
+    total_tray = total_pcs_int / utils.TRAY_SIZE if total_pcs_int else 0.0
+    total_dozen = total_pcs_int / utils.DOZEN_SIZE if total_pcs_int else 0.0
+    return schemas.CumulativeEggsSold(
+        total_eggs_pcs=total_pcs_int,
+        total_eggs_tray=total_tray,
+        total_eggs_dozen=total_dozen,
+    )
