@@ -173,6 +173,14 @@ class InvoiceOut(BaseModel):
     signature_png_path: Optional[str]
     created_by: int
     created_at: datetime
+    created_by_user: Optional[UserOut] = None
     items: List[InvoiceItemOut]
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class InvoiceListResponse(BaseModel):
+    items: List[InvoiceOut]
+    total: int
+    page: int
+    page_size: int
