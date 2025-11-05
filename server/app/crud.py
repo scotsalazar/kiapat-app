@@ -9,9 +9,10 @@ from __future__ import annotations
 import base64
 import os
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
-from sqlalchemy.orm import Session
+from sqlalchemy import or_
+from sqlalchemy.orm import Session, selectinload
 from sqlalchemy.exc import IntegrityError
 
 from . import models, schemas, utils
@@ -438,3 +439,59 @@ def create_invoice(db: Session, user: models.User, invoice_in: schemas.InvoiceCr
     db.refresh(invoice)
     inventory_notifier.publish(_build_inventory_event(db))
     return invoice
+
+
+def list_invoices(
+    db: Session,
+    user: models.User,
+    *,
+    page: int,
+    page_size: int,
+    start_date: Optional[datetime] = None,
+    end_date: Optional[datetime] = None,
+    customer: Optional[str] = None,
+    driver: Optional[str] = None,
+    status: Optional[models.MovementStatus] = None,
+) -> Tuple[List[models.Invoice], int]:
+    """Return paginated invoices filtered by the provided criteria."""
+
+    query = (
+        db.query(models.Invoice)
+        .options(
+            selectinload(models.Invoice.items),
+            selectinload(models.Invoice.created_by_user),
+        )
+        .order_by(models.Invoice.created_at.desc())
+    )
+
+    if user.role == models.RoleEnum.DRIVER:
+        query = query.filter(models.Invoice.created_by == user.id)
+    elif driver:
+        like = f"%{driver}%"
+        query = query.filter(
+            or_(
+                models.Invoice.created_by_user.has(models.User.name.ilike(like)),
+                models.Invoice.created_by_user.has(models.User.username.ilike(like)),
+            )
+        )
+
+    if start_date:
+        query = query.filter(models.Invoice.created_at >= start_date)
+    if end_date:
+        query = query.filter(models.Invoice.created_at <= end_date)
+    if customer:
+        like = f"%{customer}%"
+        query = query.filter(
+            or_(
+                models.Invoice.customer_name.ilike(like),
+                models.Invoice.customer_phone.ilike(like),
+            )
+        )
+    if status:
+        query = query.filter(
+            models.Invoice.movements.any(models.InventoryMovement.status == status)
+        )
+
+    total = query.count()
+    items = query.offset((page - 1) * page_size).limit(page_size).all()
+    return items, total

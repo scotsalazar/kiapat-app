@@ -4,9 +4,10 @@ invoice will decrement inventory and create OUT movements.  Only
 drivers can create invoices.  Admins may list all invoices.
 """
 
-from typing import List
+from datetime import datetime
+from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from .. import auth, crud, models, schemas
@@ -32,17 +33,42 @@ def create_invoice(
     return invoice
 
 
-@router.get("", response_model=List[schemas.InvoiceOut])
+@router.get("", response_model=schemas.InvoiceListResponse)
 def list_invoices(
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+    start_date: Optional[datetime] = None,
+    end_date: Optional[datetime] = None,
+    customer: Optional[str] = None,
+    driver: Optional[str] = None,
+    status: Optional[models.MovementStatus] = None,
     db: Session = Depends(get_db),
     current_user: models.User = Depends(auth.get_current_active_user),
 ):
     """List invoices.  Drivers see only their invoices; admins see all."""
-    query = db.query(models.Invoice).order_by(models.Invoice.created_at.desc())
-    if current_user.role == models.RoleEnum.DRIVER:
-        query = query.filter(models.Invoice.created_by == current_user.id)
-    invoices = query.all()
-    return invoices
+    if end_date and start_date and end_date < start_date:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="end_date must be on or after start_date",
+        )
+
+    invoices, total = crud.list_invoices(
+        db,
+        current_user,
+        page=page,
+        page_size=page_size,
+        start_date=start_date,
+        end_date=end_date,
+        customer=customer,
+        driver=driver,
+        status=status,
+    )
+    return schemas.InvoiceListResponse(
+        items=invoices,
+        total=total,
+        page=page,
+        page_size=page_size,
+    )
 
 
 @router.get("/{invoice_id}", response_model=schemas.InvoiceOut)

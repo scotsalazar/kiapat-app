@@ -4,6 +4,7 @@ import { AuthProvider, useAuth } from './hooks/useAuth';
 import LoginPage from './pages/Login';
 import InventoryManagerPage from './pages/InventoryManager';
 import DriverInvoicePage from './pages/DriverInvoice';
+import InvoiceHistoryPage from './pages/InvoiceHistory';
 
 const RequireAuth: React.FC<{ allowedRoles?: string[]; children: JSX.Element }> = ({ allowedRoles, children }) => {
   const { user } = useAuth();
@@ -47,6 +48,14 @@ const App: React.FC = () => {
           element={
             <RequireAuth allowedRoles={['driver']}>
               <DriverInvoicePage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/invoices/history"
+          element={
+            <RequireAuth allowedRoles={['admin', 'driver']}>
+              <InvoiceHistoryPage />
             </RequireAuth>
           }
         />
