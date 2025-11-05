@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import axios from 'axios';
 import { useAuth } from '../hooks/useAuth';
 import SignaturePad from '../components/SignaturePad';
@@ -13,6 +13,8 @@ interface Price {
   classification_id: number;
   unit: string;
   price_per_unit: number;
+  effective_from: string;
+  effective_to: string | null;
 }
 interface InvoiceItemForm {
   id: number;
@@ -25,6 +27,11 @@ interface InvoiceItemForm {
 
 const units = ['TRAY', 'DOZEN', 'PCS'];
 
+interface InventoryUpdateMessage {
+  type: 'inventory_update';
+  prices?: Price[];
+}
+
 const DriverInvoicePage: React.FC = () => {
   const { token } = useAuth();
   const [classifications, setClassifications] = useState<Classification[]>([]);
@@ -36,7 +43,7 @@ const DriverInvoicePage: React.FC = () => {
   const [message, setMessage] = useState<string>('');
   const [invoiceId, setInvoiceId] = useState<number | null>(null);
 
-  const authHeader = { Authorization: `Bearer ${token}` };
+  const authHeader = useMemo(() => (token ? { Authorization: `Bearer ${token}` } : {}), [token]);
 
   useEffect(() => {
     if (!token) return;
@@ -47,6 +54,31 @@ const DriverInvoicePage: React.FC = () => {
       setClassifications(clsRes.data);
       setPrices(priceRes.data);
     });
+  }, [authHeader, token]);
+
+  useEffect(() => {
+    if (!token) return;
+    const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
+    const ws = new WebSocket(`${protocol}://${window.location.host}/api/realtime/updates`);
+
+    ws.onmessage = (event) => {
+      try {
+        const payload: InventoryUpdateMessage = JSON.parse(event.data);
+        if (payload.type === 'inventory_update' && payload.prices) {
+          setPrices(payload.prices);
+        }
+      } catch (err) {
+        console.error('Failed to parse realtime update', err);
+      }
+    };
+
+    ws.onerror = (err) => {
+      console.error('Realtime connection error', err);
+    };
+
+    return () => {
+      ws.close();
+    };
   }, [token]);
 
   const addItem = () => {

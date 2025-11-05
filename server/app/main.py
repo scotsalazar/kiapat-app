@@ -14,6 +14,7 @@ from .routers import catalog as catalog_router
 from .routers import inventory as inventory_router
 from .routers import sales as sales_router
 from .routers import admin as admin_router
+from .routers import realtime as realtime_router
 from . import seeder
 from .database import SessionLocal
 
@@ -44,6 +45,7 @@ def create_app() -> FastAPI:
     app.include_router(inventory_router.router)
     app.include_router(sales_router.router)
     app.include_router(admin_router.router)
+    app.include_router(realtime_router.router)
     # Automatically seed database on startup if empty
     @app.on_event("startup")
     def seed_on_startup() -> None:
