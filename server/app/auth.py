@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import os
 from datetime import datetime, timedelta
+import re
 from typing import Optional
 
 from jose import JWTError, jwt
@@ -44,6 +45,25 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 def get_password_hash(password: str) -> str:
     """Hash a plain password."""
     return pwd_context.hash(password)
+
+
+def ensure_password_complexity(password: str) -> None:
+    """Validate that the password meets baseline complexity requirements.
+
+    The rules enforce a minimum length and the presence of uppercase,
+    lowercase and numeric characters.  A ``ValueError`` is raised when the
+    password fails validation so that callers can translate it into an
+    appropriate HTTP error response.
+    """
+
+    if len(password) < 8:
+        raise ValueError("Password must be at least 8 characters long")
+    if not re.search(r"[A-Z]", password):
+        raise ValueError("Password must contain at least one uppercase letter")
+    if not re.search(r"[a-z]", password):
+        raise ValueError("Password must contain at least one lowercase letter")
+    if not re.search(r"\d", password):
+        raise ValueError("Password must contain at least one digit")
 
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
