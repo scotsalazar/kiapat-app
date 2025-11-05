@@ -12,7 +12,14 @@ from typing import List, Optional
 
 from pydantic import BaseModel, Field, ConfigDict
 
-from .models import SizeEnum, ColorEnum, UnitEnum, MovementType, MovementStatus
+from .models import (
+    SizeEnum,
+    ColorEnum,
+    UnitEnum,
+    MovementType,
+    MovementStatus,
+    RoleEnum,
+)
 
 
 # --------------------
@@ -34,10 +41,28 @@ class UserOut(BaseModel):
     name: str
     username: str
     email: Optional[str] = None
-    role: str
+    role: RoleEnum
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class UserCreate(BaseModel):
+    name: str
+    username: str
+    email: Optional[str] = None
+    password: str = Field(..., min_length=8)
+    role: RoleEnum
+
+
+class UserUpdate(BaseModel):
+    name: Optional[str] = None
+    email: Optional[str] = None
+    role: Optional[RoleEnum] = None
+
+
+class PasswordResetRequest(BaseModel):
+    new_password: str = Field(..., min_length=8)
 
 
 # --------------------

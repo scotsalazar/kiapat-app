@@ -3,6 +3,7 @@ import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './hooks/useAuth';
 import LoginPage from './pages/Login';
 import InventoryManagerPage from './pages/InventoryManager';
+import AdminUsersPage from './pages/AdminUsers';
 import DriverInvoicePage from './pages/DriverInvoice';
 
 const RequireAuth: React.FC<{ allowedRoles?: string[]; children: JSX.Element }> = ({ allowedRoles, children }) => {
@@ -23,7 +24,7 @@ const DefaultRoute: React.FC = () => {
     return <Navigate to="/login" replace />;
   }
   if (user.role === 'admin') {
-    return <Navigate to="/inventory" replace />;
+    return <Navigate to="/admin/users" replace />;
   }
   return <Navigate to="/invoice" replace />;
 };
@@ -34,6 +35,14 @@ const App: React.FC = () => {
       <Routes>
         <Route path="/" element={<DefaultRoute />} />
         <Route path="/login" element={<LoginPage />} />
+        <Route
+          path="/admin/users"
+          element={
+            <RequireAuth allowedRoles={['admin']}>
+              <AdminUsersPage />
+            </RequireAuth>
+          }
+        />
         <Route
           path="/inventory"
           element={

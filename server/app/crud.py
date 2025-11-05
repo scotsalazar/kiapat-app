@@ -14,7 +14,7 @@ from typing import Any, Dict, List, Optional
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 
-from . import models, schemas, utils
+from . import auth, models, schemas, utils
 from .notifier import inventory_notifier
 
 
@@ -29,6 +29,75 @@ def get_user_by_username(db: Session, username: str) -> Optional[models.User]:
 
 def get_user_by_id(db: Session, user_id: int) -> Optional[models.User]:
     return db.query(models.User).get(user_id)
+
+
+def list_users(db: Session) -> List[models.User]:
+    return db.query(models.User).order_by(models.User.id).all()
+
+
+def create_user(db: Session, user_in: schemas.UserCreate) -> models.User:
+    if get_user_by_username(db, user_in.username):
+        raise ValueError("Username already exists")
+    if user_in.email:
+        existing_email = (
+            db.query(models.User)
+            .filter(models.User.email == user_in.email)
+            .first()
+        )
+        if existing_email:
+            raise ValueError("Email already exists")
+    user = models.User(
+        name=user_in.name,
+        username=user_in.username,
+        email=user_in.email,
+        hashed_password=auth.get_password_hash(user_in.password),
+        role=user_in.role,
+    )
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    return user
+
+
+def update_user(db: Session, user_id: int, user_in: schemas.UserUpdate) -> models.User:
+    user = get_user_by_id(db, user_id)
+    if not user:
+        raise ValueError("User not found")
+    data = user_in.model_dump(exclude_unset=True)
+    if not data:
+        db.refresh(user)
+        return user
+    if "email" in data and data["email"]:
+        existing_email = (
+            db.query(models.User)
+            .filter(models.User.email == data["email"], models.User.id != user.id)
+            .first()
+        )
+        if existing_email:
+            raise ValueError("Email already exists")
+    for field, value in data.items():
+        setattr(user, field, value)
+    db.commit()
+    db.refresh(user)
+    return user
+
+
+def delete_user(db: Session, user_id: int) -> None:
+    user = get_user_by_id(db, user_id)
+    if not user:
+        raise ValueError("User not found")
+    db.delete(user)
+    db.commit()
+
+
+def reset_user_password(db: Session, user_id: int, new_password: str) -> models.User:
+    user = get_user_by_id(db, user_id)
+    if not user:
+        raise ValueError("User not found")
+    user.hashed_password = auth.get_password_hash(new_password)
+    db.commit()
+    db.refresh(user)
+    return user
 
 
 def list_classifications(db: Session) -> List[models.Classification]:
