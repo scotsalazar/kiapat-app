@@ -53,6 +53,16 @@ class ClassificationOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class ClassificationCreate(BaseModel):
+    size: SizeEnum
+    color: ColorEnum
+
+
+class ClassificationUpdate(BaseModel):
+    size: Optional[SizeEnum] = None
+    color: Optional[ColorEnum] = None
+
+
 class PriceOut(BaseModel):
     id: int
     classification_id: int
@@ -62,6 +72,20 @@ class PriceOut(BaseModel):
     effective_to: Optional[datetime]
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class PriceCreate(BaseModel):
+    classification_id: int
+    unit: UnitEnum
+    price_per_unit: float
+    effective_from: Optional[datetime] = None
+    effective_to: Optional[datetime] = None
+
+
+class PriceUpdate(BaseModel):
+    price_per_unit: Optional[float] = None
+    effective_from: Optional[datetime] = None
+    effective_to: Optional[datetime] = None
 
 
 # --------------------
