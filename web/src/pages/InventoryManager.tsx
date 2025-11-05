@@ -47,6 +47,43 @@ interface InventoryUpdateMessage {
   prices?: PriceUpdate[];
 }
 
+interface InvoiceItemResponse {
+  id: number;
+  classification_id: number;
+  unit: string;
+  qty: number;
+  unit_price: number;
+  line_total: number;
+  override_shortage_pcs?: number | null;
+}
+
+interface OverrideItemResponse {
+  invoice_item_id: number;
+  requested_qty_pcs: number;
+  available_qty_pcs: number;
+  shortage_qty_pcs: number;
+}
+
+interface PendingOverride {
+  id: number;
+  invoice_id: number;
+  status: string;
+  requested_by_id: number;
+  reviewed_by_id: number | null;
+  created_at: string;
+  decided_at: string | null;
+  items: OverrideItemResponse[];
+  invoice: {
+    id: number;
+    customer_name: string | null;
+    customer_phone: string | null;
+    total_amount: number;
+    status: string;
+    created_at: string;
+    items: InvoiceItemResponse[];
+  };
+}
+
 const InventoryManagerPage: React.FC = () => {
   const { token, user } = useAuth();
   const [summary, setSummary] = useState<{ timestamp: string; cards: InventoryCard[] } | null>(null);
@@ -56,6 +93,7 @@ const InventoryManagerPage: React.FC = () => {
   const [qty, setQty] = useState<number>(0);
   const [unit, setUnit] = useState<string>('TRAY');
   const [message, setMessage] = useState<string>('');
+  const [pendingOverrides, setPendingOverrides] = useState<PendingOverride[]>([]);
 
   const authHeader = useMemo(() => (token ? { Authorization: `Bearer ${token}` } : {}), [token]);
 
@@ -69,7 +107,15 @@ const InventoryManagerPage: React.FC = () => {
     setSummary(summaryRes.data);
     setMovements(movementsRes.data);
     setClassifications(clsRes.data);
-  }, [authHeader, token]);
+    if (user?.role === 'admin') {
+      const overridesRes = await axios.get('/api/sales/invoices/overrides/pending', {
+        headers: authHeader,
+      });
+      setPendingOverrides(overridesRes.data);
+    } else {
+      setPendingOverrides([]);
+    }
+  }, [authHeader, token, user?.role]);
 
   useEffect(() => {
     loadData();
@@ -123,6 +169,41 @@ const InventoryManagerPage: React.FC = () => {
     }
   };
 
+  const handleApproveOverride = async (overrideId: number) => {
+    try {
+      await axios.post(
+        `/api/sales/invoices/overrides/${overrideId}/approve`,
+        { note: null },
+        { headers: authHeader },
+      );
+      setMessage('Override approved');
+      loadData();
+    } catch (err: any) {
+      setMessage(err.response?.data?.detail || 'Error approving override');
+    }
+  };
+
+  const handleRejectOverride = async (overrideId: number) => {
+    const note = window.prompt('Add a reason for rejection (optional):', '') ?? null;
+    try {
+      await axios.post(
+        `/api/sales/invoices/overrides/${overrideId}/reject`,
+        { note },
+        { headers: authHeader },
+      );
+      setMessage('Override rejected');
+      loadData();
+    } catch (err: any) {
+      setMessage(err.response?.data?.detail || 'Error rejecting override');
+    }
+  };
+
+  const getClassificationLabel = (id: number) => {
+    const cls = classifications.find((c) => c.id === id);
+    if (!cls) return `Classification #${id}`;
+    return `${cls.size} / ${cls.color}`;
+  };
+
   const handleVerify = async (id: number) => {
     try {
       await axios.post('/api/inventory/in/verify', { movement_id: id }, { headers: authHeader });
@@ -172,6 +253,68 @@ const InventoryManagerPage: React.FC = () => {
           </div>
         ))}
       </div>
+      {pendingOverrides.length > 0 && (
+        <div className="mt-6">
+          <h2 className="text-xl font-semibold mb-2">Pending Override Requests</h2>
+          <div className="space-y-3">
+            {pendingOverrides.map((override) => (
+              <div key={override.id} className="bg-white p-4 rounded shadow border border-yellow-300">
+                <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+                  <div>
+                    <p className="font-semibold">
+                      Invoice #{override.invoice_id} • Submitted {new Date(override.created_at).toLocaleString()}
+                    </p>
+                    <p className="text-sm text-gray-600">
+                      Driver ID {override.requested_by_id} • Total ₱{override.invoice.total_amount.toFixed(2)}
+                    </p>
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => handleApproveOverride(override.id)}
+                      className="px-3 py-1 bg-green-600 text-white rounded"
+                    >
+                      Approve
+                    </button>
+                    <button
+                      onClick={() => handleRejectOverride(override.id)}
+                      className="px-3 py-1 bg-red-600 text-white rounded"
+                    >
+                      Reject
+                    </button>
+                  </div>
+                </div>
+                <table className="mt-3 w-full text-sm">
+                  <thead>
+                    <tr className="text-left text-gray-500 uppercase text-xs">
+                      <th className="py-1">Classification</th>
+                      <th className="py-1">Requested</th>
+                      <th className="py-1">Available pcs</th>
+                      <th className="py-1">Shortage pcs</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {override.invoice.items.map((item) => {
+                      const shortage = override.items.find(
+                        (o) => o.invoice_item_id === item.id,
+                      );
+                      return (
+                        <tr key={item.id} className="border-t">
+                          <td className="py-1">{getClassificationLabel(item.classification_id)}</td>
+                          <td className="py-1">
+                            {item.qty} {item.unit.toLowerCase()}
+                          </td>
+                          <td className="py-1">{shortage?.available_qty_pcs ?? 0}</td>
+                          <td className="py-1 text-red-600">{shortage?.shortage_qty_pcs ?? 0}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
       {/* Add Inventory Form */}
       <div className="mt-6">
         <h2 className="text-xl font-semibold mb-2">Add Inventory</h2>

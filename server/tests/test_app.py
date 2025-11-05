@@ -9,8 +9,14 @@ invoice creation.
 from base64 import b64encode
 import json
 import os
+import sys
+from pathlib import Path
 from datetime import datetime, timedelta
 import importlib
+
+ROOT_DIR = Path(__file__).resolve().parents[1]
+if str(ROOT_DIR) not in sys.path:
+    sys.path.insert(0, str(ROOT_DIR))
 
 import pytest
 from fastapi.testclient import TestClient
@@ -150,6 +156,7 @@ def test_driver_invoice_flow(client):
     assert resp.status_code == 201
     invoice = resp.json()
     assert invoice["total_amount"] > 0
+    assert invoice["status"] == "COMPLETED"
     # inventory should decrement
     resp = client.get(
         "/api/inventory/summary",
@@ -160,6 +167,109 @@ def test_driver_invoice_flow(client):
         card = next(c for c in summary["cards"] if c["classification_id"] == item["classification_id"])
         # after 2 dozens added and 1 dozen sold, pcs should be 12
         assert card["qty_pcs"] == 12
+
+
+def test_invoice_override_flow(client):
+    seed_db(client)
+    admin_token = login(client, "admin", "admin123")
+    driver_token = login(client, "driver", "pass123")
+
+    # Ensure limited stock for one classification
+    resp = client.get(
+        "/api/catalog/classifications",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    cls = resp.json()[0]
+
+    # Add small amount of stock
+    resp = client.post(
+        "/api/inventory/in/create",
+        json={"classification_id": cls["id"], "qty": 1, "unit": "DOZEN"},
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    mid = resp.json()["id"]
+    client.post(
+        "/api/inventory/in/verify",
+        json={"movement_id": mid},
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    client.post(
+        "/api/inventory/in/commit",
+        json={"movement_id": mid},
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+
+    # Driver requests more than available stock
+    invoice_payload = {
+        "customer_name": "Override Customer",
+        "customer_phone": "555",
+        "items": [
+            {"classification_id": cls["id"], "qty": 5, "unit": "DOZEN"},
+        ],
+        "signature_png_b64": None,
+    }
+    resp = client.post(
+        "/api/sales/invoices",
+        json=invoice_payload,
+        headers={"Authorization": f"Bearer {driver_token}"},
+    )
+    assert resp.status_code == 202
+    invoice = resp.json()
+    assert invoice["status"] == "PENDING_OVERRIDE"
+    override = invoice["override_request"]
+    assert override is not None
+    shortage = override["items"][0]["shortage_qty_pcs"]
+    assert shortage > 0
+
+    # Admin lists pending overrides
+    resp = client.get(
+        "/api/sales/invoices/overrides/pending",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert resp.status_code == 200
+    pending = resp.json()
+    assert any(o["invoice_id"] == invoice["id"] for o in pending)
+
+    # Approve the override
+    resp = client.post(
+        f"/api/sales/invoices/overrides/{override['id']}/approve",
+        json={"note": "ok"},
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert resp.status_code == 200
+    approved_invoice = resp.json()
+    assert approved_invoice["status"] == "COMPLETED"
+
+    # Inventory should now reflect the sale (and go negative)
+    resp = client.get(
+        "/api/inventory/summary",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    summary = resp.json()
+    card = next(c for c in summary["cards"] if c["classification_id"] == cls["id"])
+    assert card["qty_pcs"] == 12 - (5 * 12)
+
+    # Rejecting a new override should mark invoice as rejected
+    resp = client.post(
+        "/api/sales/invoices",
+        json={
+            "customer_name": "Reject",
+            "customer_phone": "000",
+            "items": [{"classification_id": cls["id"], "qty": 2, "unit": "DOZEN"}],
+            "signature_png_b64": None,
+        },
+        headers={"Authorization": f"Bearer {driver_token}"},
+    )
+    assert resp.status_code == 202
+    pending_invoice = resp.json()
+    resp = client.post(
+        f"/api/sales/invoices/overrides/{pending_invoice['override_request']['id']}/reject",
+        json={"note": "not allowed"},
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert resp.status_code == 200
+    rejected = resp.json()
+    assert rejected["status"] == "REJECTED"
 
 
 def test_authorization_checks(client):

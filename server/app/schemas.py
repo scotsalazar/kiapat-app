@@ -12,7 +12,15 @@ from typing import List, Optional
 
 from pydantic import BaseModel, Field, ConfigDict
 
-from .models import SizeEnum, ColorEnum, UnitEnum, MovementType, MovementStatus
+from .models import (
+    SizeEnum,
+    ColorEnum,
+    UnitEnum,
+    MovementType,
+    MovementStatus,
+    InvoiceStatus,
+    OverrideStatus,
+)
 
 
 # --------------------
@@ -161,11 +169,32 @@ class InvoiceItemOut(BaseModel):
     qty: int
     unit_price: float
     line_total: float
+    override_shortage_pcs: Optional[int] = None
 
     model_config = ConfigDict(from_attributes=True)
 
 
-class InvoiceOut(BaseModel):
+class InvoiceOverrideItemOut(BaseModel):
+    invoice_item_id: int
+    requested_qty_pcs: int
+    available_qty_pcs: int
+    shortage_qty_pcs: int
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class InvoiceOverrideBriefOut(BaseModel):
+    id: int
+    status: OverrideStatus
+    note: Optional[str]
+    created_at: datetime
+    decided_at: Optional[datetime]
+    items: List[InvoiceOverrideItemOut]
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class InvoiceBaseOut(BaseModel):
     id: int
     customer_name: Optional[str]
     customer_phone: Optional[str]
@@ -173,6 +202,30 @@ class InvoiceOut(BaseModel):
     signature_png_path: Optional[str]
     created_by: int
     created_at: datetime
+    status: InvoiceStatus
     items: List[InvoiceItemOut]
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class InvoiceOut(InvoiceBaseOut):
+    override_request: Optional[InvoiceOverrideBriefOut]
+
+
+class InvoiceOverrideOut(BaseModel):
+    id: int
+    invoice_id: int
+    status: OverrideStatus
+    note: Optional[str]
+    requested_by_id: int
+    reviewed_by_id: Optional[int]
+    created_at: datetime
+    decided_at: Optional[datetime]
+    items: List[InvoiceOverrideItemOut]
+    invoice: InvoiceBaseOut
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class OverrideDecision(BaseModel):
+    note: Optional[str] = None

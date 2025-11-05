@@ -346,35 +346,36 @@ def commit_movement(db: Session, user: models.User, movement_id: int) -> models.
 
 
 def create_invoice(db: Session, user: models.User, invoice_in: schemas.InvoiceCreate) -> models.Invoice:
-    """
-    Create a sales invoice with line items.  This operation will
-    calculate totals using current pricing, decrement inventory and
-    record an OUT movement for each line.  It will raise an exception
-    if stock would go negative.
-    """
+    """Create a sales invoice. If stock is insufficient the invoice will
+    be recorded with a pending override request instead of failing
+    immediately."""
+
     total_amount = 0.0
     items: List[models.InvoiceItem] = []
-    movements: List[models.InventoryMovement] = []
-    # Check and calculate
+    line_details: List[Dict[str, Any]] = []
+    pending_override = False
+
     for item in invoice_in.items:
         price = utils.get_current_price(db, item.classification_id, item.unit)
         if not price:
-            raise ValueError(f"No price defined for classification {item.classification_id} unit {item.unit}")
+            raise ValueError(
+                f"No price defined for classification {item.classification_id} unit {item.unit}"
+            )
         unit_price = price.price_per_unit
         line_total = unit_price * item.qty
         total_amount += line_total
-        # convert to pcs for stock check
+
         qty_pcs = utils.to_pcs(item.qty, item.unit)
-        # check stock
-        bal = (
+        balance = (
             db.query(models.InventoryBalance)
             .filter(models.InventoryBalance.classification_id == item.classification_id)
             .first()
         )
-        current_pcs = bal.qty_pcs if bal else 0
+        current_pcs = balance.qty_pcs if balance else 0
+        available_pcs = min(current_pcs, qty_pcs)
         if current_pcs < qty_pcs:
-            raise ValueError("Not enough stock for classification")
-        # prepare invoice item and movement
+            pending_override = True
+
         items.append(
             models.InvoiceItem(
                 classification_id=item.classification_id,
@@ -384,28 +385,25 @@ def create_invoice(db: Session, user: models.User, invoice_in: schemas.InvoiceCr
                 line_total=line_total,
             )
         )
-        movements.append(
-            models.InventoryMovement(
-                type=models.MovementType.OUT,
-                classification_id=item.classification_id,
-                qty_pcs=qty_pcs,
-                unit_entered=item.unit,
-                qty_entered=item.qty,
-                by_user_id=user.id,
-                status=models.MovementStatus.COMMITTED,
-            )
+        line_details.append(
+            {
+                "classification_id": item.classification_id,
+                "unit": item.unit,
+                "qty": item.qty,
+                "qty_pcs": qty_pcs,
+                "available_qty_pcs": available_pcs,
+            }
         )
-    # Save signature file if provided
+
     signature_path = None
     if invoice_in.signature_png_b64:
-        # decode base64 and write to file with unique name
         data = base64.b64decode(invoice_in.signature_png_b64.split(",")[-1])
         filename = f"sig_{datetime.utcnow().strftime('%Y%m%d%H%M%S%f')}.png"
         filepath = os.path.join(SIGNATURE_DIR, filename)
         with open(filepath, "wb") as f:
             f.write(data)
         signature_path = filepath
-    # Create invoice
+
     invoice = models.Invoice(
         customer_name=invoice_in.customer_name,
         customer_phone=invoice_in.customer_phone,
@@ -413,28 +411,139 @@ def create_invoice(db: Session, user: models.User, invoice_in: schemas.InvoiceCr
         signature_png_path=signature_path,
         created_by=user.id,
         created_at=datetime.utcnow(),
+        status=models.InvoiceStatus.COMPLETED,
     )
     invoice.items = items
     db.add(invoice)
-    db.flush()  # assign invoice id
-    # update movements with invoice_id and update stock
-    for mv in movements:
-        mv.linked_invoice_id = invoice.id
-        db.add(mv)
-        # decrement stock
-        bal = (
+    db.flush()
+
+    if pending_override:
+        invoice.status = models.InvoiceStatus.PENDING_OVERRIDE
+        override = models.InvoiceOverrideRequest(
+            invoice_id=invoice.id,
+            requested_by_id=user.id,
+            status=models.OverrideStatus.PENDING,
+            created_at=datetime.utcnow(),
+        )
+        db.add(override)
+        db.flush()
+        for idx, detail in enumerate(line_details):
+            db.add(
+                models.InvoiceOverrideItem(
+                    override_request_id=override.id,
+                    invoice_item_id=invoice.items[idx].id,
+                    requested_qty_pcs=detail["qty_pcs"],
+                    available_qty_pcs=detail["available_qty_pcs"],
+                )
+            )
+        db.commit()
+        db.refresh(invoice)
+        return invoice
+
+    for detail in line_details:
+        movement = models.InventoryMovement(
+            type=models.MovementType.OUT,
+            classification_id=detail["classification_id"],
+            qty_pcs=detail["qty_pcs"],
+            unit_entered=detail["unit"],
+            qty_entered=detail["qty"],
+            by_user_id=user.id,
+            status=models.MovementStatus.COMMITTED,
+            linked_invoice_id=invoice.id,
+        )
+        db.add(movement)
+        balance = (
             db.query(models.InventoryBalance)
-            .filter(models.InventoryBalance.classification_id == mv.classification_id)
+            .filter(models.InventoryBalance.classification_id == detail["classification_id"])
             .first()
         )
-        if not bal:
-            bal = models.InventoryBalance(
-                classification_id=mv.classification_id, qty_pcs=0
+        if not balance:
+            balance = models.InventoryBalance(
+                classification_id=detail["classification_id"], qty_pcs=0
             )
-            db.add(bal)
-        bal.qty_pcs -= mv.qty_pcs
-        bal.updated_at = datetime.utcnow()
+            db.add(balance)
+        balance.qty_pcs -= detail["qty_pcs"]
+        balance.updated_at = datetime.utcnow()
+
     db.commit()
     db.refresh(invoice)
     inventory_notifier.publish(_build_inventory_event(db))
     return invoice
+
+
+def list_invoice_overrides(
+    db: Session, status: Optional[models.OverrideStatus] = None
+) -> List[models.InvoiceOverrideRequest]:
+    query = db.query(models.InvoiceOverrideRequest).order_by(
+        models.InvoiceOverrideRequest.created_at.desc()
+    )
+    if status is not None:
+        query = query.filter(models.InvoiceOverrideRequest.status == status)
+    return query.all()
+
+
+def approve_invoice_override(
+    db: Session, admin_user: models.User, override_id: int, note: Optional[str] = None
+) -> models.Invoice:
+    override = db.query(models.InvoiceOverrideRequest).get(override_id)
+    if not override or override.status != models.OverrideStatus.PENDING:
+        raise ValueError("Override request not pending")
+    invoice = override.invoice
+    if not invoice or invoice.status != models.InvoiceStatus.PENDING_OVERRIDE:
+        raise ValueError("Invoice is not pending override")
+
+    override.status = models.OverrideStatus.APPROVED
+    override.reviewed_by_id = admin_user.id
+    override.decided_at = datetime.utcnow()
+    override.note = note
+    invoice.status = models.InvoiceStatus.COMPLETED
+
+    for item in invoice.items:
+        qty_pcs = utils.to_pcs(item.qty, item.unit)
+        movement = models.InventoryMovement(
+            type=models.MovementType.OUT,
+            classification_id=item.classification_id,
+            qty_pcs=qty_pcs,
+            unit_entered=item.unit,
+            qty_entered=item.qty,
+            by_user_id=invoice.created_by,
+            status=models.MovementStatus.COMMITTED,
+            linked_invoice_id=invoice.id,
+        )
+        db.add(movement)
+        balance = (
+            db.query(models.InventoryBalance)
+            .filter(models.InventoryBalance.classification_id == item.classification_id)
+            .first()
+        )
+        if not balance:
+            balance = models.InventoryBalance(
+                classification_id=item.classification_id, qty_pcs=0
+            )
+            db.add(balance)
+        balance.qty_pcs -= qty_pcs
+        balance.updated_at = datetime.utcnow()
+
+    db.commit()
+    db.refresh(invoice)
+    inventory_notifier.publish(_build_inventory_event(db))
+    return invoice
+
+
+def reject_invoice_override(
+    db: Session, admin_user: models.User, override_id: int, note: Optional[str] = None
+) -> models.InvoiceOverrideRequest:
+    override = db.query(models.InvoiceOverrideRequest).get(override_id)
+    if not override or override.status != models.OverrideStatus.PENDING:
+        raise ValueError("Override request not pending")
+    invoice = override.invoice
+    override.status = models.OverrideStatus.REJECTED
+    override.reviewed_by_id = admin_user.id
+    override.decided_at = datetime.utcnow()
+    override.note = note
+    if invoice:
+        invoice.status = models.InvoiceStatus.REJECTED
+
+    db.commit()
+    db.refresh(override)
+    return override

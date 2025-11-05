@@ -32,6 +32,43 @@ interface InventoryUpdateMessage {
   prices?: Price[];
 }
 
+interface InvoiceItemResponse {
+  id: number;
+  classification_id: number;
+  unit: string;
+  qty: number;
+  unit_price: number;
+  line_total: number;
+  override_shortage_pcs?: number | null;
+}
+
+interface OverrideItemResponse {
+  invoice_item_id: number;
+  requested_qty_pcs: number;
+  available_qty_pcs: number;
+  shortage_qty_pcs: number;
+}
+
+interface InvoiceOverrideResponse {
+  id: number;
+  status: string;
+  note: string | null;
+  created_at: string;
+  decided_at: string | null;
+  items: OverrideItemResponse[];
+}
+
+interface InvoiceResponse {
+  id: number;
+  status: string;
+  customer_name: string | null;
+  customer_phone: string | null;
+  total_amount: number;
+  created_at: string;
+  items: InvoiceItemResponse[];
+  override_request?: InvoiceOverrideResponse | null;
+}
+
 const DriverInvoicePage: React.FC = () => {
   const { token } = useAuth();
   const [classifications, setClassifications] = useState<Classification[]>([]);
@@ -41,7 +78,8 @@ const DriverInvoicePage: React.FC = () => {
   const [customerPhone, setCustomerPhone] = useState('');
   const [signatureDataUrl, setSignatureDataUrl] = useState<string>('');
   const [message, setMessage] = useState<string>('');
-  const [invoiceId, setInvoiceId] = useState<number | null>(null);
+  const [messageType, setMessageType] = useState<'success' | 'error' | 'info'>('success');
+  const [lastInvoice, setLastInvoice] = useState<InvoiceResponse | null>(null);
 
   const authHeader = useMemo(() => (token ? { Authorization: `Bearer ${token}` } : {}), [token]);
 
@@ -118,7 +156,7 @@ const DriverInvoicePage: React.FC = () => {
         unit: item.unit,
       }));
     try {
-      const res = await axios.post(
+      const res = await axios.post<InvoiceResponse>(
         '/api/sales/invoices',
         {
           customer_name: customerName || null,
@@ -128,8 +166,15 @@ const DriverInvoicePage: React.FC = () => {
         },
         { headers: authHeader },
       );
-      setMessage('Invoice created');
-      setInvoiceId(res.data.id);
+      const invoiceResponse = res.data;
+      setLastInvoice(invoiceResponse);
+      if (invoiceResponse.status === 'PENDING_OVERRIDE') {
+        setMessage('Invoice submitted and pending admin approval due to low stock.');
+        setMessageType('info');
+      } else {
+        setMessage('Invoice created successfully.');
+        setMessageType('success');
+      }
       // clear form
       setItems([]);
       setCustomerName('');
@@ -137,18 +182,71 @@ const DriverInvoicePage: React.FC = () => {
       setSignatureDataUrl('');
     } catch (err: any) {
       setMessage(err.response?.data?.detail || 'Error creating invoice');
+      setMessageType('error');
+      setLastInvoice(null);
     }
   };
 
   const total = items.reduce((sum, item) => sum + (item.line_total || 0), 0);
 
+  const getClassificationLabel = (id: number) => {
+    const cls = classifications.find((c) => c.id === id);
+    if (!cls) return `Classification #${id}`;
+    return `${cls.size} / ${cls.color}`;
+  };
+
   return (
     <div className="p-4 md:p-6">
       <h1 className="text-2xl font-bold mb-4">Generate Sales Invoice</h1>
-      {message && <p className="text-green-600 mb-2">{message}</p>}
-      {invoiceId && (
-        <div className="bg-green-50 border border-green-400 text-green-700 p-2 rounded mb-4">
-          Invoice #{invoiceId} created
+      {message && (
+        <p
+          className={`mb-2 ${
+            messageType === 'error'
+              ? 'text-red-600'
+              : messageType === 'info'
+              ? 'text-yellow-600'
+              : 'text-green-600'
+          }`}
+        >
+          {message}
+        </p>
+      )}
+      {lastInvoice && (
+        <div
+          className={`p-3 rounded mb-4 border ${
+            lastInvoice.status === 'PENDING_OVERRIDE'
+              ? 'bg-yellow-50 border-yellow-400 text-yellow-800'
+              : 'bg-green-50 border-green-400 text-green-700'
+          }`}
+        >
+          <p className="font-semibold">
+            Invoice #{lastInvoice.id} — Status: {lastInvoice.status.replace('_', ' ')}
+          </p>
+          <p>Total ₱{lastInvoice.total_amount.toFixed(2)}</p>
+          {lastInvoice.status === 'PENDING_OVERRIDE' && lastInvoice.override_request && (
+            <div className="mt-2">
+              <p className="font-medium">Shortages reported:</p>
+              <ul className="list-disc list-inside text-sm">
+                {lastInvoice.override_request.items.map((overrideItem) => {
+                  const relatedItem = lastInvoice.items.find(
+                    (i) => i.id === overrideItem.invoice_item_id,
+                  );
+                  return (
+                    <li key={overrideItem.invoice_item_id}>
+                      {getClassificationLabel(relatedItem?.classification_id || 0)} — requested{' '}
+                      {relatedItem?.qty ?? '?'} {relatedItem?.unit ?? ''}, available{' '}
+                      {overrideItem.available_qty_pcs} pcs (shortage {overrideItem.shortage_qty_pcs}{' '}
+                      pcs)
+                    </li>
+                  );
+                })}
+              </ul>
+              <p className="text-sm mt-1">
+                An administrator will review the request. You will be notified once a decision is
+                made.
+              </p>
+            </div>
+          )}
         </div>
       )}
       <form onSubmit={handleSubmit} className="space-y-4">

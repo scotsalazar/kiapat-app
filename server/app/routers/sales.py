@@ -6,7 +6,7 @@ drivers can create invoices.  Admins may list all invoices.
 
 from typing import List
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy.orm import Session
 
 from .. import auth, crud, models, schemas
@@ -21,6 +21,7 @@ def create_invoice(
     invoice_in: schemas.InvoiceCreate,
     db: Session = Depends(get_db),
     current_user: models.User = Depends(auth.get_current_active_user),
+    response: Response = ...,
 ):
     """Create a new sales invoice.  Only drivers may create invoices."""
     if current_user.role != models.RoleEnum.DRIVER:
@@ -29,6 +30,8 @@ def create_invoice(
         invoice = crud.create_invoice(db, current_user, invoice_in)
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    if invoice.status == models.InvoiceStatus.PENDING_OVERRIDE:
+        response.status_code = status.HTTP_202_ACCEPTED
     return invoice
 
 
@@ -58,3 +61,49 @@ def get_invoice(
     if current_user.role == models.RoleEnum.DRIVER and invoice.created_by != current_user.id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to view this invoice")
     return invoice
+
+
+@router.get("/overrides/pending", response_model=List[schemas.InvoiceOverrideOut])
+def list_pending_overrides(
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(auth.get_current_active_user),
+):
+    """List pending override requests. Admin only."""
+    if current_user.role != models.RoleEnum.ADMIN:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admins only")
+    overrides = crud.list_invoice_overrides(db, status=models.OverrideStatus.PENDING)
+    return overrides
+
+
+@router.post("/overrides/{override_id}/approve", response_model=schemas.InvoiceOut)
+def approve_override(
+    override_id: int,
+    decision: schemas.OverrideDecision,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(auth.get_current_active_user),
+):
+    """Approve an override request and commit the invoice movements."""
+    if current_user.role != models.RoleEnum.ADMIN:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admins only")
+    try:
+        invoice = crud.approve_invoice_override(db, current_user, override_id, decision.note)
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    return invoice
+
+
+@router.post("/overrides/{override_id}/reject", response_model=schemas.InvoiceOverrideOut)
+def reject_override(
+    override_id: int,
+    decision: schemas.OverrideDecision,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(auth.get_current_active_user),
+):
+    """Reject an override request."""
+    if current_user.role != models.RoleEnum.ADMIN:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admins only")
+    try:
+        override = crud.reject_invoice_override(db, current_user, override_id, decision.note)
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    return override

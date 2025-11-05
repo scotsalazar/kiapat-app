@@ -60,6 +60,18 @@ class MovementStatus(str, enum.Enum):
     COMMITTED = "COMMITTED"
 
 
+class InvoiceStatus(str, enum.Enum):
+    COMPLETED = "COMPLETED"
+    PENDING_OVERRIDE = "PENDING_OVERRIDE"
+    REJECTED = "REJECTED"
+
+
+class OverrideStatus(str, enum.Enum):
+    PENDING = "PENDING"
+    APPROVED = "APPROVED"
+    REJECTED = "REJECTED"
+
+
 class User(Base):
     __tablename__ = "users"
     id = Column(Integer, primary_key=True, index=True)
@@ -139,10 +151,12 @@ class Invoice(Base):
     signature_png_path = Column(String, nullable=True)
     created_by = Column(Integer, ForeignKey("users.id"), nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
+    status = Column(Enum(InvoiceStatus), nullable=False, default=InvoiceStatus.COMPLETED)
 
     created_by_user = relationship("User", back_populates="invoices")
     items = relationship("InvoiceItem", back_populates="invoice")
     movements = relationship("InventoryMovement", back_populates="invoice")
+    override_request = relationship("InvoiceOverrideRequest", back_populates="invoice", uselist=False)
 
 
 class InvoiceItem(Base):
@@ -157,3 +171,45 @@ class InvoiceItem(Base):
 
     invoice = relationship("Invoice", back_populates="items")
     classification = relationship("Classification", back_populates="invoice_items")
+    override_item = relationship("InvoiceOverrideItem", back_populates="invoice_item", uselist=False)
+
+    @property
+    def override_shortage_pcs(self) -> int | None:
+        if not self.override_item:
+            return None
+        return max(0, self.override_item.requested_qty_pcs - self.override_item.available_qty_pcs)
+
+
+class InvoiceOverrideRequest(Base):
+    __tablename__ = "invoice_override_requests"
+
+    id = Column(Integer, primary_key=True, index=True)
+    invoice_id = Column(Integer, ForeignKey("invoices.id"), nullable=False, unique=True)
+    status = Column(Enum(OverrideStatus), nullable=False, default=OverrideStatus.PENDING)
+    requested_by_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    reviewed_by_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    note = Column(String, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    decided_at = Column(DateTime, nullable=True)
+
+    invoice = relationship("Invoice", back_populates="override_request")
+    requested_by = relationship("User", foreign_keys=[requested_by_id])
+    reviewed_by = relationship("User", foreign_keys=[reviewed_by_id])
+    items = relationship("InvoiceOverrideItem", back_populates="override_request")
+
+
+class InvoiceOverrideItem(Base):
+    __tablename__ = "invoice_override_items"
+
+    id = Column(Integer, primary_key=True, index=True)
+    override_request_id = Column(Integer, ForeignKey("invoice_override_requests.id"), nullable=False)
+    invoice_item_id = Column(Integer, ForeignKey("invoice_items.id"), nullable=False, unique=True)
+    requested_qty_pcs = Column(Integer, nullable=False)
+    available_qty_pcs = Column(Integer, nullable=False)
+
+    override_request = relationship("InvoiceOverrideRequest", back_populates="items")
+    invoice_item = relationship("InvoiceItem", back_populates="override_item")
+
+    @property
+    def shortage_qty_pcs(self) -> int:
+        return max(0, self.requested_qty_pcs - self.available_qty_pcs)
