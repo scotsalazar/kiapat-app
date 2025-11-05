@@ -12,7 +12,7 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 from sqlalchemy.orm import Session
-from sqlalchemy import func
+from sqlalchemy.exc import IntegrityError
 
 from . import models, schemas, utils
 from .notifier import inventory_notifier
@@ -35,8 +35,192 @@ def list_classifications(db: Session) -> List[models.Classification]:
     return db.query(models.Classification).filter(models.Classification.is_active == True).all()
 
 
+def _ensure_unique_classification(
+    db: Session, size: models.SizeEnum, color: models.ColorEnum, exclude_id: Optional[int] = None
+) -> None:
+    query = db.query(models.Classification).filter(
+        models.Classification.size == size, models.Classification.color == color
+    )
+    if exclude_id is not None:
+        query = query.filter(models.Classification.id != exclude_id)
+    if query.first():
+        raise ValueError("Classification with the same size and color already exists")
+
+
+def create_classification(
+    db: Session, classification_in: schemas.ClassificationCreate
+) -> models.Classification:
+    _ensure_unique_classification(db, classification_in.size, classification_in.color)
+    classification = models.Classification(
+        size=classification_in.size, color=classification_in.color, is_active=True
+    )
+    db.add(classification)
+    db.commit()
+    db.refresh(classification)
+    return classification
+
+
+def update_classification(
+    db: Session, classification_id: int, classification_in: schemas.ClassificationUpdate
+) -> models.Classification:
+    classification = db.query(models.Classification).get(classification_id)
+    if not classification:
+        raise ValueError("Classification not found")
+    data = classification_in.model_dump(exclude_unset=True)
+    if not data:
+        db.refresh(classification)
+        return classification
+    size = data.get("size", classification.size)
+    color = data.get("color", classification.color)
+    if size != classification.size or color != classification.color:
+        _ensure_unique_classification(db, size, color, exclude_id=classification.id)
+    for field, value in data.items():
+        setattr(classification, field, value)
+    db.commit()
+    db.refresh(classification)
+    return classification
+
+
+def set_classification_active(
+    db: Session, classification_id: int, is_active: bool
+) -> models.Classification:
+    classification = db.query(models.Classification).get(classification_id)
+    if not classification:
+        raise ValueError("Classification not found")
+    classification.is_active = is_active
+    db.commit()
+    db.refresh(classification)
+    return classification
+
+
+def delete_classification(db: Session, classification_id: int) -> None:
+    classification = db.query(models.Classification).get(classification_id)
+    if not classification:
+        raise ValueError("Classification not found")
+    db.delete(classification)
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise ValueError("Unable to delete classification with related records")
+
+
 def list_prices(db: Session) -> List[models.Price]:
     return db.query(models.Price).all()
+
+
+def _validate_price_range(
+    db: Session,
+    classification_id: int,
+    unit: models.UnitEnum,
+    effective_from: datetime,
+    effective_to: Optional[datetime],
+    exclude_price_id: Optional[int] = None,
+) -> None:
+    if effective_to is not None and effective_to <= effective_from:
+        raise ValueError("effective_to must be later than effective_from")
+    query = db.query(models.Price).filter(
+        models.Price.classification_id == classification_id,
+        models.Price.unit == unit,
+    )
+    if exclude_price_id is not None:
+        query = query.filter(models.Price.id != exclude_price_id)
+    for existing in query.all():
+        existing_from = existing.effective_from
+        existing_to = existing.effective_to
+        # No overlap if existing ends before new starts or new ends before existing starts
+        if existing_to is not None and existing_to <= effective_from:
+            continue
+        if effective_to is not None and effective_to <= existing_from:
+            continue
+        raise ValueError("Price period overlaps with an existing price")
+
+
+def create_price(db: Session, price_in: schemas.PriceCreate) -> models.Price:
+    effective_from = price_in.effective_from or datetime.utcnow()
+    effective_to = price_in.effective_to
+    _validate_price_range(
+        db,
+        price_in.classification_id,
+        price_in.unit,
+        effective_from,
+        effective_to,
+    )
+    price = models.Price(
+        classification_id=price_in.classification_id,
+        unit=price_in.unit,
+        price_per_unit=price_in.price_per_unit,
+        effective_from=effective_from,
+        effective_to=effective_to,
+    )
+    db.add(price)
+    db.commit()
+    db.refresh(price)
+    return price
+
+
+def update_price(db: Session, price_id: int, price_in: schemas.PriceUpdate) -> models.Price:
+    price = db.query(models.Price).get(price_id)
+    if not price:
+        raise ValueError("Price not found")
+    data = price_in.model_dump(exclude_unset=True)
+    if not data:
+        db.refresh(price)
+        return price
+    if "price_per_unit" in data:
+        price.price_per_unit = data["price_per_unit"]
+    if "effective_from" in data and data["effective_from"] is not None:
+        price.effective_from = data["effective_from"]
+    if "effective_to" in data:
+        price.effective_to = data["effective_to"]
+    _validate_price_range(
+        db,
+        price.classification_id,
+        price.unit,
+        price.effective_from,
+        price.effective_to,
+        exclude_price_id=price.id,
+    )
+    db.commit()
+    db.refresh(price)
+    return price
+
+
+def activate_price(db: Session, price_id: int) -> models.Price:
+    price = db.query(models.Price).get(price_id)
+    if not price:
+        raise ValueError("Price not found")
+    price.effective_to = None
+    _validate_price_range(
+        db,
+        price.classification_id,
+        price.unit,
+        price.effective_from,
+        price.effective_to,
+        exclude_price_id=price.id,
+    )
+    db.commit()
+    db.refresh(price)
+    return price
+
+
+def deactivate_price(db: Session, price_id: int) -> models.Price:
+    price = db.query(models.Price).get(price_id)
+    if not price:
+        raise ValueError("Price not found")
+    now = datetime.utcnow()
+    price.effective_to = now if now > price.effective_from else price.effective_from
+    db.commit()
+    db.refresh(price)
+    return price
+
+
+def delete_price(db: Session, price_id: int) -> None:
+    price = db.query(models.Price).get(price_id)
+    if not price:
+        raise ValueError("Price not found")
+    db.delete(price)
+    db.commit()
 
 
 def get_inventory_summary(db: Session) -> schemas.InventorySummary:

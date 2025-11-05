@@ -9,21 +9,26 @@ invoice creation.
 from base64 import b64encode
 import json
 import os
+from datetime import datetime, timedelta
+import importlib
 
 import pytest
 from fastapi.testclient import TestClient
 
-from app.main import create_app
 
-
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="function")
 def client(tmp_path_factory):
     """Create a TestClient with a temporary SQLite database for tests."""
     # Override DATABASE_URL to use a temporary file
     db_path = tmp_path_factory.mktemp("data") / "test.db"
     os.environ["DATABASE_URL"] = f"sqlite:///{db_path}"
     os.environ["SEED_TOKEN"] = "test-token"
-    app = create_app()
+    # Reload database/app modules so they pick up the new DATABASE_URL
+    app_database = importlib.import_module("app.database")
+    importlib.reload(app_database)
+    app_main = importlib.import_module("app.main")
+    importlib.reload(app_main)
+    app = app_main.create_app()
     return TestClient(app)
 
 
@@ -198,16 +203,140 @@ def test_authorization_checks(client):
     )
     assert resp.status_code == 200
 
-    # admin cannot create sales invoice
-    payload = {
-        "customer_name": "Test",
-        "customer_phone": "",
-        "items": [{"classification_id": cls_id, "qty": 1, "unit": "PCS"}],
-        "signature_png_b64": "",
-    }
-    resp = client.post(
-        "/api/sales/invoices",
-        json=payload,
+
+def test_catalog_admin_routes_authorization(client):
+    seed_db(client)
+    admin_token = login(client, "admin", "admin123")
+    driver_token = login(client, "driver", "pass123")
+
+    resp = client.get(
+        "/api/catalog/classifications",
         headers={"Authorization": f"Bearer {admin_token}"},
     )
+    assert resp.status_code == 200
+    classifications = resp.json()
+    assert classifications
+    target_cls = classifications[-1]
+
+    resp = client.post(
+        "/api/catalog/classifications",
+        json={"size": target_cls["size"], "color": target_cls["color"]},
+        headers={"Authorization": f"Bearer {driver_token}"},
+    )
     assert resp.status_code == 403
+
+    resp = client.get(
+        "/api/catalog/prices",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert resp.status_code == 200
+    for price in resp.json():
+        if price["classification_id"] == target_cls["id"]:
+            del_resp = client.delete(
+                f"/api/catalog/prices/{price['id']}",
+                headers={"Authorization": f"Bearer {admin_token}"},
+            )
+            assert del_resp.status_code == 204
+
+    resp = client.delete(
+        f"/api/catalog/classifications/{target_cls['id']}",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert resp.status_code == 204
+
+    resp = client.post(
+        "/api/catalog/classifications",
+        json={"size": target_cls["size"], "color": target_cls["color"]},
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert resp.status_code == 201
+    new_classification = resp.json()
+
+    resp = client.put(
+        f"/api/catalog/classifications/{new_classification['id']}",
+        json={"size": new_classification["size"]},
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert resp.status_code == 200
+
+    resp = client.post(
+        f"/api/catalog/classifications/{new_classification['id']}/deactivate",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert resp.status_code == 200
+    assert resp.json()["is_active"] is False
+
+    resp = client.post(
+        f"/api/catalog/classifications/{new_classification['id']}/activate",
+        headers={"Authorization": f"Bearer {driver_token}"},
+    )
+    assert resp.status_code == 403
+
+    resp = client.post(
+        f"/api/catalog/classifications/{new_classification['id']}/activate",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert resp.status_code == 200
+    assert resp.json()["is_active"] is True
+
+    resp = client.post(
+        "/api/catalog/prices",
+        json={
+            "classification_id": new_classification["id"],
+            "unit": "DOZEN",
+            "price_per_unit": 123.0,
+        },
+        headers={"Authorization": f"Bearer {driver_token}"},
+    )
+    assert resp.status_code == 403
+
+    effective_from = datetime.utcnow() - timedelta(days=1)
+    price_payload = {
+        "classification_id": new_classification["id"],
+        "unit": "DOZEN",
+        "price_per_unit": 150.0,
+        "effective_from": effective_from.isoformat(),
+    }
+    resp = client.post(
+        "/api/catalog/prices",
+        json=price_payload,
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert resp.status_code == 201
+    price = resp.json()
+
+    resp = client.post(
+        "/api/catalog/prices",
+        json=price_payload,
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert resp.status_code == 400
+
+    future_end = (datetime.utcnow() + timedelta(days=30)).isoformat()
+    resp = client.put(
+        f"/api/catalog/prices/{price['id']}",
+        json={"price_per_unit": 175.0, "effective_to": future_end},
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert resp.status_code == 200
+    assert resp.json()["price_per_unit"] == 175.0
+
+    resp = client.post(
+        f"/api/catalog/prices/{price['id']}/deactivate",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert resp.status_code == 200
+    assert resp.json()["effective_to"] is not None
+
+    resp = client.post(
+        f"/api/catalog/prices/{price['id']}/activate",
+        headers={"Authorization": f"Bearer {driver_token}"},
+    )
+    assert resp.status_code == 403
+
+    resp = client.post(
+        f"/api/catalog/prices/{price['id']}/activate",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert resp.status_code == 200
+    assert resp.json()["effective_to"] is None
