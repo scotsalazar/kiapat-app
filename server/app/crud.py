@@ -9,12 +9,13 @@ from __future__ import annotations
 import base64
 import os
 from datetime import datetime
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 
 from . import models, schemas, utils
+from .notifier import inventory_notifier
 
 
 # Ensure signature storage directory exists
@@ -83,6 +84,22 @@ def list_movements(
     )
 
 
+def _build_inventory_event(db: Session) -> Dict[str, Any]:
+    summary = get_inventory_summary(db)
+    movements = list_movements(db, limit=20)
+    prices = list_prices(db)
+    return {
+        "type": "inventory_update",
+        "summary": summary.model_dump(mode="json"),
+        "movements": [
+            schemas.MovementOut.model_validate(m).model_dump(mode="json") for m in movements
+        ],
+        "prices": [
+            schemas.PriceOut.model_validate(p).model_dump(mode="json") for p in prices
+        ],
+    }
+
+
 def create_in_movement(db: Session, user: models.User, movement: schemas.CreateInMovement) -> models.InventoryMovement:
     """Create a new IN movement in DRAFT status."""
     qty_pcs = utils.to_pcs(movement.qty, movement.unit)
@@ -140,6 +157,7 @@ def commit_movement(db: Session, user: models.User, movement_id: int) -> models.
     m.committed_at = datetime.utcnow()
     db.commit()
     db.refresh(m)
+    inventory_notifier.publish(_build_inventory_event(db))
     return m
 
 
@@ -234,4 +252,5 @@ def create_invoice(db: Session, user: models.User, invoice_in: schemas.InvoiceCr
         bal.updated_at = datetime.utcnow()
     db.commit()
     db.refresh(invoice)
+    inventory_notifier.publish(_build_inventory_event(db))
     return invoice

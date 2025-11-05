@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import axios from 'axios';
 import { useAuth } from '../hooks/useAuth';
 
@@ -31,6 +31,22 @@ interface Movement {
   committed_at: string | null;
 }
 
+interface PriceUpdate {
+  id: number;
+  classification_id: number;
+  unit: string;
+  price_per_unit: number;
+  effective_from: string;
+  effective_to: string | null;
+}
+
+interface InventoryUpdateMessage {
+  type: 'inventory_update';
+  summary?: { timestamp: string; cards: InventoryCard[] };
+  movements?: Movement[];
+  prices?: PriceUpdate[];
+}
+
 const InventoryManagerPage: React.FC = () => {
   const { token, user } = useAuth();
   const [summary, setSummary] = useState<{ timestamp: string; cards: InventoryCard[] } | null>(null);
@@ -41,9 +57,9 @@ const InventoryManagerPage: React.FC = () => {
   const [unit, setUnit] = useState<string>('TRAY');
   const [message, setMessage] = useState<string>('');
 
-  const authHeader = { Authorization: `Bearer ${token}` };
+  const authHeader = useMemo(() => (token ? { Authorization: `Bearer ${token}` } : {}), [token]);
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     if (!token) return;
     const [summaryRes, movementsRes, clsRes] = await Promise.all([
       axios.get('/api/inventory/summary', { headers: authHeader }),
@@ -53,11 +69,40 @@ const InventoryManagerPage: React.FC = () => {
     setSummary(summaryRes.data);
     setMovements(movementsRes.data);
     setClassifications(clsRes.data);
-  };
+  }, [authHeader, token]);
 
   useEffect(() => {
     loadData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loadData]);
+
+  useEffect(() => {
+    if (!token) return;
+    const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
+    const ws = new WebSocket(`${protocol}://${window.location.host}/api/realtime/updates`);
+
+    ws.onmessage = (event) => {
+      try {
+        const payload: InventoryUpdateMessage = JSON.parse(event.data);
+        if (payload.type === 'inventory_update') {
+          if (payload.summary) {
+            setSummary(payload.summary);
+          }
+          if (payload.movements) {
+            setMovements(payload.movements);
+          }
+        }
+      } catch (err) {
+        console.error('Failed to parse realtime update', err);
+      }
+    };
+
+    ws.onerror = (err) => {
+      console.error('Realtime connection error', err);
+    };
+
+    return () => {
+      ws.close();
+    };
   }, [token]);
 
   const handleAdd = async (e: React.FormEvent) => {
