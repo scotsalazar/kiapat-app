@@ -24,6 +24,32 @@ def inventory_summary(
     return crud.get_inventory_summary(db)
 
 
+@router.get("/thresholds", response_model=list[schemas.InventoryThresholdOut])
+def list_thresholds(
+    db: Session = Depends(get_db), current_user: models.User = Depends(auth.get_current_active_user)
+):
+    """Return configured low stock thresholds."""
+    return crud.list_inventory_thresholds(db)
+
+
+@router.put("/thresholds/{classification_id}", response_model=schemas.InventoryThresholdOut)
+def update_threshold(
+    classification_id: int,
+    payload: schemas.InventoryThresholdUpdate,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(auth.get_current_active_user),
+):
+    """Create or update a low stock threshold. Requires admin role."""
+    if current_user.role != models.RoleEnum.ADMIN:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized")
+    try:
+        return crud.upsert_inventory_threshold(
+            db, classification_id, payload.low_stock_pcs
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
+
+
 @router.get("/movements", response_model=list[schemas.MovementOut])
 def list_inventory_movements(
     type: Optional[models.MovementType] = Query(None),

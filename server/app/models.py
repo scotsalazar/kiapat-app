@@ -84,6 +84,9 @@ class Classification(Base):
 
     prices = relationship("Price", back_populates="classification")
     inventory_balance = relationship("InventoryBalance", uselist=False, back_populates="classification")
+    inventory_threshold = relationship(
+        "InventoryThreshold", uselist=False, back_populates="classification"
+    )
     movements = relationship("InventoryMovement", back_populates="classification")
     invoice_items = relationship("InvoiceItem", back_populates="classification")
 
@@ -109,6 +112,15 @@ class InventoryBalance(Base):
     updated_at = Column(DateTime, default=datetime.utcnow)
 
     classification = relationship("Classification", back_populates="inventory_balance")
+
+
+class InventoryThreshold(Base):
+    __tablename__ = "inventory_thresholds"
+    classification_id = Column(Integer, ForeignKey("classifications.id"), primary_key=True)
+    low_stock_pcs = Column(Integer, nullable=True)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    classification = relationship("Classification", back_populates="inventory_threshold")
 
 
 class InventoryMovement(Base):

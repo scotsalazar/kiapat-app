@@ -141,11 +141,40 @@ class InventoryCard(BaseModel):
     qty_dozen: float
     qty_pcs: int
     unit_price: Optional[float]
+    low_stock_threshold_pcs: Optional[int] = None
+    is_below_threshold: bool = False
+
+
+class InventoryTotals(BaseModel):
+    qty_tray: float
+    qty_dozen: float
+    qty_pcs: int
+    stock_value: float
+
+
+class RecentSalesSummary(BaseModel):
+    period_days: int
+    total_amount: float
+    invoice_count: int
 
 
 class InventorySummary(BaseModel):
     timestamp: datetime
+    totals: InventoryTotals
+    recent_sales: RecentSalesSummary
     cards: List[InventoryCard]
+
+
+class InventoryThresholdOut(BaseModel):
+    classification_id: int
+    low_stock_pcs: Optional[int] = None
+    updated_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class InventoryThresholdUpdate(BaseModel):
+    low_stock_pcs: Optional[int] = Field(None, ge=0)
 
 
 class CreateInMovement(BaseModel):

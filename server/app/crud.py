@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import base64
 import os
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from typing import Any, Dict, List, Optional, Tuple
 
 from sqlalchemy import case, func, or_
@@ -167,6 +167,9 @@ def delete_classification(db: Session, classification_id: int) -> None:
     classification = db.query(models.Classification).get(classification_id)
     if not classification:
         raise ValueError("Classification not found")
+    threshold = db.query(models.InventoryThreshold).get(classification_id)
+    if threshold:
+        db.delete(threshold)
     db.delete(classification)
     try:
         db.commit()
@@ -293,24 +296,35 @@ def delete_price(db: Session, price_id: int) -> None:
     db.commit()
 
 
-def get_inventory_summary(db: Session) -> schemas.InventorySummary:
+def get_inventory_summary(
+    db: Session, recent_sales_days: int = 7
+) -> schemas.InventorySummary:
     """
     Compute the current inventory summary.  This sums the current
-    inventory balances and returns quantities in trays, dozens and
-    pieces along with the current price per dozen for each
-    classification.
+    inventory balances, returns quantities in trays, dozens and
+    pieces, attaches pricing details and low stock thresholds, and
+    calculates aggregate totals for dashboards.
     """
     timestamp = datetime.utcnow()
     cards: List[schemas.InventoryCard] = []
     classifications = list_classifications(db)
+    thresholds = {
+        t.classification_id: t.low_stock_pcs
+        for t in db.query(models.InventoryThreshold).all()
+    }
+    total_qty_pcs = 0
+    total_stock_value = 0.0
     for c in classifications:
         balance = c.inventory_balance
         qty_pcs = balance.qty_pcs if balance else 0
         qty_tray = utils.from_pcs(qty_pcs, models.UnitEnum.TRAY)
         qty_dozen = utils.from_pcs(qty_pcs, models.UnitEnum.DOZEN)
-        # default price per dozen
         price = utils.get_current_price(db, c.id, models.UnitEnum.DOZEN)
         unit_price = price.price_per_unit if price else None
+        threshold_value = thresholds.get(c.id)
+        is_below_threshold = (
+            threshold_value is not None and qty_pcs <= threshold_value
+        )
         cards.append(
             schemas.InventoryCard(
                 classification_id=c.id,
@@ -320,9 +334,77 @@ def get_inventory_summary(db: Session) -> schemas.InventorySummary:
                 qty_dozen=qty_dozen,
                 qty_pcs=qty_pcs,
                 unit_price=unit_price,
+                low_stock_threshold_pcs=threshold_value,
+                is_below_threshold=is_below_threshold,
             )
         )
-    return schemas.InventorySummary(timestamp=timestamp, cards=cards)
+        total_qty_pcs += qty_pcs
+        if unit_price is not None:
+            total_stock_value += qty_dozen * unit_price
+
+    totals = schemas.InventoryTotals(
+        qty_tray=utils.from_pcs(total_qty_pcs, models.UnitEnum.TRAY),
+        qty_dozen=utils.from_pcs(total_qty_pcs, models.UnitEnum.DOZEN),
+        qty_pcs=total_qty_pcs,
+        stock_value=round(total_stock_value, 2),
+    )
+
+    recent_sales = get_recent_sales_snapshot(db, recent_sales_days)
+
+    return schemas.InventorySummary(
+        timestamp=timestamp, totals=totals, recent_sales=recent_sales, cards=cards
+    )
+
+
+def get_recent_sales_snapshot(
+    db: Session, days: int = 7
+) -> schemas.RecentSalesSummary:
+    """Return aggregate sales totals for the most recent ``days`` window."""
+    since = datetime.utcnow() - timedelta(days=days)
+    total_amount = (
+        db.query(func.coalesce(func.sum(models.Invoice.total_amount), 0.0))
+        .filter(models.Invoice.created_at >= since)
+        .scalar()
+        or 0.0
+    )
+    invoice_count = (
+        db.query(func.count(models.Invoice.id))
+        .filter(models.Invoice.created_at >= since)
+        .scalar()
+        or 0
+    )
+    return schemas.RecentSalesSummary(
+        period_days=days,
+        total_amount=float(total_amount),
+        invoice_count=int(invoice_count),
+    )
+
+
+def list_inventory_thresholds(db: Session) -> List[models.InventoryThreshold]:
+    """Return all configured inventory thresholds."""
+    return db.query(models.InventoryThreshold).all()
+
+
+def upsert_inventory_threshold(
+    db: Session, classification_id: int, low_stock_pcs: Optional[int]
+) -> models.InventoryThreshold:
+    """Create or update the low stock threshold for a classification."""
+    classification = db.query(models.Classification).get(classification_id)
+    if not classification:
+        raise ValueError("Classification not found")
+    threshold = db.query(models.InventoryThreshold).get(classification_id)
+    if threshold is None:
+        threshold = models.InventoryThreshold(classification_id=classification_id)
+        db.add(threshold)
+    if low_stock_pcs is not None and low_stock_pcs < 0:
+        raise ValueError("Threshold must be non-negative")
+    threshold.low_stock_pcs = low_stock_pcs
+    db.commit()
+    db.refresh(threshold)
+    inventory_notifier.publish(
+        {"type": "inventory_threshold_updated", "classification_id": classification_id}
+    )
+    return threshold
 
 
 def list_movements(

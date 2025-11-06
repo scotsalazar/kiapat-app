@@ -64,4 +64,12 @@ def seed_database(db: Session) -> str:
             )
         )
     db.commit()
+    # default low stock thresholds (2 trays)
+    for cls in classifications:
+        db.merge(
+            models.InventoryThreshold(
+                classification_id=cls.id, low_stock_pcs=2 * utils.TRAY_SIZE
+            )
+        )
+    db.commit()
     return "seeded"

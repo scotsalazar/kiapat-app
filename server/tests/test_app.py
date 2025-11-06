@@ -102,6 +102,7 @@ def test_inventory_in_flow(client):
     # find card
     card = next(c for c in summary["cards"] if c["classification_id"] == cls_id)
     assert card["qty_pcs"] >= 30
+    assert summary["totals"]["qty_pcs"] >= 30
 
 
 def test_driver_invoice_flow(client):
@@ -160,6 +161,7 @@ def test_driver_invoice_flow(client):
         card = next(c for c in summary["cards"] if c["classification_id"] == item["classification_id"])
         # after 2 dozens added and 1 dozen sold, pcs should be 12
         assert card["qty_pcs"] == 12
+        assert summary["totals"]["qty_pcs"] >= 24
 
 
 def test_authorization_checks(client):
@@ -189,6 +191,13 @@ def test_authorization_checks(client):
         headers={"Authorization": f"Bearer {driver_token}"},
     )
     assert resp.status_code == 403
+    # driver cannot update thresholds
+    resp = client.put(
+        f"/api/inventory/thresholds/{cls_id}",
+        json={"low_stock_pcs": 10},
+        headers={"Authorization": f"Bearer {driver_token}"},
+    )
+    assert resp.status_code == 403
     # admin can verify and commit
     resp = client.post(
         "/api/inventory/in/verify",
@@ -202,6 +211,43 @@ def test_authorization_checks(client):
         headers={"Authorization": f"Bearer {admin_token}"},
     )
     assert resp.status_code == 200
+
+
+def test_threshold_update_flow(client):
+    seed_db(client)
+    admin_token = login(client, "admin", "admin123")
+    resp = client.get(
+        "/api/catalog/classifications",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    cls_id = resp.json()[0]["id"]
+    resp = client.put(
+        f"/api/inventory/thresholds/{cls_id}",
+        json={"low_stock_pcs": 10},
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert resp.status_code == 200
+    assert resp.json()["low_stock_pcs"] == 10
+    summary = client.get(
+        "/api/inventory/summary",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    ).json()
+    card = next(c for c in summary["cards"] if c["classification_id"] == cls_id)
+    assert card["low_stock_threshold_pcs"] == 10
+    assert card["is_below_threshold"] is True
+    resp = client.put(
+        f"/api/inventory/thresholds/{cls_id}",
+        json={"low_stock_pcs": None},
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert resp.status_code == 200
+    summary = client.get(
+        "/api/inventory/summary",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    ).json()
+    card = next(c for c in summary["cards"] if c["classification_id"] == cls_id)
+    assert card["low_stock_threshold_pcs"] is None
+    assert card["is_below_threshold"] is False
 
 
 def test_catalog_admin_routes_authorization(client):
