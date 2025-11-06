@@ -70,6 +70,7 @@ interface PendingOverride {
   invoice_id: number;
   classification_id: number;
   requested_qty_pcs: number;
+  requested_unit: string;
   available_qty_pcs: number;
   status: string;
   created_at: string;
@@ -353,7 +354,7 @@ const InventoryManagerPage: React.FC = () => {
                           )}
                         </td>
                         <td className="px-3 py-2 text-sm text-gray-700">
-                          {override.requested_qty_pcs} pcs
+                          {override.requested_qty_pcs} pcs ({override.requested_unit.toLowerCase()})
                           {classification && (
                             <div className="text-xs text-gray-500">
                               {classification.size} / {classification.color}

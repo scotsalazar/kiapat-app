@@ -212,6 +212,7 @@ def test_invoice_override_flow(client):
     invoice = resp.json()
     assert invoice["status"] == "PENDING_OVERRIDE"
     assert invoice["overrides"], "Expected override details"
+    assert invoice["overrides"][0]["requested_unit"] == "DOZEN"
 
     # inventory should remain unchanged while pending
     resp = client.get(

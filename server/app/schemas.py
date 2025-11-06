@@ -244,6 +244,7 @@ class InvoiceOverrideOut(BaseModel):
     invoice_id: int
     classification_id: int
     requested_qty_pcs: int
+    requested_unit: UnitEnum
     available_qty_pcs: int
     status: OverrideStatus
     requested_by_id: int

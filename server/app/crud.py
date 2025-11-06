@@ -580,6 +580,7 @@ def create_invoice(db: Session, user: models.User, invoice_in: schemas.InvoiceCr
             models.InvoiceOverride(
                 classification_id=detail["classification_id"],
                 requested_qty_pcs=detail["qty_pcs"],
+                requested_unit=detail["unit"],
                 available_qty_pcs=detail["current_pcs"],
                 requested_by_id=user.id,
             )
