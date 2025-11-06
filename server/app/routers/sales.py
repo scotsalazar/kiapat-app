@@ -33,6 +33,61 @@ def create_invoice(
     return invoice
 
 
+@router.get("/overrides/pending", response_model=List[schemas.InvoiceOverrideOut])
+def list_overrides(
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(auth.get_current_active_user),
+):
+    """List all pending override requests for administrators."""
+
+    if current_user.role != models.RoleEnum.ADMIN:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only admins can view override requests",
+        )
+    return crud.list_pending_overrides(db)
+
+
+@router.post("/{invoice_id}/override/approve", response_model=schemas.InvoiceOut)
+def approve_override(
+    invoice_id: int,
+    decision: Optional[schemas.OverrideDecision] = None,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(auth.get_current_active_user),
+):
+    """Approve a pending override request."""
+
+    if current_user.role != models.RoleEnum.ADMIN:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only admins can approve overrides")
+    try:
+        invoice = crud.approve_invoice_override(
+            db, current_user, invoice_id, (decision.decision_reason if decision else None)
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    return invoice
+
+
+@router.post("/{invoice_id}/override/reject", response_model=schemas.InvoiceOut)
+def reject_override(
+    invoice_id: int,
+    decision: Optional[schemas.OverrideDecision] = None,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(auth.get_current_active_user),
+):
+    """Reject a pending override request."""
+
+    if current_user.role != models.RoleEnum.ADMIN:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only admins can reject overrides")
+    try:
+        invoice = crud.reject_invoice_override(
+            db, current_user, invoice_id, (decision.decision_reason if decision else None)
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    return invoice
+
+
 @router.get("", response_model=schemas.InvoiceListResponse)
 def list_invoices(
     page: int = Query(1, ge=1),
@@ -42,6 +97,7 @@ def list_invoices(
     customer: Optional[str] = None,
     driver: Optional[str] = None,
     status: Optional[models.MovementStatus] = None,
+    invoice_status: Optional[models.InvoiceStatus] = None,
     db: Session = Depends(get_db),
     current_user: models.User = Depends(auth.get_current_active_user),
 ):
@@ -62,6 +118,7 @@ def list_invoices(
         customer=customer,
         driver=driver,
         status=status,
+        invoice_status=invoice_status,
     )
     return schemas.InvoiceListResponse(
         items=invoices,

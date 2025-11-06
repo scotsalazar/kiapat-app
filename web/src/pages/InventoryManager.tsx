@@ -40,6 +40,42 @@ interface PriceUpdate {
   effective_to: string | null;
 }
 
+interface OverrideUserSummary {
+  id: number;
+  name: string;
+  username: string;
+}
+
+interface OverrideInvoiceSummary {
+  id: number;
+  customer_name: string | null;
+  customer_phone: string | null;
+  total_amount: number;
+  status: string;
+  created_by: number;
+  created_at: string;
+  created_by_user?: OverrideUserSummary | null;
+}
+
+interface OverrideClassification {
+  id: number;
+  size: string;
+  color: string;
+}
+
+interface PendingOverride {
+  id: number;
+  invoice_id: number;
+  classification_id: number;
+  requested_qty_pcs: number;
+  available_qty_pcs: number;
+  status: string;
+  created_at: string;
+  decision_reason?: string | null;
+  invoice?: OverrideInvoiceSummary;
+  classification?: OverrideClassification;
+}
+
 interface InventoryUpdateMessage {
   type: 'inventory_update';
   summary?: { timestamp: string; cards: InventoryCard[] };
@@ -56,6 +92,7 @@ const InventoryManagerPage: React.FC = () => {
   const [qty, setQty] = useState<number>(0);
   const [unit, setUnit] = useState<string>('TRAY');
   const [message, setMessage] = useState<string>('');
+  const [pendingOverrides, setPendingOverrides] = useState<PendingOverride[]>([]);
 
   const authHeader = useMemo(() => (token ? { Authorization: `Bearer ${token}` } : {}), [token]);
 
@@ -69,7 +106,15 @@ const InventoryManagerPage: React.FC = () => {
     setSummary(summaryRes.data);
     setMovements(movementsRes.data);
     setClassifications(clsRes.data);
-  }, [authHeader, token]);
+    if (user?.role === 'admin') {
+      const overridesRes = await axios.get<PendingOverride[]>('/api/sales/invoices/overrides/pending', {
+        headers: authHeader,
+      });
+      setPendingOverrides(overridesRes.data);
+    } else {
+      setPendingOverrides([]);
+    }
+  }, [authHeader, token, user?.role]);
 
   useEffect(() => {
     loadData();
@@ -138,6 +183,36 @@ const InventoryManagerPage: React.FC = () => {
       loadData();
     } catch (err) {
       console.error(err);
+    }
+  };
+
+  const handleApproveOverride = async (invoiceId: number) => {
+    try {
+      const note = window.prompt('Optional note for approval', '');
+      await axios.post(
+        `/api/sales/invoices/${invoiceId}/override/approve`,
+        note ? { decision_reason: note } : {},
+        { headers: authHeader },
+      );
+      setMessage('Override approved');
+      loadData();
+    } catch (err: any) {
+      setMessage(err.response?.data?.detail || 'Failed to approve override');
+    }
+  };
+
+  const handleRejectOverride = async (invoiceId: number) => {
+    try {
+      const reason = window.prompt('Provide a reason for rejecting this override', '');
+      await axios.post(
+        `/api/sales/invoices/${invoiceId}/override/reject`,
+        reason ? { decision_reason: reason } : {},
+        { headers: authHeader },
+      );
+      setMessage('Override rejected');
+      loadData();
+    } catch (err: any) {
+      setMessage(err.response?.data?.detail || 'Failed to reject override');
     }
   };
 
@@ -217,6 +292,89 @@ const InventoryManagerPage: React.FC = () => {
           </button>
         </form>
       </div>
+      {user?.role === 'admin' && (
+        <div className="mt-6">
+          <h2 className="text-xl font-semibold mb-2">Pending override approvals</h2>
+          {pendingOverrides.length === 0 ? (
+            <p className="text-sm text-gray-600">No override requests awaiting review.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Invoice</th>
+                    <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Customer</th>
+                    <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Requested</th>
+                    <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Available</th>
+                    <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Driver</th>
+                    <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Submitted</th>
+                    <th className="px-3 py-2 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {pendingOverrides.map((override) => {
+                    const invoice = override.invoice;
+                    const classification = override.classification;
+                    const shortage = override.requested_qty_pcs - override.available_qty_pcs;
+                    return (
+                      <tr key={override.id}>
+                        <td className="px-3 py-2 text-sm text-gray-700">
+                          #{override.invoice_id}
+                          {invoice && (
+                            <div className="text-xs text-gray-500">₱{invoice.total_amount.toFixed(2)}</div>
+                          )}
+                        </td>
+                        <td className="px-3 py-2 text-sm text-gray-700">
+                          {invoice?.customer_name || 'Walk-in'}
+                          {invoice?.customer_phone && (
+                            <div className="text-xs text-gray-500">{invoice.customer_phone}</div>
+                          )}
+                        </td>
+                        <td className="px-3 py-2 text-sm text-gray-700">
+                          {override.requested_qty_pcs} pcs
+                          {classification && (
+                            <div className="text-xs text-gray-500">
+                              {classification.size} / {classification.color}
+                            </div>
+                          )}
+                        </td>
+                        <td className="px-3 py-2 text-sm text-gray-700">
+                          {override.available_qty_pcs} pcs
+                          {shortage > 0 && (
+                            <div className="text-xs text-red-500">Short {shortage} pcs</div>
+                          )}
+                        </td>
+                        <td className="px-3 py-2 text-sm text-gray-700">
+                          {invoice?.created_by_user?.name || invoice?.created_by_user?.username || `#${invoice?.created_by ?? ''}`}
+                        </td>
+                        <td className="px-3 py-2 text-sm text-gray-700">
+                          {new Date(override.created_at).toLocaleString()}
+                        </td>
+                        <td className="px-3 py-2 text-sm text-right space-x-2">
+                          <button
+                            type="button"
+                            onClick={() => handleApproveOverride(override.invoice_id)}
+                            className="px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700"
+                          >
+                            Approve
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleRejectOverride(override.invoice_id)}
+                            className="px-3 py-1 bg-red-600 text-white rounded hover:bg-red-700"
+                          >
+                            Reject
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
       {/* Movements List */}
       <div className="mt-6">
         <h2 className="text-xl font-semibold mb-2">Recent Movements</h2>

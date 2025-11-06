@@ -58,6 +58,20 @@ class MovementStatus(str, enum.Enum):
     DRAFT = "DRAFT"
     VERIFIED = "VERIFIED"
     COMMITTED = "COMMITTED"
+    PENDING_OVERRIDE = "PENDING_OVERRIDE"
+    REJECTED = "REJECTED"
+
+
+class InvoiceStatus(str, enum.Enum):
+    COMPLETED = "COMPLETED"
+    PENDING_OVERRIDE = "PENDING_OVERRIDE"
+    REJECTED = "REJECTED"
+
+
+class OverrideStatus(str, enum.Enum):
+    PENDING = "PENDING"
+    APPROVED = "APPROVED"
+    REJECTED = "REJECTED"
 
 
 class User(Base):
@@ -139,10 +153,12 @@ class Invoice(Base):
     signature_png_path = Column(String, nullable=True)
     created_by = Column(Integer, ForeignKey("users.id"), nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
+    status = Column(Enum(InvoiceStatus), nullable=False, default=InvoiceStatus.COMPLETED)
 
     created_by_user = relationship("User", back_populates="invoices")
     items = relationship("InvoiceItem", back_populates="invoice")
     movements = relationship("InventoryMovement", back_populates="invoice")
+    overrides = relationship("InvoiceOverride", back_populates="invoice")
 
 
 class InvoiceItem(Base):
@@ -157,3 +173,23 @@ class InvoiceItem(Base):
 
     invoice = relationship("Invoice", back_populates="items")
     classification = relationship("Classification", back_populates="invoice_items")
+
+
+class InvoiceOverride(Base):
+    __tablename__ = "invoice_overrides"
+    id = Column(Integer, primary_key=True, index=True)
+    invoice_id = Column(Integer, ForeignKey("invoices.id"), nullable=False)
+    classification_id = Column(Integer, ForeignKey("classifications.id"), nullable=False)
+    requested_qty_pcs = Column(Integer, nullable=False)
+    available_qty_pcs = Column(Integer, nullable=False)
+    status = Column(Enum(OverrideStatus), nullable=False, default=OverrideStatus.PENDING)
+    requested_by_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    decided_by_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    decision_reason = Column(String, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    decided_at = Column(DateTime, nullable=True)
+
+    invoice = relationship("Invoice", back_populates="overrides")
+    classification = relationship("Classification")
+    requested_by = relationship("User", foreign_keys=[requested_by_id])
+    decided_by = relationship("User", foreign_keys=[decided_by_id])

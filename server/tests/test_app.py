@@ -150,6 +150,8 @@ def test_driver_invoice_flow(client):
     assert resp.status_code == 201
     invoice = resp.json()
     assert invoice["total_amount"] > 0
+    assert invoice["status"] == "COMPLETED"
+    assert invoice["overrides"] == []
     # inventory should decrement
     resp = client.get(
         "/api/inventory/summary",
@@ -160,6 +162,93 @@ def test_driver_invoice_flow(client):
         card = next(c for c in summary["cards"] if c["classification_id"] == item["classification_id"])
         # after 2 dozens added and 1 dozen sold, pcs should be 12
         assert card["qty_pcs"] == 12
+
+
+def test_invoice_override_flow(client):
+    seed_db(client)
+    admin_token = login(client, "admin", "admin123")
+    driver_token = login(client, "driver", "pass123")
+
+    # load a single classification and add limited stock
+    resp = client.get(
+        "/api/catalog/classifications",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert resp.status_code == 200
+    cls = resp.json()[0]
+
+    resp = client.post(
+        "/api/inventory/in/create",
+        json={"classification_id": cls["id"], "qty": 1, "unit": "DOZEN"},
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    movement_id = resp.json()["id"]
+    client.post(
+        "/api/inventory/in/verify",
+        json={"movement_id": movement_id},
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    client.post(
+        "/api/inventory/in/commit",
+        json={"movement_id": movement_id},
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+
+    # driver requests more stock than available to trigger override
+    invoice_payload = {
+        "customer_name": "Override Test",
+        "customer_phone": "98765432",
+        "items": [
+            {"classification_id": cls["id"], "qty": 2, "unit": "DOZEN"},
+        ],
+        "signature_png_b64": b64encode(b"PNG").decode(),
+    }
+    resp = client.post(
+        "/api/sales/invoices",
+        json=invoice_payload,
+        headers={"Authorization": f"Bearer {driver_token}"},
+    )
+    assert resp.status_code == 201
+    invoice = resp.json()
+    assert invoice["status"] == "PENDING_OVERRIDE"
+    assert invoice["overrides"], "Expected override details"
+
+    # inventory should remain unchanged while pending
+    resp = client.get(
+        "/api/inventory/summary",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    summary = resp.json()
+    card = next(c for c in summary["cards"] if c["classification_id"] == cls["id"])
+    assert card["qty_pcs"] == 12
+
+    # admin sees pending overrides
+    resp = client.get(
+        "/api/sales/invoices/overrides/pending",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    overrides = resp.json()
+    assert any(o["invoice_id"] == invoice["id"] for o in overrides)
+
+    # approve override
+    resp = client.post(
+        f"/api/sales/invoices/{invoice['id']}/override/approve",
+        json={},
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert resp.status_code == 200
+    approved_invoice = resp.json()
+    assert approved_invoice["status"] == "COMPLETED"
+    assert all(o["status"] == "APPROVED" for o in approved_invoice["overrides"])
+
+    # inventory now reflects deduction (12 - 24 = -12)
+    resp = client.get(
+        "/api/inventory/summary",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    summary = resp.json()
+    card = next(c for c in summary["cards"] if c["classification_id"] == cls["id"])
+    assert card["qty_pcs"] == -12
 
 
 def test_authorization_checks(client):
