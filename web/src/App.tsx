@@ -1,6 +1,7 @@
 import React from 'react';
 import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './hooks/useAuth';
+import { ToastProvider } from './components/ToastProvider';
 import LoginPage from './pages/Login';
 import InventoryManagerPage from './pages/InventoryManager';
 import AdminUsersPage from './pages/AdminUsers';
@@ -32,44 +33,46 @@ const DefaultRoute: React.FC = () => {
 
 const App: React.FC = () => {
   return (
-    <AuthProvider>
-      <Routes>
-        <Route path="/" element={<DefaultRoute />} />
-        <Route path="/login" element={<LoginPage />} />
-        <Route
-          path="/admin/users"
-          element={
-            <RequireAuth allowedRoles={['admin']}>
-              <AdminUsersPage />
-            </RequireAuth>
-          }
-        />
-        <Route
-          path="/inventory"
-          element={
-            <RequireAuth allowedRoles={['admin']}>
-              <InventoryManagerPage />
-            </RequireAuth>
-          }
-        />
-        <Route
-          path="/invoice"
-          element={
-            <RequireAuth allowedRoles={['driver']}>
-              <DriverInvoicePage />
-            </RequireAuth>
-          }
-        />
-        <Route
-          path="/invoices/history"
-          element={
-            <RequireAuth allowedRoles={['admin', 'driver']}>
-              <InvoiceHistoryPage />
-            </RequireAuth>
-          }
-        />
-      </Routes>
-    </AuthProvider>
+    <ToastProvider>
+      <AuthProvider>
+        <Routes>
+          <Route path="/" element={<DefaultRoute />} />
+          <Route path="/login" element={<LoginPage />} />
+          <Route
+            path="/admin/users"
+            element={
+              <RequireAuth allowedRoles={['admin']}>
+                <AdminUsersPage />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/inventory"
+            element={
+              <RequireAuth allowedRoles={['admin']}>
+                <InventoryManagerPage />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/invoice"
+            element={
+              <RequireAuth allowedRoles={['driver']}>
+                <DriverInvoicePage />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/invoices/history"
+            element={
+              <RequireAuth allowedRoles={['admin', 'driver']}>
+                <InvoiceHistoryPage />
+              </RequireAuth>
+            }
+          />
+        </Routes>
+      </AuthProvider>
+    </ToastProvider>
   );
 };
 

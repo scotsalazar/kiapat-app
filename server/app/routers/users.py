@@ -2,11 +2,12 @@
 
 from typing import List
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
 
 from .. import auth, crud, models, schemas
 from ..database import get_db
+from ..errors import AppError, app_error_to_http, forbidden, validation_error
 
 
 router = APIRouter(prefix="/api/users", tags=["users"])
@@ -14,7 +15,7 @@ router = APIRouter(prefix="/api/users", tags=["users"])
 
 def require_admin(current_user: models.User = Depends(auth.get_current_active_user)) -> models.User:
     if current_user.role != models.RoleEnum.ADMIN:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin access required")
+        raise forbidden("Admin access required")
     return current_user
 
 
@@ -35,8 +36,10 @@ def create_user(
     try:
         auth.ensure_password_complexity(user_in.password)
         return crud.create_user(db, user_in)
+    except AppError as exc:
+        raise app_error_to_http(exc)
     except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+        raise validation_error(str(exc))
 
 
 @router.put("/{user_id}", response_model=schemas.UserOut)
@@ -48,9 +51,10 @@ def update_user(
 ):
     try:
         return crud.update_user(db, user_id, user_in)
+    except AppError as exc:
+        raise app_error_to_http(exc)
     except ValueError as exc:
-        status_code = status.HTTP_404_NOT_FOUND if "not found" in str(exc).lower() else status.HTTP_400_BAD_REQUEST
-        raise HTTPException(status_code=status_code, detail=str(exc)) from exc
+        raise validation_error(str(exc))
 
 
 @router.delete("/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -61,9 +65,10 @@ def delete_user(
 ):
     try:
         crud.delete_user(db, user_id)
+    except AppError as exc:
+        raise app_error_to_http(exc)
     except ValueError as exc:
-        status_code = status.HTTP_404_NOT_FOUND if "not found" in str(exc).lower() else status.HTTP_400_BAD_REQUEST
-        raise HTTPException(status_code=status_code, detail=str(exc)) from exc
+        raise validation_error(str(exc))
 
 
 @router.post("/{user_id}/reset-password", response_model=schemas.UserOut)
@@ -76,6 +81,7 @@ def reset_password(
     try:
         auth.ensure_password_complexity(payload.new_password)
         return crud.reset_user_password(db, user_id, payload.new_password)
+    except AppError as exc:
+        raise app_error_to_http(exc)
     except ValueError as exc:
-        status_code = status.HTTP_404_NOT_FOUND if "not found" in str(exc).lower() else status.HTTP_400_BAD_REQUEST
-        raise HTTPException(status_code=status_code, detail=str(exc)) from exc
+        raise validation_error(str(exc))

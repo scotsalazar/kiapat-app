@@ -6,11 +6,12 @@ role may verify and commit inventory movements.
 
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from .. import auth, crud, models, schemas
 from ..database import get_db
+from ..errors import AppError, app_error_to_http, forbidden
 
 
 router = APIRouter(prefix="/api/inventory", tags=["inventory"])
@@ -53,11 +54,11 @@ def verify_in(
 ):
     """Verify a draft IN movement.  Requires admin role."""
     if current_user.role != models.RoleEnum.ADMIN:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized")
+        raise forbidden("Not authorized to verify inventory movements")
     try:
         return crud.verify_movement(db, current_user, req.movement_id)
-    except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    except AppError as exc:
+        raise app_error_to_http(exc)
 
 
 @router.post("/in/commit", response_model=schemas.MovementOut)
@@ -68,8 +69,8 @@ def commit_in(
 ):
     """Commit a verified IN movement.  Requires admin role."""
     if current_user.role != models.RoleEnum.ADMIN:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized")
+        raise forbidden("Not authorized to commit inventory movements")
     try:
         return crud.commit_movement(db, current_user, req.movement_id)
-    except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    except AppError as exc:
+        raise app_error_to_http(exc)

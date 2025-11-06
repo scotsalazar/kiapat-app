@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
+import { parseApiError } from '../utils/apiErrors';
 
 const LoginPage: React.FC = () => {
   const { login } = useAuth();
@@ -14,8 +15,9 @@ const LoginPage: React.FC = () => {
     try {
       await login(username, password);
       navigate('/');
-    } catch (err: any) {
-      setError('Invalid credentials');
+    } catch (err) {
+      const { message } = parseApiError(err, 'Invalid credentials');
+      setError(message);
     }
   };
 

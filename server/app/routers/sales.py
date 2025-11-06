@@ -7,11 +7,12 @@ drivers can create invoices.  Admins may list all invoices.
 from datetime import datetime
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.orm import Session
 
 from .. import auth, crud, models, schemas
 from ..database import get_db
+from ..errors import AppError, ErrorCode, app_error_to_http, forbidden, not_found, validation_error
 
 
 router = APIRouter(prefix="/api/sales/invoices", tags=["sales"])
@@ -25,11 +26,11 @@ def create_invoice(
 ):
     """Create a new sales invoice.  Only drivers may create invoices."""
     if current_user.role != models.RoleEnum.DRIVER:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only drivers can create invoices")
+        raise forbidden("Only drivers can create invoices")
     try:
         invoice = crud.create_invoice(db, current_user, invoice_in)
-    except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    except AppError as exc:
+        raise app_error_to_http(exc)
     return invoice
 
 
@@ -41,10 +42,7 @@ def list_overrides(
     """List all pending override requests for administrators."""
 
     if current_user.role != models.RoleEnum.ADMIN:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only admins can view override requests",
-        )
+        raise forbidden("Only admins can view override requests")
     return crud.list_pending_overrides(db)
 
 
@@ -58,13 +56,13 @@ def approve_override(
     """Approve a pending override request."""
 
     if current_user.role != models.RoleEnum.ADMIN:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only admins can approve overrides")
+        raise forbidden("Only admins can approve overrides")
     try:
         invoice = crud.approve_invoice_override(
             db, current_user, invoice_id, (decision.decision_reason if decision else None)
         )
-    except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    except AppError as exc:
+        raise app_error_to_http(exc)
     return invoice
 
 
@@ -78,13 +76,13 @@ def reject_override(
     """Reject a pending override request."""
 
     if current_user.role != models.RoleEnum.ADMIN:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only admins can reject overrides")
+        raise forbidden("Only admins can reject overrides")
     try:
         invoice = crud.reject_invoice_override(
             db, current_user, invoice_id, (decision.decision_reason if decision else None)
         )
-    except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    except AppError as exc:
+        raise app_error_to_http(exc)
     return invoice
 
 
@@ -103,10 +101,7 @@ def list_invoices(
 ):
     """List invoices.  Drivers see only their invoices; admins see all."""
     if end_date and start_date and end_date < start_date:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="end_date must be on or after start_date",
-        )
+        raise validation_error("end_date must be on or after start_date")
 
     invoices, total = crud.list_invoices(
         db,
@@ -137,7 +132,7 @@ def get_invoice(
     """Retrieve a single invoice by id.  Drivers may only retrieve their own invoices."""
     invoice = db.query(models.Invoice).get(invoice_id)
     if not invoice:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Invoice not found")
+        raise not_found("Invoice not found", code=ErrorCode.SALES_NOT_FOUND, details={"invoice_id": invoice_id})
     if current_user.role == models.RoleEnum.DRIVER and invoice.created_by != current_user.id:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to view this invoice")
+        raise forbidden("Not authorized to view this invoice")
     return invoice
