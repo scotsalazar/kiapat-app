@@ -18,6 +18,22 @@ interface InventoryCard {
   qty_dozen: number;
   qty_pcs: number;
   unit_price: number | null;
+  stock_value: number | null;
+  threshold_pcs: number | null;
+  is_low: boolean;
+}
+
+interface InventoryTotals {
+  qty_tray: number;
+  qty_dozen: number;
+  qty_pcs: number;
+  stock_value: number | null;
+}
+
+interface InventorySummaryResponse {
+  timestamp: string;
+  totals: InventoryTotals;
+  cards: InventoryCard[];
 }
 
 interface Movement {
@@ -81,14 +97,21 @@ interface PendingOverride {
 
 interface InventoryUpdateMessage {
   type: 'inventory_update';
-  summary?: { timestamp: string; cards: InventoryCard[] };
+  summary?: InventorySummaryResponse;
   movements?: Movement[];
   prices?: PriceUpdate[];
 }
 
+interface DailySalesSummary {
+  date: string;
+  total_amount: number;
+  eggs_sold_pcs: number;
+  invoice_count: number;
+}
+
 const InventoryManagerPage: React.FC = () => {
   const { token, user } = useAuth();
-  const [summary, setSummary] = useState<{ timestamp: string; cards: InventoryCard[] } | null>(null);
+  const [summary, setSummary] = useState<InventorySummaryResponse | null>(null);
   const [movements, setMovements] = useState<Movement[]>([]);
   const [classifications, setClassifications] = useState<Classification[]>([]);
   const [selectedCls, setSelectedCls] = useState<number | ''>('');
@@ -97,33 +120,81 @@ const InventoryManagerPage: React.FC = () => {
   const [successMessage, setSuccessMessage] = useState<string>('');
   const [formError, setFormError] = useState<string>('');
   const [pendingOverrides, setPendingOverrides] = useState<PendingOverride[]>([]);
+  const [dailySales, setDailySales] = useState<DailySalesSummary[]>([]);
+  const [thresholdEdits, setThresholdEdits] = useState<Record<number, number | ''>>({});
+  const [thresholdSaving, setThresholdSaving] = useState<Record<number, boolean>>({});
 
   const authHeader = useMemo(() => (token ? { Authorization: `Bearer ${token}` } : {}), [token]);
   const { showToast } = useToast();
+  const currencyFormatter = useMemo(
+    () => new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }),
+    [],
+  );
+
+  const recentSalesEntry = useMemo(() => {
+    if (!dailySales.length) return null;
+    return dailySales[dailySales.length - 1];
+  }, [dailySales]);
+
+  const lowStockCount = useMemo(
+    () => summary?.cards.filter((card) => card.is_low).length ?? 0,
+    [summary],
+  );
 
   const loadData = useCallback(async () => {
     if (!token) return;
-    const [summaryRes, movementsRes, clsRes] = await Promise.all([
-      axios.get('/api/inventory/summary', { headers: authHeader }),
-      axios.get('/api/inventory/movements?limit=20', { headers: authHeader }),
-      axios.get('/api/catalog/classifications', { headers: authHeader }),
-    ]);
-    setSummary(summaryRes.data);
-    setMovements(movementsRes.data);
-    setClassifications(clsRes.data);
-    if (user?.role === 'admin') {
-      const overridesRes = await axios.get<PendingOverride[]>('/api/sales/invoices/overrides/pending', {
-        headers: authHeader,
-      });
-      setPendingOverrides(overridesRes.data);
-    } else {
-      setPendingOverrides([]);
+    try {
+      const [summaryRes, movementsRes, clsRes] = await Promise.all([
+        axios.get<InventorySummaryResponse>('/api/inventory/summary', { headers: authHeader }),
+        axios.get<Movement[]>('/api/inventory/movements?limit=20', { headers: authHeader }),
+        axios.get<Classification[]>('/api/catalog/classifications', { headers: authHeader }),
+      ]);
+      setSummary(summaryRes.data);
+      setMovements(movementsRes.data);
+      setClassifications(clsRes.data);
+      if (user?.role === 'admin') {
+        const [overridesRes, salesRes] = await Promise.all([
+          axios.get<PendingOverride[]>('/api/sales/invoices/overrides/pending', {
+            headers: authHeader,
+          }),
+          axios.get<DailySalesSummary[]>('/api/reports/daily-sales', {
+            headers: authHeader,
+            params: (() => {
+              const end = new Date();
+              const start = new Date(end);
+              start.setDate(end.getDate() - 6);
+              return {
+                start_date: start.toISOString(),
+                end_date: end.toISOString(),
+              };
+            })(),
+          }),
+        ]);
+        setPendingOverrides(overridesRes.data);
+        setDailySales(salesRes.data);
+      } else {
+        setPendingOverrides([]);
+        setDailySales([]);
+      }
+    } catch (err) {
+      const { message } = parseApiError(err, 'Failed to load inventory data');
+      showToast(message, 'error');
     }
-  }, [authHeader, token, user?.role]);
+  }, [authHeader, showToast, token, user?.role]);
 
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  useEffect(() => {
+    if (!summary) return;
+    setThresholdEdits(
+      summary.cards.reduce((acc, card) => {
+        acc[card.classification_id] = card.threshold_pcs ?? '';
+        return acc;
+      }, {} as Record<number, number | ''>),
+    );
+  }, [summary]);
 
   useEffect(() => {
     if (!token) return;
@@ -175,6 +246,38 @@ const InventoryManagerPage: React.FC = () => {
       const { message } = parseApiError(err, 'Error creating movement');
       setFormError(message);
       showToast(message, 'error');
+    }
+  };
+
+  const handleThresholdInputChange = (classificationId: number, rawValue: string) => {
+    if (rawValue === '') {
+      setThresholdEdits((prev) => ({ ...prev, [classificationId]: '' }));
+      return;
+    }
+    const parsed = parseInt(rawValue, 10);
+    if (Number.isNaN(parsed) || parsed < 0) {
+      return;
+    }
+    setThresholdEdits((prev) => ({ ...prev, [classificationId]: parsed }));
+  };
+
+  const handleSaveThreshold = async (classificationId: number) => {
+    const value = thresholdEdits[classificationId];
+    const thresholdValue = value === '' || value === undefined ? 0 : value;
+    setThresholdSaving((prev) => ({ ...prev, [classificationId]: true }));
+    try {
+      await axios.put(
+        '/api/inventory/thresholds',
+        { thresholds: [{ classification_id: classificationId, threshold_pcs: thresholdValue }] },
+        { headers: authHeader },
+      );
+      showToast('Threshold updated', 'success');
+      await loadData();
+    } catch (err) {
+      const { message } = parseApiError(err, 'Failed to update threshold');
+      showToast(message, 'error');
+    } finally {
+      setThresholdSaving((prev) => ({ ...prev, [classificationId]: false }));
     }
   };
 
@@ -242,31 +345,128 @@ const InventoryManagerPage: React.FC = () => {
     <div className="p-4 md:p-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Kiapat Inventory</h1>
-        <div>{new Date(summary?.timestamp || '').toLocaleString()}</div>
+        <div>{summary ? new Date(summary.timestamp).toLocaleString() : '--'}</div>
       </div>
       {successMessage && <p className="text-green-600 mt-2">{successMessage}</p>}
       {formError && <p className="text-red-600 mt-2">{formError}</p>}
+      {summary && (
+        <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="rounded-lg border border-gray-200 bg-white p-4 shadow">
+            <h2 className="text-sm font-medium text-gray-500">Total stock</h2>
+            <p className="mt-2 text-2xl font-bold">
+              {summary.totals.qty_pcs.toLocaleString()} pcs
+            </p>
+            <p className="text-sm text-gray-500">
+              {summary.totals.qty_tray.toFixed(1)} trays • {summary.totals.qty_dozen.toFixed(1)} dozens
+            </p>
+            <p className="mt-2 text-xs uppercase tracking-wide text-gray-500">
+              Low stock classifications: {lowStockCount}
+            </p>
+          </div>
+          <div className="rounded-lg border border-gray-200 bg-white p-4 shadow">
+            <h2 className="text-sm font-medium text-gray-500">Stock value</h2>
+            <p className="mt-2 text-2xl font-bold">
+              {summary.totals.stock_value !== null
+                ? currencyFormatter.format(summary.totals.stock_value)
+                : '—'}
+            </p>
+            <p className="text-sm text-gray-500">Based on current price per dozen.</p>
+          </div>
+          <div className="rounded-lg border border-gray-200 bg-white p-4 shadow">
+            <h2 className="text-sm font-medium text-gray-500">Recent sales</h2>
+            {recentSalesEntry ? (
+              <>
+                <p className="mt-2 text-2xl font-bold">
+                  {currencyFormatter.format(recentSalesEntry.total_amount)}
+                </p>
+                <p className="text-sm text-gray-500">
+                  {new Date(recentSalesEntry.date).toLocaleDateString()} •{' '}
+                  {recentSalesEntry.eggs_sold_pcs.toLocaleString()} pcs sold •{' '}
+                  {recentSalesEntry.invoice_count} invoices
+                </p>
+              </>
+            ) : (
+              <p className="mt-2 text-sm text-gray-500">
+                No sales recorded in the last 7 days.
+              </p>
+            )}
+          </div>
+        </div>
+      )}
       {/* Inventory Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mt-4">
         {summary?.cards.map((card) => (
-          <div key={card.classification_id} className="bg-white p-4 rounded shadow">
-            <div className="flex items-center">
-              <img
-                src={card.color === 'WHITE' ? '/white-egg.png' : '/brown-egg.png'}
-                alt="egg"
-                className="h-12 w-12 mr-3"
-              />
-              <div>
-                <h3 className="font-semibold">
-                  {card.size.charAt(0)}{card.size.slice(1).toLowerCase()} / {card.color.charAt(0)}{card.color.slice(1).toLowerCase()}
-                </h3>
-                <p className="text-sm text-gray-600">{card.qty_tray.toFixed(1)} trays • {card.qty_dozen.toFixed(1)} dozens</p>
-                <p className="text-sm text-gray-600">{card.qty_pcs} pcs</p>
-                {card.unit_price && (
-                  <p className="text-sm text-gray-800 mt-1">₱{card.unit_price.toFixed(2)} per dozen</p>
-                )}
+          <div
+            key={card.classification_id}
+            className={`rounded border p-4 shadow transition ${
+              card.is_low
+                ? 'border-red-400 bg-red-50/40 ring-1 ring-red-300'
+                : 'border-gray-200 bg-white'
+            }`}
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-center">
+                <img
+                  src={card.color === 'WHITE' ? '/white-egg.png' : '/brown-egg.png'}
+                  alt="egg"
+                  className="h-12 w-12 mr-3"
+                />
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-semibold">
+                      {card.size.charAt(0)}
+                      {card.size.slice(1).toLowerCase()} / {card.color.charAt(0)}
+                      {card.color.slice(1).toLowerCase()}
+                    </h3>
+                    {card.is_low && (
+                      <span className="inline-flex items-center rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-700">
+                        Low stock
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-sm text-gray-600">
+                    {card.qty_tray.toFixed(1)} trays • {card.qty_dozen.toFixed(1)} dozens
+                  </p>
+                  <p className={`text-sm ${card.is_low ? 'font-semibold text-red-600' : 'text-gray-700'}`}>
+                    {card.qty_pcs.toLocaleString()} pcs
+                  </p>
+                  {card.unit_price !== null && (
+                    <p className="text-sm text-gray-800 mt-1">
+                      {currencyFormatter.format(card.unit_price)} per dozen
+                    </p>
+                  )}
+                  {card.stock_value !== null && (
+                    <p className="text-sm text-gray-600">Stock value: {currencyFormatter.format(card.stock_value)}</p>
+                  )}
+                  <p className="mt-2 text-xs uppercase tracking-wide text-gray-500">
+                    Threshold: {card.threshold_pcs !== null ? `${card.threshold_pcs.toLocaleString()} pcs` : 'Not set'}
+                  </p>
+                </div>
               </div>
             </div>
+            {user?.role === 'admin' && (
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                <label className="text-xs font-medium uppercase tracking-wide text-gray-500" htmlFor={`threshold-${card.classification_id}`}>
+                  Update threshold
+                </label>
+                <input
+                  id={`threshold-${card.classification_id}`}
+                  type="number"
+                  min={0}
+                  className="w-24 rounded border px-2 py-1 text-sm"
+                  value={thresholdEdits[card.classification_id] ?? ''}
+                  onChange={(e) => handleThresholdInputChange(card.classification_id, e.target.value)}
+                />
+                <button
+                  type="button"
+                  onClick={() => handleSaveThreshold(card.classification_id)}
+                  className="rounded bg-indigo-600 px-3 py-1 text-sm font-medium text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:bg-indigo-300"
+                  disabled={Boolean(thresholdSaving[card.classification_id])}
+                >
+                  {thresholdSaving[card.classification_id] ? 'Saving…' : 'Save'}
+                </button>
+              </div>
+            )}
           </div>
         ))}
       </div>
