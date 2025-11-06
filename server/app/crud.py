@@ -11,11 +11,13 @@ import os
 from datetime import date, datetime
 from typing import Any, Dict, List, Optional, Tuple
 
+from fastapi import status
 from sqlalchemy import case, func, or_
 from sqlalchemy.orm import Session, selectinload
 from sqlalchemy.exc import IntegrityError
 
 from . import auth, models, schemas, utils
+from .errors import AppError, ErrorCode
 from .notifier import inventory_notifier
 
 
@@ -38,7 +40,11 @@ def list_users(db: Session) -> List[models.User]:
 
 def create_user(db: Session, user_in: schemas.UserCreate) -> models.User:
     if get_user_by_username(db, user_in.username):
-        raise ValueError("Username already exists")
+        raise AppError(
+            ErrorCode.USERS_USERNAME_EXISTS,
+            "Username already exists",
+            status_code=status.HTTP_400_BAD_REQUEST,
+        )
     if user_in.email:
         existing_email = (
             db.query(models.User)
@@ -46,7 +52,11 @@ def create_user(db: Session, user_in: schemas.UserCreate) -> models.User:
             .first()
         )
         if existing_email:
-            raise ValueError("Email already exists")
+            raise AppError(
+                ErrorCode.USERS_EMAIL_EXISTS,
+                "Email already exists",
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
     user = models.User(
         name=user_in.name,
         username=user_in.username,
@@ -63,7 +73,7 @@ def create_user(db: Session, user_in: schemas.UserCreate) -> models.User:
 def update_user(db: Session, user_id: int, user_in: schemas.UserUpdate) -> models.User:
     user = get_user_by_id(db, user_id)
     if not user:
-        raise ValueError("User not found")
+        raise AppError(ErrorCode.USERS_NOT_FOUND, "User not found", status_code=status.HTTP_404_NOT_FOUND)
     data = user_in.model_dump(exclude_unset=True)
     if not data:
         db.refresh(user)
@@ -75,7 +85,11 @@ def update_user(db: Session, user_id: int, user_in: schemas.UserUpdate) -> model
             .first()
         )
         if existing_email:
-            raise ValueError("Email already exists")
+            raise AppError(
+                ErrorCode.USERS_EMAIL_EXISTS,
+                "Email already exists",
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
     for field, value in data.items():
         setattr(user, field, value)
     db.commit()
@@ -86,7 +100,7 @@ def update_user(db: Session, user_id: int, user_in: schemas.UserUpdate) -> model
 def delete_user(db: Session, user_id: int) -> None:
     user = get_user_by_id(db, user_id)
     if not user:
-        raise ValueError("User not found")
+        raise AppError(ErrorCode.USERS_NOT_FOUND, "User not found", status_code=status.HTTP_404_NOT_FOUND)
     db.delete(user)
     db.commit()
 
@@ -94,7 +108,7 @@ def delete_user(db: Session, user_id: int) -> None:
 def reset_user_password(db: Session, user_id: int, new_password: str) -> models.User:
     user = get_user_by_id(db, user_id)
     if not user:
-        raise ValueError("User not found")
+        raise AppError(ErrorCode.USERS_NOT_FOUND, "User not found", status_code=status.HTTP_404_NOT_FOUND)
     user.hashed_password = auth.get_password_hash(new_password)
     db.commit()
     db.refresh(user)
@@ -114,7 +128,11 @@ def _ensure_unique_classification(
     if exclude_id is not None:
         query = query.filter(models.Classification.id != exclude_id)
     if query.first():
-        raise ValueError("Classification with the same size and color already exists")
+        raise AppError(
+            ErrorCode.CATALOG_DUPLICATE,
+            "Classification with the same size and color already exists",
+            status_code=status.HTTP_400_BAD_REQUEST,
+        )
 
 
 def create_classification(
@@ -135,7 +153,11 @@ def update_classification(
 ) -> models.Classification:
     classification = db.query(models.Classification).get(classification_id)
     if not classification:
-        raise ValueError("Classification not found")
+        raise AppError(
+            ErrorCode.CATALOG_NOT_FOUND,
+            "Classification not found",
+            status_code=status.HTTP_404_NOT_FOUND,
+        )
     data = classification_in.model_dump(exclude_unset=True)
     if not data:
         db.refresh(classification)
@@ -156,7 +178,11 @@ def set_classification_active(
 ) -> models.Classification:
     classification = db.query(models.Classification).get(classification_id)
     if not classification:
-        raise ValueError("Classification not found")
+        raise AppError(
+            ErrorCode.CATALOG_NOT_FOUND,
+            "Classification not found",
+            status_code=status.HTTP_404_NOT_FOUND,
+        )
     classification.is_active = is_active
     db.commit()
     db.refresh(classification)
@@ -166,13 +192,21 @@ def set_classification_active(
 def delete_classification(db: Session, classification_id: int) -> None:
     classification = db.query(models.Classification).get(classification_id)
     if not classification:
-        raise ValueError("Classification not found")
+        raise AppError(
+            ErrorCode.CATALOG_NOT_FOUND,
+            "Classification not found",
+            status_code=status.HTTP_404_NOT_FOUND,
+        )
     db.delete(classification)
     try:
         db.commit()
     except IntegrityError:
         db.rollback()
-        raise ValueError("Unable to delete classification with related records")
+        raise AppError(
+            ErrorCode.CATALOG_DELETE_CONFLICT,
+            "Unable to delete classification with related records",
+            status_code=status.HTTP_409_CONFLICT,
+        )
 
 
 def list_prices(db: Session) -> List[models.Price]:
@@ -188,7 +222,11 @@ def _validate_price_range(
     exclude_price_id: Optional[int] = None,
 ) -> None:
     if effective_to is not None and effective_to <= effective_from:
-        raise ValueError("effective_to must be later than effective_from")
+        raise AppError(
+            ErrorCode.PRICING_INVALID_RANGE,
+            "effective_to must be later than effective_from",
+            status_code=status.HTTP_400_BAD_REQUEST,
+        )
     query = db.query(models.Price).filter(
         models.Price.classification_id == classification_id,
         models.Price.unit == unit,
@@ -203,7 +241,11 @@ def _validate_price_range(
             continue
         if effective_to is not None and effective_to <= existing_from:
             continue
-        raise ValueError("Price period overlaps with an existing price")
+        raise AppError(
+            ErrorCode.PRICING_OVERLAP,
+            "Price period overlaps with an existing price",
+            status_code=status.HTTP_400_BAD_REQUEST,
+        )
 
 
 def create_price(db: Session, price_in: schemas.PriceCreate) -> models.Price:
@@ -232,7 +274,7 @@ def create_price(db: Session, price_in: schemas.PriceCreate) -> models.Price:
 def update_price(db: Session, price_id: int, price_in: schemas.PriceUpdate) -> models.Price:
     price = db.query(models.Price).get(price_id)
     if not price:
-        raise ValueError("Price not found")
+        raise AppError(ErrorCode.PRICING_NOT_FOUND, "Price not found", status_code=status.HTTP_404_NOT_FOUND)
     data = price_in.model_dump(exclude_unset=True)
     if not data:
         db.refresh(price)
@@ -259,7 +301,7 @@ def update_price(db: Session, price_id: int, price_in: schemas.PriceUpdate) -> m
 def activate_price(db: Session, price_id: int) -> models.Price:
     price = db.query(models.Price).get(price_id)
     if not price:
-        raise ValueError("Price not found")
+        raise AppError(ErrorCode.PRICING_NOT_FOUND, "Price not found", status_code=status.HTTP_404_NOT_FOUND)
     price.effective_to = None
     _validate_price_range(
         db,
@@ -277,7 +319,7 @@ def activate_price(db: Session, price_id: int) -> models.Price:
 def deactivate_price(db: Session, price_id: int) -> models.Price:
     price = db.query(models.Price).get(price_id)
     if not price:
-        raise ValueError("Price not found")
+        raise AppError(ErrorCode.PRICING_NOT_FOUND, "Price not found", status_code=status.HTTP_404_NOT_FOUND)
     now = datetime.utcnow()
     price.effective_to = now if now > price.effective_from else price.effective_from
     db.commit()
@@ -288,7 +330,7 @@ def deactivate_price(db: Session, price_id: int) -> models.Price:
 def delete_price(db: Session, price_id: int) -> None:
     price = db.query(models.Price).get(price_id)
     if not price:
-        raise ValueError("Price not found")
+        raise AppError(ErrorCode.PRICING_NOT_FOUND, "Price not found", status_code=status.HTTP_404_NOT_FOUND)
     db.delete(price)
     db.commit()
 
@@ -378,7 +420,20 @@ def verify_movement(db: Session, user: models.User, movement_id: int) -> models.
     """
     m = db.query(models.InventoryMovement).get(movement_id)
     if not m or m.type != models.MovementType.IN or m.status != models.MovementStatus.DRAFT:
-        raise ValueError("Invalid movement for verification")
+        details = {"movement_id": movement_id}
+        if m:
+            details.update(
+                {
+                    "current_status": m.status.value,
+                    "movement_type": m.type.value,
+                }
+            )
+        raise AppError(
+            ErrorCode.INVENTORY_INVALID_STATE,
+            "Invalid movement for verification",
+            status_code=status.HTTP_400_BAD_REQUEST,
+            details=details,
+        )
     m.status = models.MovementStatus.VERIFIED
     m.committed_at = datetime.utcnow()
     m.by_user_id = user.id
@@ -393,7 +448,20 @@ def commit_movement(db: Session, user: models.User, movement_id: int) -> models.
     """
     m = db.query(models.InventoryMovement).get(movement_id)
     if not m or m.type != models.MovementType.IN or m.status != models.MovementStatus.VERIFIED:
-        raise ValueError("Invalid movement for commit")
+        details = {"movement_id": movement_id}
+        if m:
+            details.update(
+                {
+                    "current_status": m.status.value,
+                    "movement_type": m.type.value,
+                }
+            )
+        raise AppError(
+            ErrorCode.INVENTORY_INVALID_STATE,
+            "Invalid movement for commit",
+            status_code=status.HTTP_400_BAD_REQUEST,
+            details=details,
+        )
     # Update inventory balance
     balance = (
         db.query(models.InventoryBalance)
@@ -425,7 +493,11 @@ def create_invoice(db: Session, user: models.User, invoice_in: schemas.InvoiceCr
     request so an administrator can review it later.
     """
     if not invoice_in.items:
-        raise ValueError("Invoice must contain at least one item")
+        raise AppError(
+            ErrorCode.SALES_EMPTY_INVOICE,
+            "Invoice must contain at least one item",
+            status_code=status.HTTP_400_BAD_REQUEST,
+        )
 
     line_details: List[Dict[str, Any]] = []
     total_amount = 0.0
@@ -433,8 +505,14 @@ def create_invoice(db: Session, user: models.User, invoice_in: schemas.InvoiceCr
     for item in invoice_in.items:
         price = utils.get_current_price(db, item.classification_id, item.unit)
         if not price:
-            raise ValueError(
-                f"No price defined for classification {item.classification_id} unit {item.unit}"
+            raise AppError(
+                ErrorCode.SALES_PRICE_MISSING,
+                "No price defined for the requested classification and unit",
+                status_code=status.HTTP_400_BAD_REQUEST,
+                details={
+                    "classification_id": item.classification_id,
+                    "unit": item.unit.value if hasattr(item.unit, "value") else str(item.unit),
+                },
             )
         unit_price = price.price_per_unit
         line_total = unit_price * item.qty
@@ -583,9 +661,14 @@ def approve_invoice_override(
         .get(invoice_id)
     )
     if not invoice:
-        raise ValueError("Invoice not found")
+        raise AppError(ErrorCode.SALES_NOT_FOUND, "Invoice not found", status_code=status.HTTP_404_NOT_FOUND)
     if invoice.status != models.InvoiceStatus.PENDING_OVERRIDE:
-        raise ValueError("Invoice does not have a pending override")
+        raise AppError(
+            ErrorCode.SALES_INVALID_STATE,
+            "Invoice does not have a pending override",
+            status_code=status.HTTP_400_BAD_REQUEST,
+            details={"invoice_id": invoice_id, "status": invoice.status.value},
+        )
 
     now = datetime.utcnow()
     publish_inventory = False
@@ -633,9 +716,14 @@ def reject_invoice_override(
         .get(invoice_id)
     )
     if not invoice:
-        raise ValueError("Invoice not found")
+        raise AppError(ErrorCode.SALES_NOT_FOUND, "Invoice not found", status_code=status.HTTP_404_NOT_FOUND)
     if invoice.status != models.InvoiceStatus.PENDING_OVERRIDE:
-        raise ValueError("Invoice does not have a pending override")
+        raise AppError(
+            ErrorCode.SALES_INVALID_STATE,
+            "Invoice does not have a pending override",
+            status_code=status.HTTP_400_BAD_REQUEST,
+            details={"invoice_id": invoice_id, "status": invoice.status.value},
+        )
 
     now = datetime.utcnow()
     for override in invoice.overrides:

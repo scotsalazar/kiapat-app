@@ -2,6 +2,8 @@ import React, { useEffect, useMemo, useState } from 'react';
 import axios from 'axios';
 import { useAuth } from '../hooks/useAuth';
 import SignaturePad from '../components/SignaturePad';
+import { useToast } from '../components/ToastProvider';
+import { parseApiError } from '../utils/apiErrors';
 
 interface Classification {
   id: number;
@@ -56,11 +58,13 @@ const DriverInvoicePage: React.FC = () => {
   const [customerPhone, setCustomerPhone] = useState('');
   const [signatureDataUrl, setSignatureDataUrl] = useState<string>('');
   const [message, setMessage] = useState<string>('');
+  const [messageTone, setMessageTone] = useState<'success' | 'warning' | 'error'>('success');
   const [invoiceId, setInvoiceId] = useState<number | null>(null);
   const [invoiceStatus, setInvoiceStatus] = useState<string>('');
   const [overrides, setOverrides] = useState<InvoiceOverride[]>([]);
 
   const authHeader = useMemo(() => (token ? { Authorization: `Bearer ${token}` } : {}), [token]);
+  const { showToast } = useToast();
 
   const classificationMap = useMemo(() => {
     const map = new Map<number, Classification>();
@@ -156,19 +160,31 @@ const DriverInvoicePage: React.FC = () => {
       setInvoiceStatus(data.status);
       setOverrides(data.overrides || []);
       if (data.status === 'PENDING_OVERRIDE') {
-        setMessage('Invoice submitted. Awaiting admin approval due to low stock.');
+        const pendingMessage = 'Invoice submitted. Awaiting admin approval due to low stock.';
+        setMessage(pendingMessage);
+        setMessageTone('warning');
+        showToast(pendingMessage, 'info');
       } else if (data.status === 'REJECTED') {
-        setMessage('Invoice requires attention. Please contact an administrator.');
+        const rejectedMessage = 'Invoice requires attention. Please contact an administrator.';
+        setMessage(rejectedMessage);
+        setMessageTone('error');
+        showToast(rejectedMessage, 'error');
       } else {
-        setMessage('Invoice created');
+        const successMessage = 'Invoice created';
+        setMessage(successMessage);
+        setMessageTone('success');
+        showToast(successMessage, 'success');
       }
       // clear form
       setItems([]);
       setCustomerName('');
       setCustomerPhone('');
       setSignatureDataUrl('');
-    } catch (err: any) {
-      setMessage(err.response?.data?.detail || 'Error creating invoice');
+    } catch (err) {
+      const { message: errorMessage } = parseApiError(err, 'Error creating invoice');
+      setMessage(errorMessage);
+      setMessageTone('error');
+      showToast(errorMessage, 'error');
       setInvoiceStatus('');
       setOverrides([]);
       setInvoiceId(null);
@@ -183,10 +199,10 @@ const DriverInvoicePage: React.FC = () => {
       {message && (
         <p
           className={`mb-2 ${
-            invoiceStatus === 'PENDING_OVERRIDE'
-              ? 'text-yellow-700'
-              : invoiceStatus === 'REJECTED'
+            messageTone === 'error'
               ? 'text-red-600'
+              : messageTone === 'warning'
+              ? 'text-yellow-700'
               : 'text-green-600'
           }`}
         >

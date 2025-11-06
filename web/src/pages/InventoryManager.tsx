@@ -1,6 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import axios from 'axios';
 import { useAuth } from '../hooks/useAuth';
+import { useToast } from '../components/ToastProvider';
+import { parseApiError } from '../utils/apiErrors';
 
 interface Classification {
   id: number;
@@ -91,10 +93,12 @@ const InventoryManagerPage: React.FC = () => {
   const [selectedCls, setSelectedCls] = useState<number | ''>('');
   const [qty, setQty] = useState<number>(0);
   const [unit, setUnit] = useState<string>('TRAY');
-  const [message, setMessage] = useState<string>('');
+  const [successMessage, setSuccessMessage] = useState<string>('');
+  const [formError, setFormError] = useState<string>('');
   const [pendingOverrides, setPendingOverrides] = useState<PendingOverride[]>([]);
 
   const authHeader = useMemo(() => (token ? { Authorization: `Bearer ${token}` } : {}), [token]);
+  const { showToast } = useToast();
 
   const loadData = useCallback(async () => {
     if (!token) return;
@@ -153,36 +157,45 @@ const InventoryManagerPage: React.FC = () => {
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedCls || qty <= 0) return;
+    setFormError('');
+    setSuccessMessage('');
     try {
       await axios.post(
         '/api/inventory/in/create',
         { classification_id: selectedCls, qty: qty, unit },
         { headers: authHeader },
       );
-      setMessage('Draft created');
+      setSuccessMessage('Draft created');
+      showToast('Inventory draft created', 'success');
       setQty(0);
       setSelectedCls('');
       loadData();
-    } catch (err: any) {
-      setMessage(err.response?.data?.detail || 'Error creating movement');
+    } catch (err) {
+      const { message } = parseApiError(err, 'Error creating movement');
+      setFormError(message);
+      showToast(message, 'error');
     }
   };
 
   const handleVerify = async (id: number) => {
     try {
       await axios.post('/api/inventory/in/verify', { movement_id: id }, { headers: authHeader });
+      showToast('Movement verified', 'success');
       loadData();
     } catch (err) {
-      console.error(err);
+      const { message } = parseApiError(err, 'Failed to verify movement');
+      showToast(message, 'error');
     }
   };
 
   const handleCommit = async (id: number) => {
     try {
       await axios.post('/api/inventory/in/commit', { movement_id: id }, { headers: authHeader });
+      showToast('Movement committed', 'success');
       loadData();
     } catch (err) {
-      console.error(err);
+      const { message } = parseApiError(err, 'Failed to commit movement');
+      showToast(message, 'error');
     }
   };
 
@@ -194,10 +207,14 @@ const InventoryManagerPage: React.FC = () => {
         note ? { decision_reason: note } : {},
         { headers: authHeader },
       );
-      setMessage('Override approved');
+      setFormError('');
+      setSuccessMessage('Override approved');
+      showToast('Override approved', 'success');
       loadData();
-    } catch (err: any) {
-      setMessage(err.response?.data?.detail || 'Failed to approve override');
+    } catch (err) {
+      const { message } = parseApiError(err, 'Failed to approve override');
+      setFormError(message);
+      showToast(message, 'error');
     }
   };
 
@@ -209,10 +226,14 @@ const InventoryManagerPage: React.FC = () => {
         reason ? { decision_reason: reason } : {},
         { headers: authHeader },
       );
-      setMessage('Override rejected');
+      setFormError('');
+      setSuccessMessage('Override rejected');
+      showToast('Override rejected', 'success');
       loadData();
-    } catch (err: any) {
-      setMessage(err.response?.data?.detail || 'Failed to reject override');
+    } catch (err) {
+      const { message } = parseApiError(err, 'Failed to reject override');
+      setFormError(message);
+      showToast(message, 'error');
     }
   };
 
@@ -222,7 +243,8 @@ const InventoryManagerPage: React.FC = () => {
         <h1 className="text-2xl font-bold">Kiapat Inventory</h1>
         <div>{new Date(summary?.timestamp || '').toLocaleString()}</div>
       </div>
-      {message && <p className="text-green-600 mt-2">{message}</p>}
+      {successMessage && <p className="text-green-600 mt-2">{successMessage}</p>}
+      {formError && <p className="text-red-600 mt-2">{formError}</p>}
       {/* Inventory Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mt-4">
         {summary?.cards.map((card) => (

@@ -2,6 +2,8 @@ import React, { useEffect, useMemo, useState } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
+import { useToast } from '../components/ToastProvider';
+import { parseApiError } from '../utils/apiErrors';
 
 interface ManagedUser {
   id: number;
@@ -47,6 +49,7 @@ const AdminUsersPage: React.FC = () => {
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
 
   const authHeader = useMemo(() => (token ? { Authorization: `Bearer ${token}` } : {}), [token]);
+  const { showToast } = useToast();
 
   const loadUsers = async () => {
     if (!token) return;
@@ -60,7 +63,9 @@ const AdminUsersPage: React.FC = () => {
         logout();
         return;
       }
-      setLoadError(err.response?.data?.detail || 'Failed to load users');
+      const { message } = parseApiError(err, 'Failed to load users');
+      setLoadError(message);
+      showToast(message, 'error');
     } finally {
       setLoading(false);
     }
@@ -89,9 +94,12 @@ const AdminUsersPage: React.FC = () => {
       );
       setCreateForm({ name: '', username: '', email: '', password: '', role: 'driver' });
       setCreateSuccess('User created successfully');
+      showToast('User created successfully', 'success');
       loadUsers();
-    } catch (err: any) {
-      setCreateError(err.response?.data?.detail || 'Failed to create user');
+    } catch (err) {
+      const { message } = parseApiError(err, 'Failed to create user');
+      setCreateError(message);
+      showToast(message, 'error');
     }
   };
 
@@ -113,10 +121,13 @@ const AdminUsersPage: React.FC = () => {
         { headers: authHeader },
       );
       setStatusMessage('User updated successfully');
+      showToast('User updated successfully', 'success');
       setEditingUser(null);
       loadUsers();
-    } catch (err: any) {
-      setEditError(err.response?.data?.detail || 'Failed to update user');
+    } catch (err) {
+      const { message } = parseApiError(err, 'Failed to update user');
+      setEditError(message);
+      showToast(message, 'error');
     }
   };
 
@@ -131,8 +142,10 @@ const AdminUsersPage: React.FC = () => {
         { headers: authHeader },
       );
       setStatusMessage(`Password reset for ${user.username}`);
-    } catch (err: any) {
-      window.alert(err.response?.data?.detail || 'Failed to reset password');
+      showToast(`Password reset for ${user.username}`, 'success');
+    } catch (err) {
+      const { message } = parseApiError(err, 'Failed to reset password');
+      showToast(message, 'error');
     }
   };
 
@@ -142,9 +155,11 @@ const AdminUsersPage: React.FC = () => {
     try {
       await axios.delete(`/api/users/${user.id}`, { headers: authHeader });
       setStatusMessage(`Deleted ${user.username}`);
+      showToast(`Deleted ${user.username}`, 'success');
       loadUsers();
-    } catch (err: any) {
-      window.alert(err.response?.data?.detail || 'Failed to delete user');
+    } catch (err) {
+      const { message } = parseApiError(err, 'Failed to delete user');
+      showToast(message, 'error');
     }
   };
 

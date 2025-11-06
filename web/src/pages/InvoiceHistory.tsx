@@ -1,6 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import axios from 'axios';
 import { useAuth } from '../hooks/useAuth';
+import { useToast } from '../components/ToastProvider';
+import { parseApiError } from '../utils/apiErrors';
 
 interface InvoiceItem {
   id: number;
@@ -54,6 +56,7 @@ const INVOICE_STATUSES = ['COMPLETED', 'PENDING_OVERRIDE', 'REJECTED'];
 
 const InvoiceHistoryPage: React.FC = () => {
   const { token, user } = useAuth();
+  const { showToast } = useToast();
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [total, setTotal] = useState<number>(0);
   const [page, setPage] = useState<number>(1);
@@ -103,12 +106,14 @@ const InvoiceHistoryPage: React.FC = () => {
       });
       setInvoices(res.data.items);
       setTotal(res.data.total);
-    } catch (err: any) {
-      setError(err.response?.data?.detail || 'Failed to load invoices');
+    } catch (err) {
+      const { message } = parseApiError(err, 'Failed to load invoices');
+      setError(message);
+      showToast(message, 'error');
     } finally {
       setLoading(false);
     }
-  }, [authHeader, customer, driver, endDate, page, pageSize, startDate, status, token, user?.role]);
+  }, [authHeader, customer, driver, endDate, page, pageSize, showToast, startDate, status, token, user?.role, invoiceStatus]);
 
   useEffect(() => {
     fetchInvoices();

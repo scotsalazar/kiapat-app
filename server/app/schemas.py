@@ -8,7 +8,7 @@ passwords.  They also provide input validation for endpoints.
 from __future__ import annotations
 
 from datetime import date, datetime
-from typing import List, Optional
+from typing import Any, List, Optional
 
 from pydantic import BaseModel, Field, ConfigDict
 
@@ -22,6 +22,17 @@ from .models import (
     InvoiceStatus,
     OverrideStatus,
 )
+
+
+# --------------------
+# Error responses
+# --------------------
+
+
+class ErrorResponse(BaseModel):
+    code: str
+    message: str
+    details: Optional[Any] = None
 
 
 # --------------------
