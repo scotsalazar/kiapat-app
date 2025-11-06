@@ -2,19 +2,12 @@ import React, { useEffect, useMemo, useState } from 'react';
 import axios from 'axios';
 import { useAuth } from '../hooks/useAuth';
 import SignaturePad from '../components/SignaturePad';
+import { InventoryPrice, useInventoryStream } from '../hooks/useInventoryStream';
 
 interface Classification {
   id: number;
   size: string;
   color: string;
-}
-interface Price {
-  id: number;
-  classification_id: number;
-  unit: string;
-  price_per_unit: number;
-  effective_from: string;
-  effective_to: string | null;
 }
 interface InvoiceItemForm {
   id: number;
@@ -27,21 +20,17 @@ interface InvoiceItemForm {
 
 const units = ['TRAY', 'DOZEN', 'PCS'];
 
-interface InventoryUpdateMessage {
-  type: 'inventory_update';
-  prices?: Price[];
-}
-
 const DriverInvoicePage: React.FC = () => {
   const { token } = useAuth();
   const [classifications, setClassifications] = useState<Classification[]>([]);
-  const [prices, setPrices] = useState<Price[]>([]);
   const [items, setItems] = useState<InvoiceItemForm[]>([]);
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
   const [signatureDataUrl, setSignatureDataUrl] = useState<string>('');
   const [message, setMessage] = useState<string>('');
   const [invoiceId, setInvoiceId] = useState<number | null>(null);
+
+  const { prices, hydrate, connectionStatus, reconnect } = useInventoryStream({ token });
 
   const authHeader = useMemo(() => (token ? { Authorization: `Bearer ${token}` } : {}), [token]);
 
@@ -52,34 +41,9 @@ const DriverInvoicePage: React.FC = () => {
       axios.get('/api/catalog/prices', { headers: authHeader }),
     ]).then(([clsRes, priceRes]) => {
       setClassifications(clsRes.data);
-      setPrices(priceRes.data);
+      hydrate({ prices: priceRes.data as InventoryPrice[] });
     });
-  }, [authHeader, token]);
-
-  useEffect(() => {
-    if (!token) return;
-    const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
-    const ws = new WebSocket(`${protocol}://${window.location.host}/api/realtime/updates`);
-
-    ws.onmessage = (event) => {
-      try {
-        const payload: InventoryUpdateMessage = JSON.parse(event.data);
-        if (payload.type === 'inventory_update' && payload.prices) {
-          setPrices(payload.prices);
-        }
-      } catch (err) {
-        console.error('Failed to parse realtime update', err);
-      }
-    };
-
-    ws.onerror = (err) => {
-      console.error('Realtime connection error', err);
-    };
-
-    return () => {
-      ws.close();
-    };
-  }, [token]);
+  }, [authHeader, hydrate, token]);
 
   const addItem = () => {
     setItems([
@@ -144,7 +108,32 @@ const DriverInvoicePage: React.FC = () => {
 
   return (
     <div className="p-4 md:p-6">
-      <h1 className="text-2xl font-bold mb-4">Generate Sales Invoice</h1>
+      <div className="mb-4 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+        <h1 className="text-2xl font-bold">Generate Sales Invoice</h1>
+        <button
+          type="button"
+          onClick={connectionStatus === 'open' ? undefined : reconnect}
+          className={`inline-flex items-center gap-1 rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
+            connectionStatus === 'open'
+              ? 'border-green-200 bg-green-50 text-green-700'
+              : connectionStatus === 'connecting'
+              ? 'border-amber-200 bg-amber-50 text-amber-700'
+              : 'border-red-200 bg-red-50 text-red-700 hover:bg-red-100'
+          }`}
+          disabled={connectionStatus === 'open'}
+        >
+          <span
+            className={`h-2 w-2 rounded-full ${
+              connectionStatus === 'open'
+                ? 'bg-green-500'
+                : connectionStatus === 'connecting'
+                ? 'bg-yellow-500'
+                : 'bg-red-500'
+            }`}
+          />
+          <span className="capitalize">{connectionStatus}</span>
+        </button>
+      </div>
       {message && <p className="text-green-600 mb-2">{message}</p>}
       {invoiceId && (
         <div className="bg-green-50 border border-green-400 text-green-700 p-2 rounded mb-4">

@@ -1,6 +1,11 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import axios from 'axios';
 import { useAuth } from '../hooks/useAuth';
+import {
+  InventoryMovement,
+  InventorySummary,
+  useInventoryStream,
+} from '../hooks/useInventoryStream';
 
 interface Classification {
   id: number;
@@ -8,54 +13,15 @@ interface Classification {
   color: string;
 }
 
-interface InventoryCard {
-  classification_id: number;
-  size: string;
-  color: string;
-  qty_tray: number;
-  qty_dozen: number;
-  qty_pcs: number;
-  unit_price: number | null;
-}
-
-interface Movement {
-  id: number;
-  type: string;
-  classification_id: number;
-  qty_pcs: number;
-  unit_entered: string;
-  qty_entered: number;
-  by_user_id: number;
-  status: string;
-  created_at: string;
-  committed_at: string | null;
-}
-
-interface PriceUpdate {
-  id: number;
-  classification_id: number;
-  unit: string;
-  price_per_unit: number;
-  effective_from: string;
-  effective_to: string | null;
-}
-
-interface InventoryUpdateMessage {
-  type: 'inventory_update';
-  summary?: { timestamp: string; cards: InventoryCard[] };
-  movements?: Movement[];
-  prices?: PriceUpdate[];
-}
-
 const InventoryManagerPage: React.FC = () => {
   const { token, user } = useAuth();
-  const [summary, setSummary] = useState<{ timestamp: string; cards: InventoryCard[] } | null>(null);
-  const [movements, setMovements] = useState<Movement[]>([]);
   const [classifications, setClassifications] = useState<Classification[]>([]);
   const [selectedCls, setSelectedCls] = useState<number | ''>('');
   const [qty, setQty] = useState<number>(0);
   const [unit, setUnit] = useState<string>('TRAY');
   const [message, setMessage] = useState<string>('');
+
+  const { summary, movements, connectionStatus, hydrate, reconnect } = useInventoryStream({ token });
 
   const authHeader = useMemo(() => (token ? { Authorization: `Bearer ${token}` } : {}), [token]);
 
@@ -66,44 +32,13 @@ const InventoryManagerPage: React.FC = () => {
       axios.get('/api/inventory/movements?limit=20', { headers: authHeader }),
       axios.get('/api/catalog/classifications', { headers: authHeader }),
     ]);
-    setSummary(summaryRes.data);
-    setMovements(movementsRes.data);
+    hydrate({ summary: summaryRes.data as InventorySummary, movements: movementsRes.data as InventoryMovement[] });
     setClassifications(clsRes.data);
-  }, [authHeader, token]);
+  }, [authHeader, hydrate, token]);
 
-  useEffect(() => {
+  React.useEffect(() => {
     loadData();
   }, [loadData]);
-
-  useEffect(() => {
-    if (!token) return;
-    const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
-    const ws = new WebSocket(`${protocol}://${window.location.host}/api/realtime/updates`);
-
-    ws.onmessage = (event) => {
-      try {
-        const payload: InventoryUpdateMessage = JSON.parse(event.data);
-        if (payload.type === 'inventory_update') {
-          if (payload.summary) {
-            setSummary(payload.summary);
-          }
-          if (payload.movements) {
-            setMovements(payload.movements);
-          }
-        }
-      } catch (err) {
-        console.error('Failed to parse realtime update', err);
-      }
-    };
-
-    ws.onerror = (err) => {
-      console.error('Realtime connection error', err);
-    };
-
-    return () => {
-      ws.close();
-    };
-  }, [token]);
 
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -143,9 +78,36 @@ const InventoryManagerPage: React.FC = () => {
 
   return (
     <div className="p-4 md:p-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
         <h1 className="text-2xl font-bold">Kiapat Inventory</h1>
-        <div>{new Date(summary?.timestamp || '').toLocaleString()}</div>
+        <div className="flex items-center gap-3 text-sm text-gray-600">
+          <span>
+            {summary?.timestamp ? new Date(summary.timestamp).toLocaleString() : '—'}
+          </span>
+          <button
+            type="button"
+            onClick={connectionStatus === 'open' ? undefined : reconnect}
+            className={`inline-flex items-center gap-1 rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
+              connectionStatus === 'open'
+                ? 'border-green-200 bg-green-50 text-green-700'
+                : connectionStatus === 'connecting'
+                ? 'border-amber-200 bg-amber-50 text-amber-700'
+                : 'border-red-200 bg-red-50 text-red-700 hover:bg-red-100'
+            }`}
+            disabled={connectionStatus === 'open'}
+          >
+            <span
+              className={`h-2 w-2 rounded-full ${
+                connectionStatus === 'open'
+                  ? 'bg-green-500'
+                  : connectionStatus === 'connecting'
+                  ? 'bg-yellow-500'
+                  : 'bg-red-500'
+              }`}
+            />
+            <span className="capitalize">{connectionStatus}</span>
+          </button>
+        </div>
       </div>
       {message && <p className="text-green-600 mt-2">{message}</p>}
       {/* Inventory Cards */}
