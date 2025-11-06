@@ -29,6 +29,18 @@ interface Movement {
   status: string;
   created_at: string;
   committed_at: string | null;
+  linked_invoice_id: number | null;
+}
+
+interface OverrideRequest {
+  id: number;
+  movement_id: number;
+  status: string;
+  shortage_qty_pcs: number;
+  available_qty_pcs: number;
+  admin_comment: string | null;
+  requested_at: string;
+  movement: Movement;
 }
 
 interface PriceUpdate {
@@ -45,6 +57,7 @@ interface InventoryUpdateMessage {
   summary?: { timestamp: string; cards: InventoryCard[] };
   movements?: Movement[];
   prices?: PriceUpdate[];
+  override_requests?: OverrideRequest[];
 }
 
 const InventoryManagerPage: React.FC = () => {
@@ -56,19 +69,23 @@ const InventoryManagerPage: React.FC = () => {
   const [qty, setQty] = useState<number>(0);
   const [unit, setUnit] = useState<string>('TRAY');
   const [message, setMessage] = useState<string>('');
+  const [messageType, setMessageType] = useState<'success' | 'error'>('success');
+  const [overrides, setOverrides] = useState<OverrideRequest[]>([]);
 
   const authHeader = useMemo(() => (token ? { Authorization: `Bearer ${token}` } : {}), [token]);
 
   const loadData = useCallback(async () => {
     if (!token) return;
-    const [summaryRes, movementsRes, clsRes] = await Promise.all([
+    const [summaryRes, movementsRes, clsRes, overridesRes] = await Promise.all([
       axios.get('/api/inventory/summary', { headers: authHeader }),
       axios.get('/api/inventory/movements?limit=20', { headers: authHeader }),
       axios.get('/api/catalog/classifications', { headers: authHeader }),
+      axios.get('/api/inventory/overrides?status=PENDING', { headers: authHeader }),
     ]);
     setSummary(summaryRes.data);
     setMovements(movementsRes.data);
     setClassifications(clsRes.data);
+    setOverrides(overridesRes.data);
   }, [authHeader, token]);
 
   useEffect(() => {
@@ -89,6 +106,9 @@ const InventoryManagerPage: React.FC = () => {
           }
           if (payload.movements) {
             setMovements(payload.movements);
+          }
+          if (payload.override_requests) {
+            setOverrides(payload.override_requests);
           }
         }
       } catch (err) {
@@ -115,31 +135,81 @@ const InventoryManagerPage: React.FC = () => {
         { headers: authHeader },
       );
       setMessage('Draft created');
+      setMessageType('success');
       setQty(0);
       setSelectedCls('');
       loadData();
     } catch (err: any) {
       setMessage(err.response?.data?.detail || 'Error creating movement');
+      setMessageType('error');
     }
   };
 
   const handleVerify = async (id: number) => {
     try {
       await axios.post('/api/inventory/in/verify', { movement_id: id }, { headers: authHeader });
+      setMessage('Movement verified');
+      setMessageType('success');
       loadData();
     } catch (err) {
       console.error(err);
+      setMessage('Unable to verify movement');
+      setMessageType('error');
     }
   };
 
   const handleCommit = async (id: number) => {
     try {
       await axios.post('/api/inventory/in/commit', { movement_id: id }, { headers: authHeader });
+      setMessage('Movement committed');
+      setMessageType('success');
       loadData();
     } catch (err) {
       console.error(err);
+      setMessage('Unable to commit movement');
+      setMessageType('error');
     }
   };
+
+  const handleApproveOverride = async (id: number) => {
+    try {
+      await axios.post(`/api/inventory/overrides/${id}/approve`, {}, { headers: authHeader });
+      setMessage('Override approved');
+      setMessageType('success');
+      loadData();
+    } catch (err) {
+      console.error(err);
+      setMessage('Failed to approve override');
+      setMessageType('error');
+    }
+  };
+
+  const handleRejectOverride = async (id: number) => {
+    const adminComment = window.prompt('Optional rejection note', '');
+    try {
+      await axios.post(
+        `/api/inventory/overrides/${id}/reject`,
+        adminComment ? { admin_comment: adminComment } : {},
+        { headers: authHeader },
+      );
+      setMessage('Override rejected');
+      setMessageType('success');
+      loadData();
+    } catch (err) {
+      console.error(err);
+      setMessage('Failed to reject override');
+      setMessageType('error');
+    }
+  };
+
+  const classificationLabel = useCallback(
+    (id: number) => {
+      const cls = classifications.find((c) => c.id === id);
+      if (!cls) return `#${id}`;
+      return `${cls.size} / ${cls.color}`;
+    },
+    [classifications],
+  );
 
   return (
     <div className="p-4 md:p-6">
@@ -147,7 +217,11 @@ const InventoryManagerPage: React.FC = () => {
         <h1 className="text-2xl font-bold">Kiapat Inventory</h1>
         <div>{new Date(summary?.timestamp || '').toLocaleString()}</div>
       </div>
-      {message && <p className="text-green-600 mt-2">{message}</p>}
+      {message && (
+        <p className={`${messageType === 'error' ? 'text-red-600' : 'text-green-600'} mt-2`}>
+          {message}
+        </p>
+      )}
       {/* Inventory Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mt-4">
         {summary?.cards.map((card) => (
@@ -258,6 +332,62 @@ const InventoryManagerPage: React.FC = () => {
           ))}
         </ul>
       </div>
+      {/* Override Requests */}
+      {user?.role === 'admin' && (
+        <div className="mt-6">
+          <h2 className="text-xl font-semibold mb-2">Pending Override Requests</h2>
+          {overrides.length === 0 ? (
+            <p className="text-sm text-gray-600">No pending overrides.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200 bg-white rounded shadow">
+                <thead>
+                  <tr>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Invoice</th>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Item</th>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Requested</th>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Shortage (pcs)</th>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200">
+                  {overrides.map((o) => {
+                    const movement = o.movement;
+                    return (
+                      <tr key={o.id}>
+                        <td className="px-3 py-2 text-sm text-gray-700">#{movement?.linked_invoice_id ?? movement?.id ?? o.movement_id}</td>
+                        <td className="px-3 py-2 text-sm text-gray-700">
+                          {movement
+                            ? `${classificationLabel(movement.classification_id)} — ${movement.qty_entered} ${movement.unit_entered}`
+                            : 'Movement unavailable'}
+                        </td>
+                        <td className="px-3 py-2 text-sm text-gray-700">{movement ? `${movement.qty_pcs} pcs` : '—'}</td>
+                        <td className="px-3 py-2 text-sm text-gray-700">{o.shortage_qty_pcs}</td>
+                      <td className="px-3 py-2 text-sm">
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => handleApproveOverride(o.id)}
+                            className="px-3 py-1 bg-green-600 text-white rounded"
+                          >
+                            Approve
+                          </button>
+                          <button
+                            onClick={() => handleRejectOverride(o.id)}
+                            className="px-3 py-1 bg-red-600 text-white rounded"
+                          >
+                            Reject
+                          </button>
+                        </div>
+                      </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 };

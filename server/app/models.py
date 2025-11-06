@@ -58,6 +58,14 @@ class MovementStatus(str, enum.Enum):
     DRAFT = "DRAFT"
     VERIFIED = "VERIFIED"
     COMMITTED = "COMMITTED"
+    PENDING_OVERRIDE = "PENDING_OVERRIDE"
+    REJECTED = "REJECTED"
+
+
+class OverrideStatus(str, enum.Enum):
+    PENDING = "PENDING"
+    APPROVED = "APPROVED"
+    REJECTED = "REJECTED"
 
 
 class User(Base):
@@ -128,6 +136,9 @@ class InventoryMovement(Base):
     classification = relationship("Classification", back_populates="movements")
     by_user = relationship("User", back_populates="movements")
     invoice = relationship("Invoice", back_populates="movements")
+    override_request = relationship(
+        "InventoryOverrideRequest", back_populates="movement", uselist=False
+    )
 
 
 class Invoice(Base):
@@ -143,6 +154,9 @@ class Invoice(Base):
     created_by_user = relationship("User", back_populates="invoices")
     items = relationship("InvoiceItem", back_populates="invoice")
     movements = relationship("InventoryMovement", back_populates="invoice")
+    override_requests = relationship(
+        "InventoryOverrideRequest", back_populates="invoice"
+    )
 
 
 class InvoiceItem(Base):
@@ -157,3 +171,26 @@ class InvoiceItem(Base):
 
     invoice = relationship("Invoice", back_populates="items")
     classification = relationship("Classification", back_populates="invoice_items")
+
+
+class InventoryOverrideRequest(Base):
+    __tablename__ = "inventory_override_requests"
+
+    id = Column(Integer, primary_key=True, index=True)
+    movement_id = Column(
+        Integer, ForeignKey("inventory_movements.id"), nullable=False, unique=True
+    )
+    invoice_id = Column(Integer, ForeignKey("invoices.id"), nullable=False)
+    requested_by_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    status = Column(Enum(OverrideStatus), nullable=False, default=OverrideStatus.PENDING)
+    shortage_qty_pcs = Column(Integer, nullable=False)
+    available_qty_pcs = Column(Integer, nullable=False)
+    admin_comment = Column(String, nullable=True)
+    requested_at = Column(DateTime, default=datetime.utcnow)
+    resolved_at = Column(DateTime, nullable=True)
+    resolved_by_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+
+    movement = relationship("InventoryMovement", back_populates="override_request")
+    invoice = relationship("Invoice", back_populates="override_requests")
+    requested_by = relationship("User", foreign_keys=[requested_by_id])
+    resolved_by = relationship("User", foreign_keys=[resolved_by_id])

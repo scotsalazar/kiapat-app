@@ -150,6 +150,7 @@ def test_driver_invoice_flow(client):
     assert resp.status_code == 201
     invoice = resp.json()
     assert invoice["total_amount"] > 0
+    assert invoice["has_pending_override"] is False
     # inventory should decrement
     resp = client.get(
         "/api/inventory/summary",
@@ -160,6 +161,129 @@ def test_driver_invoice_flow(client):
         card = next(c for c in summary["cards"] if c["classification_id"] == item["classification_id"])
         # after 2 dozens added and 1 dozen sold, pcs should be 12
         assert card["qty_pcs"] == 12
+
+
+def test_override_approval_and_rejection_flow(client):
+    seed_db(client)
+    admin_token = login(client, "admin", "admin123")
+    driver_token = login(client, "driver", "pass123")
+
+    resp = client.get(
+        "/api/catalog/classifications",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    classification = resp.json()[0]
+    cls_id = classification["id"]
+
+    # add limited stock
+    resp = client.post(
+        "/api/inventory/in/create",
+        json={"classification_id": cls_id, "qty": 1, "unit": "DOZEN"},
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    movement_id = resp.json()["id"]
+    client.post(
+        "/api/inventory/in/verify",
+        json={"movement_id": movement_id},
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    client.post(
+        "/api/inventory/in/commit",
+        json={"movement_id": movement_id},
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+
+    # driver requests more than available stock -> override required
+    invoice_payload = {
+        "customer_name": "Override Test",
+        "customer_phone": "555",
+        "items": [
+            {"classification_id": cls_id, "qty": 2, "unit": "DOZEN"},
+        ],
+    }
+    resp = client.post(
+        "/api/sales/invoices",
+        json=invoice_payload,
+        headers={"Authorization": f"Bearer {driver_token}"},
+    )
+    assert resp.status_code == 201
+    invoice = resp.json()
+    assert invoice["has_pending_override"] is True
+    pending_movements = [m for m in invoice["movements"] if m["status"] == "PENDING_OVERRIDE"]
+    assert pending_movements
+
+    # stock should remain unchanged until approval
+    summary = client.get(
+        "/api/inventory/summary",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    ).json()
+    card = next(c for c in summary["cards"] if c["classification_id"] == cls_id)
+    assert card["qty_pcs"] == 12
+
+    overrides = client.get(
+        "/api/inventory/overrides",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    ).json()
+    assert overrides
+    override_id = overrides[0]["id"]
+
+    resp = client.post(
+        f"/api/inventory/overrides/{override_id}/approve",
+        json={},
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert resp.status_code == 200
+    approved = resp.json()
+    assert approved["status"] == "APPROVED"
+    assert approved["movement"]["status"] == "COMMITTED"
+
+    # inventory should now be reduced (12 - 24 = -12)
+    summary = client.get(
+        "/api/inventory/summary",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    ).json()
+    card = next(c for c in summary["cards"] if c["classification_id"] == cls_id)
+    assert card["qty_pcs"] == -12
+
+    # create another override request to test rejection
+    second_invoice = {
+        "customer_name": "Reject Me",
+        "customer_phone": "777",
+        "items": [
+            {"classification_id": cls_id, "qty": 1, "unit": "DOZEN"},
+        ],
+    }
+    resp = client.post(
+        "/api/sales/invoices",
+        json=second_invoice,
+        headers={"Authorization": f"Bearer {driver_token}"},
+    )
+    assert resp.status_code == 201
+    assert resp.json()["has_pending_override"] is True
+
+    overrides = client.get(
+        "/api/inventory/overrides",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    ).json()
+    reject_candidate = next(o for o in overrides if o["status"] == "PENDING")
+
+    resp = client.post(
+        f"/api/inventory/overrides/{reject_candidate['id']}/reject",
+        json={"admin_comment": "Not allowed"},
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert resp.status_code == 200
+    rejected = resp.json()
+    assert rejected["status"] == "REJECTED"
+    assert rejected["movement"]["status"] == "REJECTED"
+
+    # inventory should remain unchanged after rejection
+    summary = client.get(
+        "/api/inventory/summary",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    ).json()
+    card = next(c for c in summary["cards"] if c["classification_id"] == cls_id)
+    assert card["qty_pcs"] == -12
 
 
 def test_authorization_checks(client):

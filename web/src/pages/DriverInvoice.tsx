@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import axios from 'axios';
 import { useAuth } from '../hooks/useAuth';
 import SignaturePad from '../components/SignaturePad';
@@ -32,6 +32,29 @@ interface InventoryUpdateMessage {
   prices?: Price[];
 }
 
+interface Movement {
+  id: number;
+  classification_id: number;
+  qty_entered: number;
+  unit_entered: string;
+  status: string;
+}
+
+interface OverrideRequest {
+  id: number;
+  movement_id: number;
+  status: string;
+  shortage_qty_pcs: number;
+  available_qty_pcs: number;
+}
+
+interface InvoiceResponse {
+  id: number;
+  has_pending_override: boolean;
+  movements: Movement[];
+  override_requests: OverrideRequest[];
+}
+
 const DriverInvoicePage: React.FC = () => {
   const { token } = useAuth();
   const [classifications, setClassifications] = useState<Classification[]>([]);
@@ -41,7 +64,9 @@ const DriverInvoicePage: React.FC = () => {
   const [customerPhone, setCustomerPhone] = useState('');
   const [signatureDataUrl, setSignatureDataUrl] = useState<string>('');
   const [message, setMessage] = useState<string>('');
+  const [messageType, setMessageType] = useState<'success' | 'error'>('success');
   const [invoiceId, setInvoiceId] = useState<number | null>(null);
+  const [lastInvoice, setLastInvoice] = useState<InvoiceResponse | null>(null);
 
   const authHeader = useMemo(() => (token ? { Authorization: `Bearer ${token}` } : {}), [token]);
 
@@ -118,7 +143,7 @@ const DriverInvoicePage: React.FC = () => {
         unit: item.unit,
       }));
     try {
-      const res = await axios.post(
+      const res = await axios.post<InvoiceResponse>(
         '/api/sales/invoices',
         {
           customer_name: customerName || null,
@@ -128,8 +153,15 @@ const DriverInvoicePage: React.FC = () => {
         },
         { headers: authHeader },
       );
-      setMessage('Invoice created');
-      setInvoiceId(res.data.id);
+      const createdInvoice = res.data;
+      setMessage(
+        createdInvoice.has_pending_override
+          ? 'Invoice created. Awaiting admin approval for override items.'
+          : 'Invoice created',
+      );
+      setMessageType('success');
+      setInvoiceId(createdInvoice.id);
+      setLastInvoice(createdInvoice);
       // clear form
       setItems([]);
       setCustomerName('');
@@ -137,18 +169,65 @@ const DriverInvoicePage: React.FC = () => {
       setSignatureDataUrl('');
     } catch (err: any) {
       setMessage(err.response?.data?.detail || 'Error creating invoice');
+      setMessageType('error');
     }
   };
 
   const total = items.reduce((sum, item) => sum + (item.line_total || 0), 0);
 
+  const classificationLabel = useCallback(
+    (id: number) => {
+      const cls = classifications.find((c) => c.id === id);
+      if (!cls) return `Classification #${id}`;
+      return `${cls.size.charAt(0)}${cls.size.slice(1).toLowerCase()} / ${cls.color.charAt(0)}${cls.color.slice(1).toLowerCase()}`;
+    },
+    [classifications],
+  );
+
+  const overridesByMovement = useMemo(() => {
+    if (!lastInvoice) return new Map<number, OverrideRequest>();
+    return new Map(lastInvoice.override_requests.map((o) => [o.movement_id, o]));
+  }, [lastInvoice]);
+
   return (
     <div className="p-4 md:p-6">
       <h1 className="text-2xl font-bold mb-4">Generate Sales Invoice</h1>
-      {message && <p className="text-green-600 mb-2">{message}</p>}
+      {message && (
+        <p className={`${messageType === 'error' ? 'text-red-600' : 'text-green-600'} mb-2`}>
+          {message}
+        </p>
+      )}
       {invoiceId && (
         <div className="bg-green-50 border border-green-400 text-green-700 p-2 rounded mb-4">
           Invoice #{invoiceId} created
+        </div>
+      )}
+      {lastInvoice && (
+        <div className="bg-white border border-gray-200 rounded p-4 mb-4 shadow-sm">
+          <h2 className="text-lg font-semibold mb-2">Latest Invoice Status</h2>
+          <p className="text-sm text-gray-700 mb-2">
+            {lastInvoice.has_pending_override
+              ? 'Some items are pending admin approval before stock is adjusted.'
+              : 'All items were committed to inventory immediately.'}
+          </p>
+          <ul className="space-y-1 text-sm text-gray-700">
+            {lastInvoice.movements.map((movement) => {
+              const override = overridesByMovement.get(movement.id);
+              return (
+                <li key={movement.id} className="flex flex-col sm:flex-row sm:justify-between">
+                  <span>
+                    {classificationLabel(movement.classification_id)} — {movement.qty_entered}{' '}
+                    {movement.unit_entered.toLowerCase()} ({movement.status.replace('_', ' ')})
+                  </span>
+                  {override && (
+                    <span className="text-amber-600">
+                      Short {override.shortage_qty_pcs} pcs (available {override.available_qty_pcs} pcs)
+                    </span>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
         </div>
       )}
       <form onSubmit={handleSubmit} className="space-y-4">

@@ -19,6 +19,19 @@ interface UserSummary {
   created_at: string;
 }
 
+interface MovementSummary {
+  id: number;
+  classification_id: number;
+  unit_entered: string;
+  qty_entered: number;
+  status: string;
+}
+
+interface OverrideRequest {
+  id: number;
+  status: string;
+}
+
 interface Invoice {
   id: number;
   customer_name: string | null;
@@ -29,6 +42,9 @@ interface Invoice {
   created_at: string;
   created_by_user?: UserSummary | null;
   items: InvoiceItem[];
+  movements: MovementSummary[];
+  override_requests: OverrideRequest[];
+  has_pending_override: boolean;
 }
 
 interface InvoiceListResponse {
@@ -38,7 +54,7 @@ interface InvoiceListResponse {
   page_size: number;
 }
 
-const STATUSES = ['DRAFT', 'VERIFIED', 'COMMITTED'];
+const STATUSES = ['DRAFT', 'VERIFIED', 'COMMITTED', 'PENDING_OVERRIDE', 'REJECTED'];
 
 const InvoiceHistoryPage: React.FC = () => {
   const { token, user } = useAuth();
@@ -121,6 +137,28 @@ const InvoiceHistoryPage: React.FC = () => {
       return invoice.created_by_user.name || invoice.created_by_user.username;
     }
     return `#${invoice.created_by}`;
+  };
+
+  const renderOverrideCell = (invoice: Invoice) => {
+    if (invoice.has_pending_override) {
+      return (
+        <span className="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700">
+          Pending admin approval
+        </span>
+      );
+    }
+    if (!invoice.override_requests || invoice.override_requests.length === 0) {
+      return <span className="text-xs text-gray-500">—</span>;
+    }
+    const approved = invoice.override_requests.filter((o) => o.status === 'APPROVED').length;
+    const rejected = invoice.override_requests.filter((o) => o.status === 'REJECTED').length;
+    return (
+      <div className="flex flex-col items-end text-xs">
+        {approved > 0 && <span className="text-green-600">Approved: {approved}</span>}
+        {rejected > 0 && <span className="text-red-600">Rejected: {rejected}</span>}
+        {approved === 0 && rejected === 0 && <span className="text-gray-500">—</span>}
+      </div>
+    );
   };
 
   return (
@@ -242,18 +280,19 @@ const InvoiceHistoryPage: React.FC = () => {
                 <th className="px-4 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Driver</th>
                 <th className="px-4 py-2 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Total</th>
                 <th className="px-4 py-2 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Items</th>
+                <th className="px-4 py-2 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Override</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {loading ? (
                 <tr>
-                  <td colSpan={6} className="px-4 py-8 text-center text-sm text-gray-500">
+                  <td colSpan={7} className="px-4 py-8 text-center text-sm text-gray-500">
                     Loading invoices...
                   </td>
                 </tr>
               ) : invoices.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-4 py-8 text-center text-sm text-gray-500">
+                  <td colSpan={7} className="px-4 py-8 text-center text-sm text-gray-500">
                     No invoices found for the selected filters.
                   </td>
                 </tr>
@@ -273,6 +312,7 @@ const InvoiceHistoryPage: React.FC = () => {
                     <td className="px-4 py-2 text-sm text-gray-700">{renderDriverCell(invoice)}</td>
                     <td className="px-4 py-2 text-sm text-gray-900 text-right">₱{invoice.total_amount.toFixed(2)}</td>
                     <td className="px-4 py-2 text-sm text-gray-700 text-right">{invoice.items.length}</td>
+                    <td className="px-4 py-2 text-sm text-right">{renderOverrideCell(invoice)}</td>
                   </tr>
                 ))
               )}

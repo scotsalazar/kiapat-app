@@ -78,7 +78,7 @@ def get_invoice(
     current_user: models.User = Depends(auth.get_current_active_user),
 ):
     """Retrieve a single invoice by id.  Drivers may only retrieve their own invoices."""
-    invoice = db.query(models.Invoice).get(invoice_id)
+    invoice = crud.get_invoice(db, invoice_id)
     if not invoice:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Invoice not found")
     if current_user.role == models.RoleEnum.DRIVER and invoice.created_by != current_user.id:

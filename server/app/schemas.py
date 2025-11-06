@@ -19,6 +19,7 @@ from .models import (
     MovementType,
     MovementStatus,
     RoleEnum,
+    OverrideStatus,
 )
 
 
@@ -133,6 +134,23 @@ class MovementOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class OverrideRequestOut(BaseModel):
+    id: int
+    movement_id: int
+    invoice_id: int
+    requested_by_id: int
+    status: OverrideStatus
+    shortage_qty_pcs: int
+    available_qty_pcs: int
+    admin_comment: Optional[str]
+    requested_at: datetime
+    resolved_at: Optional[datetime]
+    resolved_by_id: Optional[int]
+    movement: Optional[MovementOut] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 class InventoryCard(BaseModel):
     classification_id: int
     size: SizeEnum
@@ -146,6 +164,7 @@ class InventoryCard(BaseModel):
 class InventorySummary(BaseModel):
     timestamp: datetime
     cards: List[InventoryCard]
+    pending_overrides: Optional[List[OverrideRequestOut]] = None
 
 
 class CreateInMovement(BaseModel):
@@ -173,10 +192,10 @@ class InvoiceItemCreate(BaseModel):
 
 
 class InvoiceCreate(BaseModel):
-    customer_name: Optional[str]
-    customer_phone: Optional[str]
+    customer_name: Optional[str] = None
+    customer_phone: Optional[str] = None
     items: List[InvoiceItemCreate]
-    signature_png_b64: Optional[str]
+    signature_png_b64: Optional[str] = None
 
 
 class InvoiceItemOut(BaseModel):
@@ -200,6 +219,9 @@ class InvoiceOut(BaseModel):
     created_at: datetime
     created_by_user: Optional[UserOut] = None
     items: List[InvoiceItemOut]
+    movements: List[MovementOut] = []
+    override_requests: List[OverrideRequestOut] = []
+    has_pending_override: bool = False
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -209,3 +231,7 @@ class InvoiceListResponse(BaseModel):
     total: int
     page: int
     page_size: int
+
+
+class OverrideDecision(BaseModel):
+    admin_comment: Optional[str] = None
