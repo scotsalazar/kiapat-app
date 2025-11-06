@@ -1,5 +1,7 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import axios from 'axios';
+import { z } from 'zod';
+import ConfirmationModal from '../components/ConfirmationModal';
 import { useAuth } from '../hooks/useAuth';
 import SignaturePad from '../components/SignaturePad';
 
@@ -25,7 +27,31 @@ interface InvoiceItemForm {
   line_total?: number;
 }
 
-const units = ['TRAY', 'DOZEN', 'PCS'];
+const units = ['TRAY', 'DOZEN', 'PCS'] as const;
+type Unit = (typeof units)[number];
+
+const invoiceItemSchema = z.object({
+  classification_id: z.number().int().positive('Select a classification'),
+  qty: z
+    .number()
+    .int('Quantity must be a whole number')
+    .positive('Quantity must be greater than 0'),
+  unit: z.enum(units),
+});
+
+const invoiceSchema = z.object({
+  items: z.array(invoiceItemSchema).min(1, 'Add at least one item before submitting the invoice.'),
+  signature_png_b64: z.string().optional(),
+});
+
+type InvoiceForm = z.infer<typeof invoiceSchema>;
+
+interface InvoiceSubmitPayload {
+  customer_name: string | null;
+  customer_phone: string | null;
+  items: InvoiceForm['items'];
+  signature_png_b64: string;
+}
 
 interface InventoryUpdateMessage {
   type: 'inventory_update';
@@ -42,19 +68,35 @@ const DriverInvoicePage: React.FC = () => {
   const [signatureDataUrl, setSignatureDataUrl] = useState<string>('');
   const [message, setMessage] = useState<string>('');
   const [invoiceId, setInvoiceId] = useState<number | null>(null);
+  const [itemErrors, setItemErrors] = useState<Array<Partial<Record<'classification_id' | 'qty' | 'unit', string>>>>([]);
+  const [itemsError, setItemsError] = useState<string | null>(null);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [pendingSubmit, setPendingSubmit] = useState<InvoiceSubmitPayload | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [lastInvoicePayload, setLastInvoicePayload] = useState<InvoiceSubmitPayload | null>(null);
+  const [loadingError, setLoadingError] = useState<string | null>(null);
 
   const authHeader = useMemo(() => (token ? { Authorization: `Bearer ${token}` } : {}), [token]);
 
-  useEffect(() => {
+  const fetchCatalogData = useCallback(async () => {
     if (!token) return;
-    Promise.all([
-      axios.get('/api/catalog/classifications', { headers: authHeader }),
-      axios.get('/api/catalog/prices', { headers: authHeader }),
-    ]).then(([clsRes, priceRes]) => {
+    setLoadingError(null);
+    try {
+      const [clsRes, priceRes] = await Promise.all([
+        axios.get('/api/catalog/classifications', { headers: authHeader }),
+        axios.get('/api/catalog/prices', { headers: authHeader }),
+      ]);
       setClassifications(clsRes.data);
       setPrices(priceRes.data);
-    });
+    } catch (err: any) {
+      console.error(err);
+      setLoadingError(err.response?.data?.detail || 'Failed to load catalog data.');
+    }
   }, [authHeader, token]);
+
+  useEffect(() => {
+    fetchCatalogData();
+  }, [fetchCatalogData]);
 
   useEffect(() => {
     if (!token) return;
@@ -86,61 +128,136 @@ const DriverInvoicePage: React.FC = () => {
       ...items,
       { id: Date.now(), classification_id: '', qty: 1, unit: 'DOZEN' },
     ]);
+    setItemErrors([...itemErrors, {}]);
+    setItemsError(null);
+    setSubmitError(null);
   };
 
   const updateItem = (index: number, updates: Partial<InvoiceItemForm>) => {
     const newItems = [...items];
-    newItems[index] = { ...newItems[index], ...updates };
+    const updatedItem = { ...newItems[index], ...updates };
+    if ('qty' in updates) {
+      const numericQty = Number(updates.qty);
+      updatedItem.qty = Number.isFinite(numericQty) ? numericQty : 0;
+    }
     // compute price and line total if classification and unit and qty set
-    const clsId = newItems[index].classification_id;
-    const unit = newItems[index].unit;
-    const qty = newItems[index].qty;
-    if (clsId && unit) {
+    const clsId = typeof updatedItem.classification_id === 'number' ? updatedItem.classification_id : null;
+    const unit = updatedItem.unit as Unit;
+    const qty = updatedItem.qty;
+    if (clsId && unit && qty > 0) {
       const price = prices.find(
         (p) => p.classification_id === clsId && p.unit === unit,
       );
       if (price) {
-        newItems[index].unit_price = price.price_per_unit;
-        newItems[index].line_total = price.price_per_unit * qty;
+        updatedItem.unit_price = price.price_per_unit;
+        updatedItem.line_total = price.price_per_unit * qty;
       }
+    } else {
+      updatedItem.unit_price = undefined;
+      updatedItem.line_total = undefined;
     }
+    newItems[index] = updatedItem;
     setItems(newItems);
+    setItemErrors((prev) => {
+      const next = [...prev];
+      next[index] = {};
+      return next;
+    });
+    setItemsError(null);
+    setSubmitError(null);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // compile items
-    const payloadItems = items
-      .filter((item) => item.classification_id)
-      .map((item) => ({
-        classification_id: item.classification_id,
-        qty: item.qty,
-        unit: item.unit,
-      }));
-    try {
-      const res = await axios.post(
-        '/api/sales/invoices',
-        {
-          customer_name: customerName || null,
-          customer_phone: customerPhone || null,
-          items: payloadItems,
-          signature_png_b64: signatureDataUrl,
-        },
-        { headers: authHeader },
-      );
-      setMessage('Invoice created');
-      setInvoiceId(res.data.id);
-      // clear form
-      setItems([]);
-      setCustomerName('');
-      setCustomerPhone('');
-      setSignatureDataUrl('');
-    } catch (err: any) {
-      setMessage(err.response?.data?.detail || 'Error creating invoice');
+    setMessage('');
+    setSubmitError(null);
+    setItemsError(null);
+    setItemErrors(items.map(() => ({})));
+    const rawItems = items.map((item) => ({
+      classification_id: typeof item.classification_id === 'number' ? item.classification_id : 0,
+      qty: Number.isFinite(item.qty) ? item.qty : 0,
+      unit: item.unit as Unit,
+    }));
+    const validation = invoiceSchema.safeParse({
+      items: rawItems,
+      signature_png_b64: signatureDataUrl,
+    });
+
+    if (!validation.success) {
+      const issues = validation.error.issues;
+      const perItemErrors = items.map(() => ({} as Partial<Record<'classification_id' | 'qty' | 'unit', string>>));
+      let generalItemsError: string | null = null;
+      issues.forEach((issue) => {
+        if (issue.path[0] === 'items') {
+          const index = issue.path[1] as number | undefined;
+          const field = issue.path[2] as 'classification_id' | 'qty' | 'unit' | undefined;
+          if (typeof index === 'number') {
+            if (field) {
+              perItemErrors[index][field] = issue.message;
+            } else {
+              generalItemsError = issue.message;
+            }
+          } else {
+            generalItemsError = issue.message;
+          }
+        } else if (issue.path.length === 1 && issue.path[0] === 'items') {
+          generalItemsError = issue.message;
+        }
+      });
+      setItemErrors(perItemErrors);
+      setItemsError(generalItemsError);
+      return;
     }
+
+    setItemErrors(items.map(() => ({})));
+    setItemsError(null);
+    const payload: InvoiceSubmitPayload = {
+      customer_name: customerName || null,
+      customer_phone: customerPhone || null,
+      items: validation.data.items,
+      signature_png_b64: signatureDataUrl,
+    };
+    setPendingSubmit(payload);
+    setLastInvoicePayload(payload);
   };
 
   const total = items.reduce((sum, item) => sum + (item.line_total || 0), 0);
+
+  const confirmSubmitInvoice = async () => {
+    if (!pendingSubmit) return;
+    setIsSubmitting(true);
+    setSubmitError(null);
+    try {
+      const res = await axios.post('/api/sales/invoices', pendingSubmit, { headers: authHeader });
+      setMessage('Invoice created');
+      setInvoiceId(res.data.id);
+      setItems([]);
+      setItemErrors([]);
+      setItemsError(null);
+      setCustomerName('');
+      setCustomerPhone('');
+      setSignatureDataUrl('');
+      setPendingSubmit(null);
+      setLastInvoicePayload(null);
+    } catch (err: any) {
+      console.error(err);
+      setSubmitError(err.response?.data?.detail || 'Error creating invoice');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const cancelPendingSubmit = () => {
+    if (isSubmitting) return;
+    setPendingSubmit(null);
+  };
+
+  const retrySubmitInvoice = () => {
+    if (lastInvoicePayload) {
+      setSubmitError(null);
+      setPendingSubmit(lastInvoicePayload);
+    }
+  };
 
   return (
     <div className="p-4 md:p-6">
@@ -149,6 +266,14 @@ const DriverInvoicePage: React.FC = () => {
       {invoiceId && (
         <div className="bg-green-50 border border-green-400 text-green-700 p-2 rounded mb-4">
           Invoice #{invoiceId} created
+        </div>
+      )}
+      {loadingError && (
+        <div className="mb-4 flex items-center gap-3 rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+          <span>{loadingError}</span>
+          <button type="button" className="font-semibold underline" onClick={() => fetchCatalogData()}>
+            Retry
+          </button>
         </div>
       )}
       <form onSubmit={handleSubmit} className="space-y-4">
@@ -183,12 +308,15 @@ const DriverInvoicePage: React.FC = () => {
             </thead>
             <tbody>
               {items.map((item, idx) => (
-                <tr key={item.id} className="bg-white"> 
+                <tr key={item.id} className="bg-white">
                   <td className="px-2 py-1">
                     <select
                       className="border rounded px-2 py-1"
                       value={item.classification_id}
-                      onChange={(e) => updateItem(idx, { classification_id: Number(e.target.value) })}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        updateItem(idx, { classification_id: value ? Number(value) : '' });
+                      }}
                       required
                     >
                       <option value="" disabled>
@@ -200,16 +328,25 @@ const DriverInvoicePage: React.FC = () => {
                         </option>
                       ))}
                     </select>
+                    {itemErrors[idx]?.classification_id && (
+                      <p className="mt-1 text-xs text-red-600">{itemErrors[idx]?.classification_id}</p>
+                    )}
                   </td>
                   <td className="px-2 py-1">
                     <input
                       type="number"
                       min={1}
                       className="border rounded px-2 py-1 w-20"
-                      value={item.qty}
-                      onChange={(e) => updateItem(idx, { qty: parseInt(e.target.value, 10) })}
+                      value={item.qty > 0 ? item.qty : ''}
+                      onChange={(e) => {
+                        const value = Number(e.target.value);
+                        updateItem(idx, { qty: Number.isFinite(value) ? value : 0 });
+                      }}
                       required
                     />
+                    {itemErrors[idx]?.qty && (
+                      <p className="mt-1 text-xs text-red-600">{itemErrors[idx]?.qty}</p>
+                    )}
                   </td>
                   <td className="px-2 py-1">
                     <select
@@ -223,17 +360,21 @@ const DriverInvoicePage: React.FC = () => {
                         </option>
                       ))}
                     </select>
+                    {itemErrors[idx]?.unit && (
+                      <p className="mt-1 text-xs text-red-600">{itemErrors[idx]?.unit}</p>
+                    )}
                   </td>
                   <td className="px-2 py-1 text-right">
                     {item.unit_price ? `₱${item.unit_price.toFixed(2)}` : '-'}
                   </td>
-                    <td className="px-2 py-1 text-right">
-                      {item.line_total ? `₱${item.line_total.toFixed(2)}` : '-'}
-                    </td>
+                  <td className="px-2 py-1 text-right">
+                    {item.line_total ? `₱${item.line_total.toFixed(2)}` : '-'}
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
+          {itemsError && <p className="mt-2 text-sm text-red-600">{itemsError}</p>}
           <button
             type="button"
             onClick={addItem}
@@ -255,7 +396,32 @@ const DriverInvoicePage: React.FC = () => {
         >
           Submit Invoice
         </button>
+        {submitError && !pendingSubmit && (
+          <div className="rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <span>{submitError}</span>
+              {lastInvoicePayload && (
+                <button type="button" className="font-semibold underline" onClick={retrySubmitInvoice}>
+                  Retry
+                </button>
+              )}
+            </div>
+          </div>
+        )}
       </form>
+      <ConfirmationModal
+        open={!!pendingSubmit}
+        title="Submit invoice?"
+        description={`You're about to submit ${items.length} line item${items.length === 1 ? '' : 's'} with a total of ₱${total.toFixed(
+          2,
+        )}. Confirm to finalize the invoice.`}
+        confirmLabel="Submit"
+        cancelLabel="Cancel"
+        onCancel={cancelPendingSubmit}
+        onConfirm={confirmSubmitInvoice}
+        loading={isSubmitting}
+        errorMessage={submitError}
+      />
     </div>
   );
 };
