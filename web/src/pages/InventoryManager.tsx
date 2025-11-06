@@ -3,6 +3,7 @@ import axios from 'axios';
 import { useAuth } from '../hooks/useAuth';
 import { useToast } from '../components/ToastProvider';
 import { parseApiError } from '../utils/apiErrors';
+import useInventoryStream, { InventoryUpdateMessage } from '../hooks/useInventoryStream';
 
 interface Classification {
   id: number;
@@ -95,13 +96,6 @@ interface PendingOverride {
   classification?: OverrideClassification;
 }
 
-interface InventoryUpdateMessage {
-  type: 'inventory_update';
-  summary?: InventorySummaryResponse;
-  movements?: Movement[];
-  prices?: PriceUpdate[];
-}
-
 interface DailySalesSummary {
   date: string;
   total_amount: number;
@@ -109,10 +103,16 @@ interface DailySalesSummary {
   invoice_count: number;
 }
 
+type InventoryStreamState = {
+  summary: InventorySummaryResponse | null;
+  movements: Movement[];
+};
+
 const InventoryManagerPage: React.FC = () => {
   const { token, user } = useAuth();
-  const [summary, setSummary] = useState<InventorySummaryResponse | null>(null);
-  const [movements, setMovements] = useState<Movement[]>([]);
+  const [initialSummary, setInitialSummary] =
+    useState<InventorySummaryResponse | null>(null);
+  const [initialMovements, setInitialMovements] = useState<Movement[]>([]);
   const [classifications, setClassifications] = useState<Classification[]>([]);
   const [selectedCls, setSelectedCls] = useState<number | ''>('');
   const [qty, setQty] = useState<number>(0);
@@ -136,10 +136,91 @@ const InventoryManagerPage: React.FC = () => {
     return dailySales[dailySales.length - 1];
   }, [dailySales]);
 
+  const inventoryInitialData = useMemo<InventoryStreamState>(
+    () => ({
+      summary: initialSummary,
+      movements: initialMovements,
+    }),
+    [initialSummary, initialMovements],
+  );
+
+  const mergeInventoryUpdate = useCallback(
+    (
+      current: InventoryStreamState,
+      message: InventoryUpdateMessage<
+        InventorySummaryResponse | null,
+        Movement[] | undefined
+      >,
+    ): InventoryStreamState => {
+      if (message.type !== 'inventory_update') {
+        return current;
+      }
+      return {
+        summary: message.summary ?? current.summary,
+        movements: message.movements ?? current.movements,
+      };
+    },
+    [],
+  );
+
+  const { data: inventoryData, status: streamStatus, error: streamError } =
+    useInventoryStream<
+      InventoryStreamState,
+      InventoryUpdateMessage<InventorySummaryResponse | null, Movement[] | undefined>
+    >({
+      token,
+      initialData: inventoryInitialData,
+      merge: mergeInventoryUpdate,
+    });
+
+  const summary = inventoryData.summary;
+  const movements = inventoryData.movements ?? [];
+
   const lowStockCount = useMemo(
     () => summary?.cards.filter((card) => card.is_low).length ?? 0,
     [summary],
   );
+
+  const streamStatusMeta = useMemo(() => {
+    switch (streamStatus) {
+      case 'open':
+        return {
+          label: 'Connected',
+          dotClass: 'bg-green-500',
+          textClass: 'text-green-600',
+        };
+      case 'reconnecting':
+        return {
+          label: 'Reconnecting…',
+          dotClass: 'bg-yellow-500',
+          textClass: 'text-yellow-600',
+        };
+      case 'connecting':
+        return {
+          label: 'Connecting…',
+          dotClass: 'bg-yellow-500',
+          textClass: 'text-yellow-600',
+        };
+      case 'error':
+        return {
+          label: 'Connection error',
+          dotClass: 'bg-red-500',
+          textClass: 'text-red-600',
+        };
+      case 'closed':
+        return {
+          label: 'Disconnected',
+          dotClass: 'bg-gray-400',
+          textClass: 'text-gray-500',
+        };
+      default:
+        return {
+          label: 'Offline',
+          dotClass: 'bg-gray-400',
+          textClass: 'text-gray-500',
+        };
+    }
+  }, [streamStatus]);
 
   const loadData = useCallback(async () => {
     if (!token) return;
@@ -149,8 +230,8 @@ const InventoryManagerPage: React.FC = () => {
         axios.get<Movement[]>('/api/inventory/movements?limit=20', { headers: authHeader }),
         axios.get<Classification[]>('/api/catalog/classifications', { headers: authHeader }),
       ]);
-      setSummary(summaryRes.data);
-      setMovements(movementsRes.data);
+      setInitialSummary(summaryRes.data);
+      setInitialMovements(movementsRes.data);
       setClassifications(clsRes.data);
       if (user?.role === 'admin') {
         const [overridesRes, salesRes] = await Promise.all([
@@ -195,36 +276,6 @@ const InventoryManagerPage: React.FC = () => {
       }, {} as Record<number, number | ''>),
     );
   }, [summary]);
-
-  useEffect(() => {
-    if (!token) return;
-    const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
-    const ws = new WebSocket(`${protocol}://${window.location.host}/api/realtime/updates`);
-
-    ws.onmessage = (event) => {
-      try {
-        const payload: InventoryUpdateMessage = JSON.parse(event.data);
-        if (payload.type === 'inventory_update') {
-          if (payload.summary) {
-            setSummary(payload.summary);
-          }
-          if (payload.movements) {
-            setMovements(payload.movements);
-          }
-        }
-      } catch (err) {
-        console.error('Failed to parse realtime update', err);
-      }
-    };
-
-    ws.onerror = (err) => {
-      console.error('Realtime connection error', err);
-    };
-
-    return () => {
-      ws.close();
-    };
-  }, [token]);
 
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -343,9 +394,22 @@ const InventoryManagerPage: React.FC = () => {
 
   return (
     <div className="p-4 md:p-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="text-2xl font-bold">Kiapat Inventory</h1>
-        <div>{summary ? new Date(summary.timestamp).toLocaleString() : '--'}</div>
+        <div className="flex flex-col items-start text-sm sm:items-end">
+          <div className={`flex items-center gap-2 ${streamStatusMeta.textClass}`}>
+            <span className={`h-2 w-2 rounded-full ${streamStatusMeta.dotClass}`} />
+            <span>{streamStatusMeta.label}</span>
+          </div>
+          <div className="text-xs text-gray-500">
+            {summary
+              ? `Last update ${new Date(summary.timestamp).toLocaleString()}`
+              : 'Awaiting inventory data'}
+          </div>
+          {streamError && (
+            <div className="mt-1 text-xs text-red-600">{streamError}</div>
+          )}
+        </div>
       </div>
       {successMessage && <p className="text-green-600 mt-2">{successMessage}</p>}
       {formError && <p className="text-red-600 mt-2">{formError}</p>}

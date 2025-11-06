@@ -1,9 +1,10 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import axios from 'axios';
 import { useAuth } from '../hooks/useAuth';
 import SignaturePad from '../components/SignaturePad';
 import { useToast } from '../components/ToastProvider';
 import { parseApiError } from '../utils/apiErrors';
+import useInventoryStream, { InventoryUpdateMessage } from '../hooks/useInventoryStream';
 
 interface Classification {
   id: number;
@@ -29,11 +30,6 @@ interface InvoiceItemForm {
 
 const units = ['TRAY', 'DOZEN', 'PCS'];
 
-interface InventoryUpdateMessage {
-  type: 'inventory_update';
-  prices?: Price[];
-}
-
 interface InvoiceOverride {
   id: number;
   classification_id: number;
@@ -50,10 +46,14 @@ interface InvoiceResponse {
   overrides: InvoiceOverride[];
 }
 
+type DriverInventoryStreamState = {
+  prices: Price[];
+};
+
 const DriverInvoicePage: React.FC = () => {
   const { token } = useAuth();
   const [classifications, setClassifications] = useState<Classification[]>([]);
-  const [prices, setPrices] = useState<Price[]>([]);
+  const [initialPrices, setInitialPrices] = useState<Price[]>([]);
   const [items, setItems] = useState<InvoiceItemForm[]>([]);
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
@@ -73,6 +73,78 @@ const DriverInvoicePage: React.FC = () => {
     return map;
   }, [classifications]);
 
+  const priceStreamInitialData = useMemo<DriverInventoryStreamState>(
+    () => ({ prices: initialPrices }),
+    [initialPrices],
+  );
+
+  const mergePriceUpdates = useCallback(
+    (
+      current: DriverInventoryStreamState,
+      message: InventoryUpdateMessage<unknown, unknown, Price[] | undefined>,
+    ): DriverInventoryStreamState => {
+      if (message.type !== 'inventory_update') {
+        return current;
+      }
+      return {
+        prices: message.prices ?? current.prices,
+      };
+    },
+    [],
+  );
+
+  const { data: priceStream, status: streamStatus, error: streamError } = useInventoryStream<
+    DriverInventoryStreamState,
+    InventoryUpdateMessage<unknown, unknown, Price[] | undefined>
+  >({
+    token,
+    initialData: priceStreamInitialData,
+    merge: mergePriceUpdates,
+  });
+
+  const prices = priceStream.prices ?? [];
+
+  const streamStatusMeta = useMemo(() => {
+    switch (streamStatus) {
+      case 'open':
+        return {
+          label: 'Connected',
+          dotClass: 'bg-green-500',
+          textClass: 'text-green-600',
+        };
+      case 'reconnecting':
+        return {
+          label: 'Reconnecting…',
+          dotClass: 'bg-yellow-500',
+          textClass: 'text-yellow-600',
+        };
+      case 'connecting':
+        return {
+          label: 'Connecting…',
+          dotClass: 'bg-yellow-500',
+          textClass: 'text-yellow-600',
+        };
+      case 'error':
+        return {
+          label: 'Connection error',
+          dotClass: 'bg-red-500',
+          textClass: 'text-red-600',
+        };
+      case 'closed':
+        return {
+          label: 'Disconnected',
+          dotClass: 'bg-gray-400',
+          textClass: 'text-gray-500',
+        };
+      default:
+        return {
+          label: 'Offline',
+          dotClass: 'bg-gray-400',
+          textClass: 'text-gray-500',
+        };
+    }
+  }, [streamStatus]);
+
   useEffect(() => {
     if (!token) return;
     Promise.all([
@@ -80,34 +152,9 @@ const DriverInvoicePage: React.FC = () => {
       axios.get('/api/catalog/prices', { headers: authHeader }),
     ]).then(([clsRes, priceRes]) => {
       setClassifications(clsRes.data);
-      setPrices(priceRes.data);
+      setInitialPrices(priceRes.data);
     });
   }, [authHeader, token]);
-
-  useEffect(() => {
-    if (!token) return;
-    const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
-    const ws = new WebSocket(`${protocol}://${window.location.host}/api/realtime/updates`);
-
-    ws.onmessage = (event) => {
-      try {
-        const payload: InventoryUpdateMessage = JSON.parse(event.data);
-        if (payload.type === 'inventory_update' && payload.prices) {
-          setPrices(payload.prices);
-        }
-      } catch (err) {
-        console.error('Failed to parse realtime update', err);
-      }
-    };
-
-    ws.onerror = (err) => {
-      console.error('Realtime connection error', err);
-    };
-
-    return () => {
-      ws.close();
-    };
-  }, [token]);
 
   const addItem = () => {
     setItems([
@@ -196,7 +243,18 @@ const DriverInvoicePage: React.FC = () => {
 
   return (
     <div className="p-4 md:p-6">
-      <h1 className="text-2xl font-bold mb-4">Generate Sales Invoice</h1>
+      <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <h1 className="text-2xl font-bold">Generate Sales Invoice</h1>
+        <div className="flex flex-col items-start text-sm sm:items-end">
+          <div className={`flex items-center gap-2 ${streamStatusMeta.textClass}`}>
+            <span className={`h-2 w-2 rounded-full ${streamStatusMeta.dotClass}`} />
+            <span>{streamStatusMeta.label}</span>
+          </div>
+          {streamError && (
+            <div className="mt-1 text-xs text-red-600">{streamError}</div>
+          )}
+        </div>
+      </div>
       {message && (
         <p
           className={`mb-2 ${
