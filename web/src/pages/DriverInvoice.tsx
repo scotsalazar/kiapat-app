@@ -2,6 +2,8 @@ import React, { useEffect, useMemo, useState } from 'react';
 import axios from 'axios';
 import { useAuth } from '../hooks/useAuth';
 import SignaturePad from '../components/SignaturePad';
+import { useToast } from '../components/ToastProvider';
+import { extractApiError } from '../utils/errorHandling';
 
 interface Classification {
   id: number;
@@ -41,9 +43,11 @@ const DriverInvoicePage: React.FC = () => {
   const [customerPhone, setCustomerPhone] = useState('');
   const [signatureDataUrl, setSignatureDataUrl] = useState<string>('');
   const [message, setMessage] = useState<string>('');
+  const [errorMessage, setErrorMessage] = useState<string>('');
   const [invoiceId, setInvoiceId] = useState<number | null>(null);
 
   const authHeader = useMemo(() => (token ? { Authorization: `Bearer ${token}` } : {}), [token]);
+  const { showToast } = useToast();
 
   useEffect(() => {
     if (!token) return;
@@ -129,6 +133,7 @@ const DriverInvoicePage: React.FC = () => {
         { headers: authHeader },
       );
       setMessage('Invoice created');
+      setErrorMessage('');
       setInvoiceId(res.data.id);
       // clear form
       setItems([]);
@@ -136,7 +141,10 @@ const DriverInvoicePage: React.FC = () => {
       setCustomerPhone('');
       setSignatureDataUrl('');
     } catch (err: any) {
-      setMessage(err.response?.data?.detail || 'Error creating invoice');
+      const parsed = extractApiError(err, 'Error creating invoice');
+      setMessage('');
+      setErrorMessage(parsed.message);
+      showToast({ message: parsed.message, type: 'error' });
     }
   };
 
@@ -145,6 +153,7 @@ const DriverInvoicePage: React.FC = () => {
   return (
     <div className="p-4 md:p-6">
       <h1 className="text-2xl font-bold mb-4">Generate Sales Invoice</h1>
+      {errorMessage && <p className="text-red-600 mb-2">{errorMessage}</p>}
       {message && <p className="text-green-600 mb-2">{message}</p>}
       {invoiceId && (
         <div className="bg-green-50 border border-green-400 text-green-700 p-2 rounded mb-4">

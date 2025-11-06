@@ -1,6 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import axios from 'axios';
 import { useAuth } from '../hooks/useAuth';
+import { useToast } from '../components/ToastProvider';
+import { extractApiError } from '../utils/errorHandling';
 
 interface Classification {
   id: number;
@@ -55,21 +57,27 @@ const InventoryManagerPage: React.FC = () => {
   const [selectedCls, setSelectedCls] = useState<number | ''>('');
   const [qty, setQty] = useState<number>(0);
   const [unit, setUnit] = useState<string>('TRAY');
-  const [message, setMessage] = useState<string>('');
+  const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   const authHeader = useMemo(() => (token ? { Authorization: `Bearer ${token}` } : {}), [token]);
+  const { showToast } = useToast();
 
   const loadData = useCallback(async () => {
     if (!token) return;
-    const [summaryRes, movementsRes, clsRes] = await Promise.all([
-      axios.get('/api/inventory/summary', { headers: authHeader }),
-      axios.get('/api/inventory/movements?limit=20', { headers: authHeader }),
-      axios.get('/api/catalog/classifications', { headers: authHeader }),
-    ]);
-    setSummary(summaryRes.data);
-    setMovements(movementsRes.data);
-    setClassifications(clsRes.data);
-  }, [authHeader, token]);
+    try {
+      const [summaryRes, movementsRes, clsRes] = await Promise.all([
+        axios.get('/api/inventory/summary', { headers: authHeader }),
+        axios.get('/api/inventory/movements?limit=20', { headers: authHeader }),
+        axios.get('/api/catalog/classifications', { headers: authHeader }),
+      ]);
+      setSummary(summaryRes.data);
+      setMovements(movementsRes.data);
+      setClassifications(clsRes.data);
+    } catch (err) {
+      const parsed = extractApiError(err, 'Failed to load inventory data');
+      showToast({ message: parsed.message, type: 'error' });
+    }
+  }, [authHeader, showToast, token]);
 
   useEffect(() => {
     loadData();
@@ -114,12 +122,14 @@ const InventoryManagerPage: React.FC = () => {
         { classification_id: selectedCls, qty: qty, unit },
         { headers: authHeader },
       );
-      setMessage('Draft created');
+      setFeedback({ type: 'success', text: 'Draft created' });
       setQty(0);
       setSelectedCls('');
       loadData();
     } catch (err: any) {
-      setMessage(err.response?.data?.detail || 'Error creating movement');
+      const parsed = extractApiError(err, 'Error creating movement');
+      setFeedback({ type: 'error', text: parsed.message });
+      showToast({ message: parsed.message, type: 'error' });
     }
   };
 
@@ -128,7 +138,8 @@ const InventoryManagerPage: React.FC = () => {
       await axios.post('/api/inventory/in/verify', { movement_id: id }, { headers: authHeader });
       loadData();
     } catch (err) {
-      console.error(err);
+      const parsed = extractApiError(err, 'Unable to verify movement');
+      showToast({ message: parsed.message, type: 'error' });
     }
   };
 
@@ -137,7 +148,8 @@ const InventoryManagerPage: React.FC = () => {
       await axios.post('/api/inventory/in/commit', { movement_id: id }, { headers: authHeader });
       loadData();
     } catch (err) {
-      console.error(err);
+      const parsed = extractApiError(err, 'Unable to commit movement');
+      showToast({ message: parsed.message, type: 'error' });
     }
   };
 
@@ -147,7 +159,11 @@ const InventoryManagerPage: React.FC = () => {
         <h1 className="text-2xl font-bold">Kiapat Inventory</h1>
         <div>{new Date(summary?.timestamp || '').toLocaleString()}</div>
       </div>
-      {message && <p className="text-green-600 mt-2">{message}</p>}
+      {feedback && (
+        <p className={`${feedback.type === 'error' ? 'text-red-600' : 'text-green-600'} mt-2`}>
+          {feedback.text}
+        </p>
+      )}
       {/* Inventory Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mt-4">
         {summary?.cards.map((card) => (

@@ -1,6 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import axios from 'axios';
 import { useAuth } from '../hooks/useAuth';
+import { useToast } from '../components/ToastProvider';
+import { extractApiError } from '../utils/errorHandling';
 
 interface InvoiceItem {
   id: number;
@@ -55,6 +57,7 @@ const InvoiceHistoryPage: React.FC = () => {
   const [error, setError] = useState<string>('');
 
   const authHeader = useMemo(() => (token ? { Authorization: `Bearer ${token}` } : {}), [token]);
+  const { showToast } = useToast();
 
   const fetchInvoices = useCallback(async () => {
     if (!token) return;
@@ -87,12 +90,14 @@ const InvoiceHistoryPage: React.FC = () => {
       });
       setInvoices(res.data.items);
       setTotal(res.data.total);
-    } catch (err: any) {
-      setError(err.response?.data?.detail || 'Failed to load invoices');
+    } catch (err) {
+      const parsed = extractApiError(err, 'Failed to load invoices');
+      setError(parsed.message);
+      showToast({ message: parsed.message, type: 'error' });
     } finally {
       setLoading(false);
     }
-  }, [authHeader, customer, driver, endDate, page, pageSize, startDate, status, token, user?.role]);
+  }, [authHeader, customer, driver, endDate, page, pageSize, showToast, startDate, status, token, user?.role]);
 
   useEffect(() => {
     fetchInvoices();

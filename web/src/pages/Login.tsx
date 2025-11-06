@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
+import { useToast } from '../components/ToastProvider';
+import { extractApiError } from '../utils/errorHandling';
 
 const LoginPage: React.FC = () => {
   const { login } = useAuth();
@@ -8,14 +10,18 @@ const LoginPage: React.FC = () => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const { showToast } = useToast();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError('');
     try {
       await login(username, password);
       navigate('/');
     } catch (err: any) {
-      setError('Invalid credentials');
+      const parsed = extractApiError(err, 'Invalid credentials');
+      setError(parsed.message);
+      showToast({ message: parsed.message, type: 'error' });
     }
   };
 

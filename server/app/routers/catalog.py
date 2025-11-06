@@ -4,11 +4,12 @@ only GET endpoints are implemented; creation and modification of
 classifications/prices could be added here with proper authorization.
 """
 
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+from fastapi import APIRouter, Depends, Response, status
 from sqlalchemy.orm import Session
 
 from .. import auth, crud, schemas, models
 from ..database import get_db
+from ..errors import AppError, raise_from_app_error, raise_http_error
 
 
 router = APIRouter(prefix="/api/catalog", tags=["catalog"])
@@ -34,11 +35,11 @@ def create_classification(
 ):
     """Create a new classification. Requires admin role."""
     if current_user.role != models.RoleEnum.ADMIN:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized")
+        raise_http_error(status.HTTP_403_FORBIDDEN, "auth.forbidden", "Not authorized")
     try:
         return crud.create_classification(db, classification)
-    except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
+    except AppError as exc:
+        raise_from_app_error(exc)
 
 
 @router.put("/classifications/{classification_id}", response_model=schemas.ClassificationOut)
@@ -50,11 +51,11 @@ def update_classification(
 ):
     """Update an existing classification. Requires admin role."""
     if current_user.role != models.RoleEnum.ADMIN:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized")
+        raise_http_error(status.HTTP_403_FORBIDDEN, "auth.forbidden", "Not authorized")
     try:
         return crud.update_classification(db, classification_id, classification)
-    except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
+    except AppError as exc:
+        raise_from_app_error(exc)
 
 
 @router.post("/classifications/{classification_id}/activate", response_model=schemas.ClassificationOut)
@@ -65,11 +66,11 @@ def activate_classification(
 ):
     """Activate a classification. Requires admin role."""
     if current_user.role != models.RoleEnum.ADMIN:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized")
+        raise_http_error(status.HTTP_403_FORBIDDEN, "auth.forbidden", "Not authorized")
     try:
         return crud.set_classification_active(db, classification_id, True)
-    except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
+    except AppError as exc:
+        raise_from_app_error(exc)
 
 
 @router.post("/classifications/{classification_id}/deactivate", response_model=schemas.ClassificationOut)
@@ -80,11 +81,11 @@ def deactivate_classification(
 ):
     """Deactivate a classification. Requires admin role."""
     if current_user.role != models.RoleEnum.ADMIN:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized")
+        raise_http_error(status.HTTP_403_FORBIDDEN, "auth.forbidden", "Not authorized")
     try:
         return crud.set_classification_active(db, classification_id, False)
-    except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
+    except AppError as exc:
+        raise_from_app_error(exc)
 
 
 @router.delete("/classifications/{classification_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -95,11 +96,11 @@ def delete_classification(
 ):
     """Delete a classification. Requires admin role."""
     if current_user.role != models.RoleEnum.ADMIN:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized")
+        raise_http_error(status.HTTP_403_FORBIDDEN, "auth.forbidden", "Not authorized")
     try:
         crud.delete_classification(db, classification_id)
-    except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
+    except AppError as exc:
+        raise_from_app_error(exc)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
@@ -119,11 +120,11 @@ def create_price(
 ):
     """Create a price entry. Requires admin role."""
     if current_user.role != models.RoleEnum.ADMIN:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized")
+        raise_http_error(status.HTTP_403_FORBIDDEN, "auth.forbidden", "Not authorized")
     try:
         return crud.create_price(db, price)
-    except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
+    except AppError as exc:
+        raise_from_app_error(exc)
 
 
 @router.put("/prices/{price_id}", response_model=schemas.PriceOut)
@@ -135,11 +136,11 @@ def update_price(
 ):
     """Update a price entry. Requires admin role."""
     if current_user.role != models.RoleEnum.ADMIN:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized")
+        raise_http_error(status.HTTP_403_FORBIDDEN, "auth.forbidden", "Not authorized")
     try:
         return crud.update_price(db, price_id, price)
-    except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
+    except AppError as exc:
+        raise_from_app_error(exc)
 
 
 @router.post("/prices/{price_id}/activate", response_model=schemas.PriceOut)
@@ -150,11 +151,11 @@ def activate_price(
 ):
     """Activate a price entry. Requires admin role."""
     if current_user.role != models.RoleEnum.ADMIN:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized")
+        raise_http_error(status.HTTP_403_FORBIDDEN, "auth.forbidden", "Not authorized")
     try:
         return crud.activate_price(db, price_id)
-    except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
+    except AppError as exc:
+        raise_from_app_error(exc)
 
 
 @router.post("/prices/{price_id}/deactivate", response_model=schemas.PriceOut)
@@ -165,11 +166,11 @@ def deactivate_price(
 ):
     """Deactivate a price entry. Requires admin role."""
     if current_user.role != models.RoleEnum.ADMIN:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized")
+        raise_http_error(status.HTTP_403_FORBIDDEN, "auth.forbidden", "Not authorized")
     try:
         return crud.deactivate_price(db, price_id)
-    except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
+    except AppError as exc:
+        raise_from_app_error(exc)
 
 
 @router.delete("/prices/{price_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -180,9 +181,9 @@ def delete_price(
 ):
     """Delete a price entry. Requires admin role."""
     if current_user.role != models.RoleEnum.ADMIN:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized")
+        raise_http_error(status.HTTP_403_FORBIDDEN, "auth.forbidden", "Not authorized")
     try:
         crud.delete_price(db, price_id)
-    except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
+    except AppError as exc:
+        raise_from_app_error(exc)
     return Response(status_code=status.HTTP_204_NO_CONTENT)

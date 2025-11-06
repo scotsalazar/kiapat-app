@@ -8,7 +8,7 @@ passwords.  They also provide input validation for endpoints.
 from __future__ import annotations
 
 from datetime import date, datetime
-from typing import List, Optional
+from typing import Any, List, Optional
 
 from pydantic import BaseModel, Field, ConfigDict
 
@@ -20,6 +20,19 @@ from .models import (
     MovementStatus,
     RoleEnum,
 )
+
+
+# --------------------
+# Shared
+# --------------------
+
+
+class ErrorResponse(BaseModel):
+    code: str = Field(..., description="Application-specific error code")
+    message: str = Field(..., description="Human readable error message")
+    details: Optional[Any] = Field(
+        default=None, description="Optional contextual information about the error"
+    )
 
 
 # --------------------

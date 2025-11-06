@@ -7,11 +7,12 @@ drivers can create invoices.  Admins may list all invoices.
 from datetime import datetime
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.orm import Session
 
 from .. import auth, crud, models, schemas
 from ..database import get_db
+from ..errors import AppError, raise_from_app_error, raise_http_error
 
 
 router = APIRouter(prefix="/api/sales/invoices", tags=["sales"])
@@ -25,11 +26,15 @@ def create_invoice(
 ):
     """Create a new sales invoice.  Only drivers may create invoices."""
     if current_user.role != models.RoleEnum.DRIVER:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only drivers can create invoices")
+        raise_http_error(
+            status.HTTP_403_FORBIDDEN,
+            "auth.forbidden",
+            "Only drivers can create invoices",
+        )
     try:
         invoice = crud.create_invoice(db, current_user, invoice_in)
-    except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    except AppError as exc:
+        raise_from_app_error(exc)
     return invoice
 
 
@@ -47,9 +52,10 @@ def list_invoices(
 ):
     """List invoices.  Drivers see only their invoices; admins see all."""
     if end_date and start_date and end_date < start_date:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="end_date must be on or after start_date",
+        raise_http_error(
+            status.HTTP_400_BAD_REQUEST,
+            "sales.invalid_date_range",
+            "end_date must be on or after start_date",
         )
 
     invoices, total = crud.list_invoices(
@@ -80,7 +86,16 @@ def get_invoice(
     """Retrieve a single invoice by id.  Drivers may only retrieve their own invoices."""
     invoice = db.query(models.Invoice).get(invoice_id)
     if not invoice:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Invoice not found")
+        raise_http_error(
+            status.HTTP_404_NOT_FOUND,
+            "sales.invoice_not_found",
+            "Invoice not found",
+            details={"invoice_id": invoice_id},
+        )
     if current_user.role == models.RoleEnum.DRIVER and invoice.created_by != current_user.id:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to view this invoice")
+        raise_http_error(
+            status.HTTP_403_FORBIDDEN,
+            "auth.forbidden",
+            "Not authorized to view this invoice",
+        )
     return invoice

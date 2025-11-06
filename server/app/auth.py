@@ -19,6 +19,7 @@ from passlib.context import CryptContext
 from sqlalchemy.orm import Session
 
 from . import models, schemas
+from .errors import AppError
 from .database import get_db
 
 
@@ -48,22 +49,32 @@ def get_password_hash(password: str) -> str:
 
 
 def ensure_password_complexity(password: str) -> None:
-    """Validate that the password meets baseline complexity requirements.
-
-    The rules enforce a minimum length and the presence of uppercase,
-    lowercase and numeric characters.  A ``ValueError`` is raised when the
-    password fails validation so that callers can translate it into an
-    appropriate HTTP error response.
-    """
+    """Validate that the password meets baseline complexity requirements."""
 
     if len(password) < 8:
-        raise ValueError("Password must be at least 8 characters long")
+        raise AppError(
+            "auth.password_complexity",
+            "Password must be at least 8 characters long",
+            details={"rule": "min_length"},
+        )
     if not re.search(r"[A-Z]", password):
-        raise ValueError("Password must contain at least one uppercase letter")
+        raise AppError(
+            "auth.password_complexity",
+            "Password must contain at least one uppercase letter",
+            details={"rule": "uppercase"},
+        )
     if not re.search(r"[a-z]", password):
-        raise ValueError("Password must contain at least one lowercase letter")
+        raise AppError(
+            "auth.password_complexity",
+            "Password must contain at least one lowercase letter",
+            details={"rule": "lowercase"},
+        )
     if not re.search(r"\d", password):
-        raise ValueError("Password must contain at least one digit")
+        raise AppError(
+            "auth.password_complexity",
+            "Password must contain at least one digit",
+            details={"rule": "digit"},
+        )
 
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
