@@ -345,6 +345,13 @@ def get_inventory_summary(db: Session) -> schemas.InventorySummary:
     timestamp = datetime.utcnow()
     cards: List[schemas.InventoryCard] = []
     classifications = list_classifications(db)
+    thresholds = {
+        threshold.classification_id: threshold.threshold_pcs
+        for threshold in db.query(models.InventoryThreshold).all()
+    }
+    total_qty_pcs = 0
+    total_stock_value = 0.0
+    has_stock_value = False
     for c in classifications:
         balance = c.inventory_balance
         qty_pcs = balance.qty_pcs if balance else 0
@@ -353,6 +360,13 @@ def get_inventory_summary(db: Session) -> schemas.InventorySummary:
         # default price per dozen
         price = utils.get_current_price(db, c.id, models.UnitEnum.DOZEN)
         unit_price = price.price_per_unit if price else None
+        stock_value = None
+        if unit_price is not None:
+            stock_value = qty_dozen * unit_price
+            total_stock_value += stock_value
+            has_stock_value = True
+        total_qty_pcs += qty_pcs
+        threshold_pcs = thresholds.get(c.id)
         cards.append(
             schemas.InventoryCard(
                 classification_id=c.id,
@@ -362,9 +376,18 @@ def get_inventory_summary(db: Session) -> schemas.InventorySummary:
                 qty_dozen=qty_dozen,
                 qty_pcs=qty_pcs,
                 unit_price=unit_price,
+                stock_value=stock_value,
+                threshold_pcs=threshold_pcs,
+                is_low=threshold_pcs is not None and qty_pcs <= threshold_pcs,
             )
         )
-    return schemas.InventorySummary(timestamp=timestamp, cards=cards)
+    totals = schemas.InventoryTotals(
+        qty_tray=utils.from_pcs(total_qty_pcs, models.UnitEnum.TRAY),
+        qty_dozen=utils.from_pcs(total_qty_pcs, models.UnitEnum.DOZEN),
+        qty_pcs=total_qty_pcs,
+        stock_value=total_stock_value if has_stock_value else None,
+    )
+    return schemas.InventorySummary(timestamp=timestamp, totals=totals, cards=cards)
 
 
 def list_movements(
@@ -378,6 +401,58 @@ def list_movements(
         .limit(limit)
         .all()
     )
+
+
+def list_inventory_thresholds(db: Session) -> List[models.InventoryThreshold]:
+    return db.query(models.InventoryThreshold).order_by(models.InventoryThreshold.classification_id).all()
+
+
+def set_inventory_thresholds(
+    db: Session, updates: List[schemas.InventoryThresholdUpdate]
+) -> List[models.InventoryThreshold]:
+    if not updates:
+        return list_inventory_thresholds(db)
+
+    classification_ids = {update.classification_id for update in updates}
+    existing_thresholds = {
+        threshold.classification_id: threshold
+        for threshold in db.query(models.InventoryThreshold)
+        .filter(models.InventoryThreshold.classification_id.in_(classification_ids))
+        .all()
+    }
+    classifications = {
+        classification.id: classification
+        for classification in db.query(models.Classification)
+        .filter(models.Classification.id.in_(classification_ids))
+        .all()
+    }
+    missing = classification_ids - classifications.keys()
+    if missing:
+        raise AppError(
+            ErrorCode.CATALOG_NOT_FOUND,
+            "Some classifications were not found",
+            details={"missing_ids": sorted(missing)},
+            status_code=status.HTTP_404_NOT_FOUND,
+        )
+
+    for update in updates:
+        threshold = existing_thresholds.get(update.classification_id)
+        if update.threshold_pcs <= 0:
+            if threshold:
+                db.delete(threshold)
+        else:
+            if threshold:
+                threshold.threshold_pcs = update.threshold_pcs
+            else:
+                db.add(
+                    models.InventoryThreshold(
+                        classification_id=update.classification_id,
+                        threshold_pcs=update.threshold_pcs,
+                    )
+                )
+
+    db.commit()
+    return list_inventory_thresholds(db)
 
 
 def _build_inventory_event(db: Session) -> Dict[str, Any]:

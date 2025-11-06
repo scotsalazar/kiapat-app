@@ -100,6 +100,7 @@ class Classification(Base):
     inventory_balance = relationship("InventoryBalance", uselist=False, back_populates="classification")
     movements = relationship("InventoryMovement", back_populates="classification")
     invoice_items = relationship("InvoiceItem", back_populates="classification")
+    threshold = relationship("InventoryThreshold", uselist=False, back_populates="classification")
 
     __table_args__ = (UniqueConstraint("size", "color", name="uq_classifications_size_color"),)
 
@@ -123,6 +124,15 @@ class InventoryBalance(Base):
     updated_at = Column(DateTime, default=datetime.utcnow)
 
     classification = relationship("Classification", back_populates="inventory_balance")
+
+
+class InventoryThreshold(Base):
+    __tablename__ = "inventory_thresholds"
+    classification_id = Column(Integer, ForeignKey("classifications.id"), primary_key=True)
+    threshold_pcs = Column(Integer, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    classification = relationship("Classification", back_populates="threshold")
 
 
 class InventoryMovement(Base):

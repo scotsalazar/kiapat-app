@@ -154,10 +154,21 @@ class InventoryCard(BaseModel):
     qty_dozen: float
     qty_pcs: int
     unit_price: Optional[float]
+    stock_value: Optional[float]
+    threshold_pcs: Optional[int]
+    is_low: bool
+
+
+class InventoryTotals(BaseModel):
+    qty_tray: float
+    qty_dozen: float
+    qty_pcs: int
+    stock_value: Optional[float]
 
 
 class InventorySummary(BaseModel):
     timestamp: datetime
+    totals: InventoryTotals
     cards: List[InventoryCard]
 
 
@@ -173,6 +184,22 @@ class VerifyMovement(BaseModel):
 
 class CommitMovement(BaseModel):
     movement_id: int
+
+
+class InventoryThresholdOut(BaseModel):
+    classification_id: int
+    threshold_pcs: int
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class InventoryThresholdUpdate(BaseModel):
+    classification_id: int
+    threshold_pcs: int = Field(..., ge=0)
+
+
+class InventoryThresholdBulkUpdate(BaseModel):
+    thresholds: List[InventoryThresholdUpdate]
 
 
 # --------------------

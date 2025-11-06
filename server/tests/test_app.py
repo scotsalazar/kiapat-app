@@ -164,6 +164,53 @@ def test_driver_invoice_flow(client):
         assert card["qty_pcs"] == 12
 
 
+def test_inventory_threshold_configuration(client):
+    seed_db(client)
+    admin_token = login(client, "admin", "admin123")
+
+    resp = client.get(
+        "/api/catalog/classifications",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert resp.status_code == 200
+    classification_id = resp.json()[0]["id"]
+
+    resp = client.put(
+        "/api/inventory/thresholds",
+        json={"thresholds": [{"classification_id": classification_id, "threshold_pcs": 120}]},
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert resp.status_code == 200
+    thresholds = resp.json()
+    assert any(t["classification_id"] == classification_id for t in thresholds)
+
+    resp = client.get(
+        "/api/inventory/summary",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert resp.status_code == 200
+    summary = resp.json()
+    card = next(c for c in summary["cards"] if c["classification_id"] == classification_id)
+    assert card["threshold_pcs"] == 120
+    assert card["is_low"] is True
+
+    resp = client.put(
+        "/api/inventory/thresholds",
+        json={"thresholds": [{"classification_id": classification_id, "threshold_pcs": 0}]},
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert resp.status_code == 200
+
+    resp = client.get(
+        "/api/inventory/summary",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    summary = resp.json()
+    card = next(c for c in summary["cards"] if c["classification_id"] == classification_id)
+    assert card["threshold_pcs"] is None
+    assert card["is_low"] is False
+
+
 def test_invoice_override_flow(client):
     seed_db(client)
     admin_token = login(client, "admin", "admin123")

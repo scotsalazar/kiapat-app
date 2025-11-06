@@ -25,6 +25,33 @@ def inventory_summary(
     return crud.get_inventory_summary(db)
 
 
+@router.get("/thresholds", response_model=list[schemas.InventoryThresholdOut])
+def inventory_thresholds(
+    db: Session = Depends(get_db), current_user: models.User = Depends(auth.get_current_active_user)
+):
+    """Return configured low stock thresholds. Requires admin role."""
+    if current_user.role != models.RoleEnum.ADMIN:
+        raise forbidden("Only admins can view inventory thresholds")
+    thresholds = crud.list_inventory_thresholds(db)
+    return [schemas.InventoryThresholdOut.model_validate(t) for t in thresholds]
+
+
+@router.put("/thresholds", response_model=list[schemas.InventoryThresholdOut])
+def update_inventory_thresholds(
+    payload: schemas.InventoryThresholdBulkUpdate,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(auth.get_current_active_user),
+):
+    """Update low stock thresholds. Requires admin role."""
+    if current_user.role != models.RoleEnum.ADMIN:
+        raise forbidden("Only admins can update inventory thresholds")
+    try:
+        thresholds = crud.set_inventory_thresholds(db, payload.thresholds)
+    except AppError as exc:
+        raise app_error_to_http(exc)
+    return [schemas.InventoryThresholdOut.model_validate(t) for t in thresholds]
+
+
 @router.get("/movements", response_model=list[schemas.MovementOut])
 def list_inventory_movements(
     type: Optional[models.MovementType] = Query(None),
