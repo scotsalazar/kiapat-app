@@ -38,6 +38,7 @@ interface InvoiceOverride {
   id: number;
   classification_id: number;
   requested_qty_pcs: number;
+  requested_unit: string;
   available_qty_pcs: number;
   status: string;
   decision_reason?: string | null;
@@ -237,7 +238,8 @@ const DriverInvoicePage: React.FC = () => {
               return (
                 <li key={override.id}>
                   {cls ? `${cls.size} / ${cls.color}` : `Classification #${override.classification_id}`}:
-                  {' '}requested {override.requested_qty_pcs} pcs, available {override.available_qty_pcs} pcs
+                  {' '}requested {override.requested_qty_pcs} pcs ({override.requested_unit.toLowerCase()})
+                  , available {override.available_qty_pcs} pcs
                   {shortage > 0 && ` (short ${shortage} pcs)`}
                 </li>
               );

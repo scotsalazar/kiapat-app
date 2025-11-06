@@ -181,6 +181,7 @@ class InvoiceOverride(Base):
     invoice_id = Column(Integer, ForeignKey("invoices.id"), nullable=False)
     classification_id = Column(Integer, ForeignKey("classifications.id"), nullable=False)
     requested_qty_pcs = Column(Integer, nullable=False)
+    requested_unit = Column(Enum(UnitEnum), nullable=False, default=UnitEnum.PCS)
     available_qty_pcs = Column(Integer, nullable=False)
     status = Column(Enum(OverrideStatus), nullable=False, default=OverrideStatus.PENDING)
     requested_by_id = Column(Integer, ForeignKey("users.id"), nullable=False)

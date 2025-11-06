@@ -18,6 +18,7 @@ interface InvoiceOverride {
   status: string;
   classification_id: number;
   requested_qty_pcs: number;
+  requested_unit: string;
   available_qty_pcs: number;
   decision_reason?: string | null;
 }
