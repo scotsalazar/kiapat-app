@@ -478,6 +478,10 @@ def create_invoice(db: Session, user: models.User, invoice_in: schemas.InvoiceCr
             f.write(data)
         signature_path = filepath
     # Create invoice
+    override_requested_at = None
+    if requires_override:
+        override_requested_at = datetime.utcnow()
+
     invoice = models.Invoice(
         customer_name=invoice_in.customer_name,
         customer_phone=invoice_in.customer_phone,
@@ -486,6 +490,7 @@ def create_invoice(db: Session, user: models.User, invoice_in: schemas.InvoiceCr
         created_by=user.id,
         created_at=datetime.utcnow(),
         status=invoice_status,
+        override_requested_at=override_requested_at,
     )
     invoice.items = [
         models.InvoiceItem(
@@ -615,6 +620,7 @@ def approve_invoice_override(
             publish_inventory = True
 
     invoice.status = models.InvoiceStatus.COMPLETED
+    invoice.override_resolved_at = now
     db.commit()
     db.refresh(invoice)
     if publish_inventory:
@@ -650,6 +656,7 @@ def reject_invoice_override(
             mv.committed_at = now
 
     invoice.status = models.InvoiceStatus.REJECTED
+    invoice.override_resolved_at = now
     db.commit()
     db.refresh(invoice)
     return invoice

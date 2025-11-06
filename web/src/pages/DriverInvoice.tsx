@@ -45,6 +45,8 @@ interface InvoiceResponse {
   id: number;
   status: 'COMPLETED' | 'PENDING_OVERRIDE' | 'REJECTED';
   overrides: InvoiceOverride[];
+  override_requested_at: string | null;
+  override_resolved_at: string | null;
 }
 
 const DriverInvoicePage: React.FC = () => {
@@ -59,6 +61,8 @@ const DriverInvoicePage: React.FC = () => {
   const [invoiceId, setInvoiceId] = useState<number | null>(null);
   const [invoiceStatus, setInvoiceStatus] = useState<string>('');
   const [overrides, setOverrides] = useState<InvoiceOverride[]>([]);
+  const [overrideRequestedAt, setOverrideRequestedAt] = useState<string | null>(null);
+  const [overrideResolvedAt, setOverrideResolvedAt] = useState<string | null>(null);
 
   const authHeader = useMemo(() => (token ? { Authorization: `Bearer ${token}` } : {}), [token]);
 
@@ -155,8 +159,13 @@ const DriverInvoicePage: React.FC = () => {
       setInvoiceId(data.id);
       setInvoiceStatus(data.status);
       setOverrides(data.overrides || []);
+      setOverrideRequestedAt(data.override_requested_at);
+      setOverrideResolvedAt(data.override_resolved_at);
       if (data.status === 'PENDING_OVERRIDE') {
-        setMessage('Invoice submitted. Awaiting admin approval due to low stock.');
+        const pendingSince = data.override_requested_at
+          ? ` since ${new Date(data.override_requested_at).toLocaleString()}`
+          : '';
+        setMessage(`Invoice submitted. Awaiting admin approval due to low stock${pendingSince}.`);
       } else if (data.status === 'REJECTED') {
         setMessage('Invoice requires attention. Please contact an administrator.');
       } else {
@@ -172,6 +181,8 @@ const DriverInvoicePage: React.FC = () => {
       setInvoiceStatus('');
       setOverrides([]);
       setInvoiceId(null);
+      setOverrideRequestedAt(null);
+      setOverrideResolvedAt(null);
     }
   };
 
@@ -209,6 +220,16 @@ const DriverInvoicePage: React.FC = () => {
             : invoiceStatus === 'REJECTED'
             ? 'requires admin follow-up'
             : 'created'}
+          {invoiceStatus === 'PENDING_OVERRIDE' && overrideRequestedAt && (
+            <span className="block text-xs mt-1 text-yellow-700">
+              Requested at {new Date(overrideRequestedAt).toLocaleString()}
+            </span>
+          )}
+          {invoiceStatus !== 'PENDING_OVERRIDE' && overrideResolvedAt && (
+            <span className="block text-xs mt-1">
+              Updated {new Date(overrideResolvedAt).toLocaleString()}
+            </span>
+          )}
         </div>
       )}
       {overrides.length > 0 && (

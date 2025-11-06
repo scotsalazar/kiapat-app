@@ -212,6 +212,8 @@ def test_invoice_override_flow(client):
     invoice = resp.json()
     assert invoice["status"] == "PENDING_OVERRIDE"
     assert invoice["overrides"], "Expected override details"
+    assert invoice["override_requested_at"], "Expected override timestamp"
+    assert invoice["override_resolved_at"] is None
 
     # inventory should remain unchanged while pending
     resp = client.get(
@@ -240,6 +242,7 @@ def test_invoice_override_flow(client):
     approved_invoice = resp.json()
     assert approved_invoice["status"] == "COMPLETED"
     assert all(o["status"] == "APPROVED" for o in approved_invoice["overrides"])
+    assert approved_invoice["override_resolved_at"], "Expected resolved timestamp"
 
     # inventory now reflects deduction (12 - 24 = -12)
     resp = client.get(

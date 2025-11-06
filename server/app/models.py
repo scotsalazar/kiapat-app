@@ -154,6 +154,8 @@ class Invoice(Base):
     created_by = Column(Integer, ForeignKey("users.id"), nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
     status = Column(Enum(InvoiceStatus), nullable=False, default=InvoiceStatus.COMPLETED)
+    override_requested_at = Column(DateTime, nullable=True)
+    override_resolved_at = Column(DateTime, nullable=True)
 
     created_by_user = relationship("User", back_populates="invoices")
     items = relationship("InvoiceItem", back_populates="invoice")

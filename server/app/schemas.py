@@ -200,6 +200,8 @@ class InvoiceSummary(BaseModel):
     status: InvoiceStatus
     created_by: int
     created_at: datetime
+    override_requested_at: Optional[datetime] = None
+    override_resolved_at: Optional[datetime] = None
     created_by_user: Optional[UserOut] = None
 
     model_config = ConfigDict(from_attributes=True)
@@ -214,6 +216,8 @@ class InvoiceOut(BaseModel):
     created_by: int
     created_at: datetime
     status: InvoiceStatus
+    override_requested_at: Optional[datetime] = None
+    override_resolved_at: Optional[datetime] = None
     created_by_user: Optional[UserOut] = None
     items: List[InvoiceItemOut]
     overrides: List["InvoiceOverrideOut"] = []

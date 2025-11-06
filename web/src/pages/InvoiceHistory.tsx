@@ -37,6 +37,8 @@ interface Invoice {
   created_by: number;
   created_at: string;
   status: string;
+  override_requested_at?: string | null;
+  override_resolved_at?: string | null;
   created_by_user?: UserSummary | null;
   items: InvoiceItem[];
   overrides: InvoiceOverride[];
@@ -318,6 +320,16 @@ const InvoiceHistoryPage: React.FC = () => {
                       {invoice.overrides.length > 0 && (
                         <div className="text-xs text-gray-500 mt-1">
                           {invoice.overrides.length} override{invoice.overrides.length === 1 ? '' : 's'}
+                        </div>
+                      )}
+                      {invoice.status === 'PENDING_OVERRIDE' && invoice.override_requested_at && (
+                        <div className="text-xs text-yellow-700 mt-1">
+                          Pending since {new Date(invoice.override_requested_at).toLocaleString()}
+                        </div>
+                      )}
+                      {invoice.status !== 'PENDING_OVERRIDE' && invoice.override_resolved_at && (
+                        <div className="text-xs text-gray-500 mt-1">
+                          Updated {new Date(invoice.override_resolved_at).toLocaleString()}
                         </div>
                       )}
                     </td>

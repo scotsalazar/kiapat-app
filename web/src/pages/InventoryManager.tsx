@@ -54,6 +54,8 @@ interface OverrideInvoiceSummary {
   status: string;
   created_by: number;
   created_at: string;
+  override_requested_at?: string | null;
+  override_resolved_at?: string | null;
   created_by_user?: OverrideUserSummary | null;
 }
 
@@ -307,7 +309,7 @@ const InventoryManagerPage: React.FC = () => {
                     <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Requested</th>
                     <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Available</th>
                     <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Driver</th>
-                    <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Submitted</th>
+                    <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Requested</th>
                     <th className="px-3 py-2 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Actions</th>
                   </tr>
                 </thead>
@@ -348,7 +350,9 @@ const InventoryManagerPage: React.FC = () => {
                           {invoice?.created_by_user?.name || invoice?.created_by_user?.username || `#${invoice?.created_by ?? ''}`}
                         </td>
                         <td className="px-3 py-2 text-sm text-gray-700">
-                          {new Date(override.created_at).toLocaleString()}
+                          {invoice?.override_requested_at
+                            ? new Date(invoice.override_requested_at).toLocaleString()
+                            : new Date(override.created_at).toLocaleString()}
                         </td>
                         <td className="px-3 py-2 text-sm text-right space-x-2">
                           <button
