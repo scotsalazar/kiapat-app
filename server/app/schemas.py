@@ -19,6 +19,8 @@ from .models import (
     MovementType,
     MovementStatus,
     RoleEnum,
+    InvoiceStatus,
+    OverrideStatus,
 )
 
 
@@ -190,6 +192,19 @@ class InvoiceItemOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class InvoiceSummary(BaseModel):
+    id: int
+    customer_name: Optional[str]
+    customer_phone: Optional[str]
+    total_amount: float
+    status: InvoiceStatus
+    created_by: int
+    created_at: datetime
+    created_by_user: Optional[UserOut] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 class InvoiceOut(BaseModel):
     id: int
     customer_name: Optional[str]
@@ -198,8 +213,10 @@ class InvoiceOut(BaseModel):
     signature_png_path: Optional[str]
     created_by: int
     created_at: datetime
+    status: InvoiceStatus
     created_by_user: Optional[UserOut] = None
     items: List[InvoiceItemOut]
+    overrides: List["InvoiceOverrideOut"] = []
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -209,6 +226,28 @@ class InvoiceListResponse(BaseModel):
     total: int
     page: int
     page_size: int
+
+
+class InvoiceOverrideOut(BaseModel):
+    id: int
+    invoice_id: int
+    classification_id: int
+    requested_qty_pcs: int
+    available_qty_pcs: int
+    status: OverrideStatus
+    requested_by_id: int
+    decided_by_id: Optional[int]
+    decision_reason: Optional[str]
+    created_at: datetime
+    decided_at: Optional[datetime]
+    invoice: Optional[InvoiceSummary] = None
+    classification: Optional[ClassificationOut] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class OverrideDecision(BaseModel):
+    decision_reason: Optional[str] = None
 
 # --------------------
 # Reports
@@ -234,3 +273,8 @@ class CumulativeEggsSold(BaseModel):
     total_eggs_pcs: int
     total_eggs_tray: float
     total_eggs_dozen: float
+
+
+InvoiceOverrideOut.model_rebuild()
+InvoiceOut.model_rebuild()
+InvoiceListResponse.model_rebuild()

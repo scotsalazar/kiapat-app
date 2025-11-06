@@ -11,6 +11,15 @@ interface InvoiceItem {
   line_total: number;
 }
 
+interface InvoiceOverride {
+  id: number;
+  status: string;
+  classification_id: number;
+  requested_qty_pcs: number;
+  available_qty_pcs: number;
+  decision_reason?: string | null;
+}
+
 interface UserSummary {
   id: number;
   name: string;
@@ -27,8 +36,10 @@ interface Invoice {
   signature_png_path: string | null;
   created_by: number;
   created_at: string;
+  status: string;
   created_by_user?: UserSummary | null;
   items: InvoiceItem[];
+  overrides: InvoiceOverride[];
 }
 
 interface InvoiceListResponse {
@@ -38,7 +49,8 @@ interface InvoiceListResponse {
   page_size: number;
 }
 
-const STATUSES = ['DRAFT', 'VERIFIED', 'COMMITTED'];
+const MOVEMENT_STATUSES = ['DRAFT', 'VERIFIED', 'COMMITTED', 'PENDING_OVERRIDE', 'REJECTED'];
+const INVOICE_STATUSES = ['COMPLETED', 'PENDING_OVERRIDE', 'REJECTED'];
 
 const InvoiceHistoryPage: React.FC = () => {
   const { token, user } = useAuth();
@@ -51,6 +63,7 @@ const InvoiceHistoryPage: React.FC = () => {
   const [customer, setCustomer] = useState<string>('');
   const [driver, setDriver] = useState<string>('');
   const [status, setStatus] = useState<string>('');
+  const [invoiceStatus, setInvoiceStatus] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string>('');
 
@@ -76,6 +89,9 @@ const InvoiceHistoryPage: React.FC = () => {
       }
       if (status) {
         params.status = status;
+      }
+      if (invoiceStatus) {
+        params.invoice_status = invoiceStatus;
       }
       if (user?.role === 'admin' && driver.trim()) {
         params.driver = driver.trim();
@@ -181,7 +197,22 @@ const InvoiceHistoryPage: React.FC = () => {
               className="border rounded px-3 py-2"
             >
               <option value="">All statuses</option>
-              {STATUSES.map((s) => (
+              {MOVEMENT_STATUSES.map((s) => (
+                <option key={s} value={s}>
+                  {s.charAt(0)}{s.slice(1).toLowerCase()}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="flex flex-col text-sm">
+            <span className="font-medium text-gray-700">Invoice status</span>
+            <select
+              value={invoiceStatus}
+              onChange={(e) => resetPageAnd(setInvoiceStatus)(e.target.value)}
+              className="border rounded px-3 py-2"
+            >
+              <option value="">All invoice statuses</option>
+              {INVOICE_STATUSES.map((s) => (
                 <option key={s} value={s}>
                   {s.charAt(0)}{s.slice(1).toLowerCase()}
                 </option>
@@ -240,6 +271,7 @@ const InvoiceHistoryPage: React.FC = () => {
                 <th className="px-4 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Created</th>
                 <th className="px-4 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Customer</th>
                 <th className="px-4 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Driver</th>
+                <th className="px-4 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
                 <th className="px-4 py-2 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Total</th>
                 <th className="px-4 py-2 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Items</th>
               </tr>
@@ -271,6 +303,24 @@ const InvoiceHistoryPage: React.FC = () => {
                       )}
                     </td>
                     <td className="px-4 py-2 text-sm text-gray-700">{renderDriverCell(invoice)}</td>
+                    <td className="px-4 py-2 text-sm">
+                      <span
+                        className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+                          invoice.status === 'PENDING_OVERRIDE'
+                            ? 'bg-yellow-100 text-yellow-800'
+                            : invoice.status === 'REJECTED'
+                            ? 'bg-red-100 text-red-800'
+                            : 'bg-green-100 text-green-800'
+                        }`}
+                      >
+                        {invoice.status.replace('_', ' ').toLowerCase().replace(/^./, (c) => c.toUpperCase())}
+                      </span>
+                      {invoice.overrides.length > 0 && (
+                        <div className="text-xs text-gray-500 mt-1">
+                          {invoice.overrides.length} override{invoice.overrides.length === 1 ? '' : 's'}
+                        </div>
+                      )}
+                    </td>
                     <td className="px-4 py-2 text-sm text-gray-900 text-right">₱{invoice.total_amount.toFixed(2)}</td>
                     <td className="px-4 py-2 text-sm text-gray-700 text-right">{invoice.items.length}</td>
                   </tr>

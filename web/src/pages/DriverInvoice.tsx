@@ -32,6 +32,21 @@ interface InventoryUpdateMessage {
   prices?: Price[];
 }
 
+interface InvoiceOverride {
+  id: number;
+  classification_id: number;
+  requested_qty_pcs: number;
+  available_qty_pcs: number;
+  status: string;
+  decision_reason?: string | null;
+}
+
+interface InvoiceResponse {
+  id: number;
+  status: 'COMPLETED' | 'PENDING_OVERRIDE' | 'REJECTED';
+  overrides: InvoiceOverride[];
+}
+
 const DriverInvoicePage: React.FC = () => {
   const { token } = useAuth();
   const [classifications, setClassifications] = useState<Classification[]>([]);
@@ -42,8 +57,16 @@ const DriverInvoicePage: React.FC = () => {
   const [signatureDataUrl, setSignatureDataUrl] = useState<string>('');
   const [message, setMessage] = useState<string>('');
   const [invoiceId, setInvoiceId] = useState<number | null>(null);
+  const [invoiceStatus, setInvoiceStatus] = useState<string>('');
+  const [overrides, setOverrides] = useState<InvoiceOverride[]>([]);
 
   const authHeader = useMemo(() => (token ? { Authorization: `Bearer ${token}` } : {}), [token]);
+
+  const classificationMap = useMemo(() => {
+    const map = new Map<number, Classification>();
+    classifications.forEach((cls) => map.set(cls.id, cls));
+    return map;
+  }, [classifications]);
 
   useEffect(() => {
     if (!token) return;
@@ -128,8 +151,17 @@ const DriverInvoicePage: React.FC = () => {
         },
         { headers: authHeader },
       );
-      setMessage('Invoice created');
-      setInvoiceId(res.data.id);
+      const data: InvoiceResponse = res.data;
+      setInvoiceId(data.id);
+      setInvoiceStatus(data.status);
+      setOverrides(data.overrides || []);
+      if (data.status === 'PENDING_OVERRIDE') {
+        setMessage('Invoice submitted. Awaiting admin approval due to low stock.');
+      } else if (data.status === 'REJECTED') {
+        setMessage('Invoice requires attention. Please contact an administrator.');
+      } else {
+        setMessage('Invoice created');
+      }
       // clear form
       setItems([]);
       setCustomerName('');
@@ -137,6 +169,9 @@ const DriverInvoicePage: React.FC = () => {
       setSignatureDataUrl('');
     } catch (err: any) {
       setMessage(err.response?.data?.detail || 'Error creating invoice');
+      setInvoiceStatus('');
+      setOverrides([]);
+      setInvoiceId(null);
     }
   };
 
@@ -145,10 +180,53 @@ const DriverInvoicePage: React.FC = () => {
   return (
     <div className="p-4 md:p-6">
       <h1 className="text-2xl font-bold mb-4">Generate Sales Invoice</h1>
-      {message && <p className="text-green-600 mb-2">{message}</p>}
+      {message && (
+        <p
+          className={`mb-2 ${
+            invoiceStatus === 'PENDING_OVERRIDE'
+              ? 'text-yellow-700'
+              : invoiceStatus === 'REJECTED'
+              ? 'text-red-600'
+              : 'text-green-600'
+          }`}
+        >
+          {message}
+        </p>
+      )}
       {invoiceId && (
-        <div className="bg-green-50 border border-green-400 text-green-700 p-2 rounded mb-4">
-          Invoice #{invoiceId} created
+        <div
+          className={`border p-2 rounded mb-4 ${
+            invoiceStatus === 'PENDING_OVERRIDE'
+              ? 'bg-yellow-50 border-yellow-400 text-yellow-800'
+              : invoiceStatus === 'REJECTED'
+              ? 'bg-red-50 border-red-400 text-red-700'
+              : 'bg-green-50 border-green-400 text-green-700'
+          }`}
+        >
+          Invoice #{invoiceId}{' '}
+          {invoiceStatus === 'PENDING_OVERRIDE'
+            ? 'pending approval'
+            : invoiceStatus === 'REJECTED'
+            ? 'requires admin follow-up'
+            : 'created'}
+        </div>
+      )}
+      {overrides.length > 0 && (
+        <div className="mb-4 border border-yellow-300 bg-yellow-50 text-yellow-900 rounded p-3">
+          <h2 className="font-semibold mb-2">Requested override details</h2>
+          <ul className="list-disc pl-5 space-y-1 text-sm">
+            {overrides.map((override) => {
+              const cls = classificationMap.get(override.classification_id);
+              const shortage = override.requested_qty_pcs - override.available_qty_pcs;
+              return (
+                <li key={override.id}>
+                  {cls ? `${cls.size} / ${cls.color}` : `Classification #${override.classification_id}`}:
+                  {' '}requested {override.requested_qty_pcs} pcs, available {override.available_qty_pcs} pcs
+                  {shortage > 0 && ` (short ${shortage} pcs)`}
+                </li>
+              );
+            })}
+          </ul>
         </div>
       )}
       <form onSubmit={handleSubmit} className="space-y-4">
