@@ -135,6 +135,25 @@ class MovementOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class InventorySettings(BaseModel):
+    low_stock_threshold_pcs: int
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class InventoryTotals(BaseModel):
+    qty_tray: float
+    qty_dozen: float
+    qty_pcs: int
+    stock_value: float
+
+
+class InventoryRecentSales(BaseModel):
+    days: int
+    total_amount: float
+    eggs_sold_pcs: int
+
+
 class InventoryCard(BaseModel):
     classification_id: int
     size: SizeEnum
@@ -143,11 +162,21 @@ class InventoryCard(BaseModel):
     qty_dozen: float
     qty_pcs: int
     unit_price: Optional[float]
+    stock_value: Optional[float]
+    threshold_pcs: int
+    is_low_stock: bool
 
 
 class InventorySummary(BaseModel):
     timestamp: datetime
+    settings: InventorySettings
+    totals: InventoryTotals
+    recent_sales: InventoryRecentSales
     cards: List[InventoryCard]
+
+
+class InventorySettingsUpdate(BaseModel):
+    low_stock_threshold_pcs: int = Field(..., gt=0)
 
 
 class CreateInMovement(BaseModel):

@@ -27,6 +27,9 @@ from sqlalchemy.orm import relationship
 from .database import Base
 
 
+DEFAULT_LOW_STOCK_THRESHOLD_PCS = 360
+
+
 class RoleEnum(str, enum.Enum):
     ADMIN = "admin"
     DRIVER = "driver"
@@ -124,6 +127,12 @@ class InventoryBalance(Base):
 
     classification = relationship("Classification", back_populates="inventory_balance")
 
+
+class InventorySettings(Base):
+    __tablename__ = "inventory_settings"
+
+    id = Column(Integer, primary_key=True, default=1)
+    low_stock_threshold_pcs = Column(Integer, nullable=False, default=DEFAULT_LOW_STOCK_THRESHOLD_PCS)
 
 class InventoryMovement(Base):
     __tablename__ = "inventory_movements"

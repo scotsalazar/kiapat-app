@@ -64,4 +64,8 @@ def seed_database(db: Session) -> str:
             )
         )
     db.commit()
+    # ensure inventory settings exist
+    if not db.query(models.InventorySettings).get(1):
+        db.add(models.InventorySettings(id=1))
+        db.commit()
     return "seeded"

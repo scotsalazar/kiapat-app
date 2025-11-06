@@ -8,6 +8,23 @@ interface Classification {
   color: string;
 }
 
+interface InventorySettings {
+  low_stock_threshold_pcs: number;
+}
+
+interface InventoryTotals {
+  qty_tray: number;
+  qty_dozen: number;
+  qty_pcs: number;
+  stock_value: number;
+}
+
+interface InventoryRecentSales {
+  days: number;
+  total_amount: number;
+  eggs_sold_pcs: number;
+}
+
 interface InventoryCard {
   classification_id: number;
   size: string;
@@ -16,6 +33,17 @@ interface InventoryCard {
   qty_dozen: number;
   qty_pcs: number;
   unit_price: number | null;
+  stock_value: number | null;
+  threshold_pcs: number;
+  is_low_stock: boolean;
+}
+
+interface InventorySummary {
+  timestamp: string;
+  settings: InventorySettings;
+  totals: InventoryTotals;
+  recent_sales: InventoryRecentSales;
+  cards: InventoryCard[];
 }
 
 interface Movement {
@@ -78,14 +106,14 @@ interface PendingOverride {
 
 interface InventoryUpdateMessage {
   type: 'inventory_update';
-  summary?: { timestamp: string; cards: InventoryCard[] };
+  summary?: InventorySummary;
   movements?: Movement[];
   prices?: PriceUpdate[];
 }
 
 const InventoryManagerPage: React.FC = () => {
   const { token, user } = useAuth();
-  const [summary, setSummary] = useState<{ timestamp: string; cards: InventoryCard[] } | null>(null);
+  const [summary, setSummary] = useState<InventorySummary | null>(null);
   const [movements, setMovements] = useState<Movement[]>([]);
   const [classifications, setClassifications] = useState<Classification[]>([]);
   const [selectedCls, setSelectedCls] = useState<number | ''>('');
@@ -93,13 +121,44 @@ const InventoryManagerPage: React.FC = () => {
   const [unit, setUnit] = useState<string>('TRAY');
   const [message, setMessage] = useState<string>('');
   const [pendingOverrides, setPendingOverrides] = useState<PendingOverride[]>([]);
+  const [thresholdDraft, setThresholdDraft] = useState<number | ''>('');
+  const [settingsSaving, setSettingsSaving] = useState<boolean>(false);
 
   const authHeader = useMemo(() => (token ? { Authorization: `Bearer ${token}` } : {}), [token]);
+  const currencyFormatter = useMemo(
+    () => new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }),
+    [],
+  );
+  const decimalFormatter = useMemo(
+    () => new Intl.NumberFormat(undefined, { maximumFractionDigits: 1 }),
+    [],
+  );
+  const quantityFormatter = useMemo(() => new Intl.NumberFormat(), []);
+  const summaryMetrics = useMemo(() => {
+    if (!summary) return [];
+    return [
+      {
+        title: 'Total Stock',
+        primary: `${decimalFormatter.format(summary.totals.qty_tray)} trays`,
+        secondary: `${quantityFormatter.format(summary.totals.qty_pcs)} pcs on hand`,
+      },
+      {
+        title: 'Stock Value',
+        primary: currencyFormatter.format(summary.totals.stock_value ?? 0),
+        secondary: 'Based on current dozen prices',
+      },
+      {
+        title: `Sales (last ${summary.recent_sales.days}d)`,
+        primary: currencyFormatter.format(summary.recent_sales.total_amount ?? 0),
+        secondary: `${quantityFormatter.format(summary.recent_sales.eggs_sold_pcs)} pcs sold`,
+      },
+    ];
+  }, [currencyFormatter, decimalFormatter, quantityFormatter, summary]);
 
   const loadData = useCallback(async () => {
     if (!token) return;
     const [summaryRes, movementsRes, clsRes] = await Promise.all([
-      axios.get('/api/inventory/summary', { headers: authHeader }),
+      axios.get<InventorySummary>('/api/inventory/summary', { headers: authHeader }),
       axios.get('/api/inventory/movements?limit=20', { headers: authHeader }),
       axios.get('/api/catalog/classifications', { headers: authHeader }),
     ]);
@@ -119,6 +178,12 @@ const InventoryManagerPage: React.FC = () => {
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  useEffect(() => {
+    if (summary?.settings) {
+      setThresholdDraft(summary.settings.low_stock_threshold_pcs);
+    }
+  }, [summary?.settings]);
 
   useEffect(() => {
     if (!token) return;
@@ -186,6 +251,27 @@ const InventoryManagerPage: React.FC = () => {
     }
   };
 
+  const handleThresholdSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (typeof thresholdDraft !== 'number' || thresholdDraft <= 0) {
+      return;
+    }
+    try {
+      setSettingsSaving(true);
+      await axios.put(
+        '/api/inventory/settings',
+        { low_stock_threshold_pcs: thresholdDraft },
+        { headers: authHeader },
+      );
+      setMessage('Low stock threshold updated');
+      await loadData();
+    } catch (err: any) {
+      setMessage(err.response?.data?.detail || 'Failed to update threshold');
+    } finally {
+      setSettingsSaving(false);
+    }
+  };
+
   const handleApproveOverride = async (invoiceId: number) => {
     try {
       const note = window.prompt('Optional note for approval', '');
@@ -218,30 +304,99 @@ const InventoryManagerPage: React.FC = () => {
 
   return (
     <div className="p-4 md:p-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="text-2xl font-bold">Kiapat Inventory</h1>
-        <div>{new Date(summary?.timestamp || '').toLocaleString()}</div>
+        <div className="text-sm text-gray-600">
+          {summary ? new Date(summary.timestamp).toLocaleString() : '--'}
+        </div>
       </div>
-      {message && <p className="text-green-600 mt-2">{message}</p>}
+      {message && <p className="mt-2 text-green-600">{message}</p>}
+      {summary && (
+        <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
+          {summaryMetrics.map((metric) => (
+            <div key={metric.title} className="rounded bg-white p-4 shadow">
+              <h3 className="text-sm font-medium text-gray-500">{metric.title}</h3>
+              <p className="mt-1 text-xl font-semibold text-gray-900">{metric.primary}</p>
+              <p className="text-sm text-gray-600">{metric.secondary}</p>
+            </div>
+          ))}
+        </div>
+      )}
+      {user?.role === 'admin' && summary && (
+        <form
+          className="mt-4 flex flex-col gap-2 rounded bg-white p-4 shadow sm:flex-row sm:items-center"
+          onSubmit={handleThresholdSave}
+        >
+          <label htmlFor="low-stock-threshold" className="text-sm font-medium text-gray-700">
+            Low stock threshold (pcs)
+          </label>
+          <div className="flex flex-1 items-center gap-2">
+            <input
+              id="low-stock-threshold"
+              type="number"
+              min={1}
+              className="w-full max-w-xs rounded border px-3 py-2"
+              value={thresholdDraft}
+              onChange={(e) => {
+                const value = e.target.value;
+                setThresholdDraft(value === '' ? '' : Number(value));
+              }}
+            />
+            <button
+              type="submit"
+              className="rounded bg-indigo-600 px-4 py-2 text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
+              disabled={settingsSaving || typeof thresholdDraft !== 'number' || thresholdDraft <= 0}
+            >
+              {settingsSaving ? 'Saving…' : 'Save'}
+            </button>
+          </div>
+        </form>
+      )}
       {/* Inventory Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mt-4">
+      <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3">
         {summary?.cards.map((card) => (
-          <div key={card.classification_id} className="bg-white p-4 rounded shadow">
-            <div className="flex items-center">
+          <div
+            key={card.classification_id}
+            className={`relative rounded border bg-white p-4 shadow ${
+              card.is_low_stock ? 'border-red-300 ring-2 ring-red-100' : 'border-transparent'
+            }`}
+          >
+            <div className="flex items-start gap-3">
               <img
                 src={card.color === 'WHITE' ? '/white-egg.png' : '/brown-egg.png'}
                 alt="egg"
-                className="h-12 w-12 mr-3"
+                className="h-12 w-12 flex-shrink-0"
               />
-              <div>
-                <h3 className="font-semibold">
-                  {card.size.charAt(0)}{card.size.slice(1).toLowerCase()} / {card.color.charAt(0)}{card.color.slice(1).toLowerCase()}
-                </h3>
-                <p className="text-sm text-gray-600">{card.qty_tray.toFixed(1)} trays • {card.qty_dozen.toFixed(1)} dozens</p>
-                <p className="text-sm text-gray-600">{card.qty_pcs} pcs</p>
-                {card.unit_price && (
-                  <p className="text-sm text-gray-800 mt-1">₱{card.unit_price.toFixed(2)} per dozen</p>
+              <div className="flex-1">
+                <div className="flex items-start justify-between gap-2">
+                  <h3 className="font-semibold">
+                    {card.size.charAt(0)}
+                    {card.size.slice(1).toLowerCase()} / {card.color.charAt(0)}
+                    {card.color.slice(1).toLowerCase()}
+                  </h3>
+                  {card.is_low_stock && (
+                    <span className="inline-flex items-center rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-800">
+                      Low stock
+                    </span>
+                  )}
+                </div>
+                <p className="text-sm text-gray-600">
+                  {decimalFormatter.format(card.qty_tray)} trays • {decimalFormatter.format(card.qty_dozen)} dozens
+                </p>
+                <p className="text-sm text-gray-600">{quantityFormatter.format(card.qty_pcs)} pcs</p>
+                {card.unit_price !== null && (
+                  <p className="mt-2 text-sm text-gray-800">
+                    {currencyFormatter.format(card.unit_price)} per dozen
+                  </p>
                 )}
+                {card.stock_value !== null && (
+                  <p className="text-sm text-gray-800">
+                    {currencyFormatter.format(card.stock_value)} total value
+                  </p>
+                )}
+                <p className="mt-2 text-xs text-gray-500">
+                  Threshold: {quantityFormatter.format(card.threshold_pcs)} pcs
+                </p>
               </div>
             </div>
           </div>
@@ -254,7 +409,10 @@ const InventoryManagerPage: React.FC = () => {
           <select
             className="border rounded px-3 py-2"
             value={selectedCls}
-            onChange={(e) => setSelectedCls(Number(e.target.value))}
+            onChange={(e) => {
+              const value = e.target.value;
+              setSelectedCls(value === '' ? '' : Number(value));
+            }}
             required
           >
             <option value="" disabled>

@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import base64
 import os
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from typing import Any, Dict, List, Optional, Tuple
 
 from sqlalchemy import case, func, or_
@@ -293,6 +293,52 @@ def delete_price(db: Session, price_id: int) -> None:
     db.commit()
 
 
+def get_inventory_settings(db: Session) -> models.InventorySettings:
+    settings = db.query(models.InventorySettings).get(1)
+    if not settings:
+        settings = models.InventorySettings(id=1)
+        db.add(settings)
+        db.commit()
+        db.refresh(settings)
+    return settings
+
+
+def update_inventory_settings(
+    db: Session, settings_update: schemas.InventorySettingsUpdate
+) -> schemas.InventorySettings:
+    settings = get_inventory_settings(db)
+    settings.low_stock_threshold_pcs = settings_update.low_stock_threshold_pcs
+    db.commit()
+    db.refresh(settings)
+    return schemas.InventorySettings.model_validate(settings)
+
+
+def get_recent_sales_snapshot(
+    db: Session, days: int = 7
+) -> schemas.InventoryRecentSales:
+    since = datetime.utcnow() - timedelta(days=days)
+    qty_case = case(
+        (models.InvoiceItem.unit == models.UnitEnum.TRAY, models.InvoiceItem.qty * utils.TRAY_SIZE),
+        (models.InvoiceItem.unit == models.UnitEnum.DOZEN, models.InvoiceItem.qty * utils.DOZEN_SIZE),
+        else_=models.InvoiceItem.qty,
+    )
+    query = (
+        db.query(
+            func.coalesce(func.sum(models.Invoice.total_amount), 0.0),
+            func.coalesce(func.sum(qty_case), 0),
+        )
+        .join(models.InvoiceItem, models.InvoiceItem.invoice_id == models.Invoice.id)
+        .filter(models.Invoice.created_at >= since)
+        .filter(models.Invoice.status == models.InvoiceStatus.COMPLETED)
+    )
+    total_amount, eggs_sold = query.one()
+    return schemas.InventoryRecentSales(
+        days=days,
+        total_amount=round(float(total_amount or 0.0), 2),
+        eggs_sold_pcs=int(eggs_sold or 0),
+    )
+
+
 def get_inventory_summary(db: Session) -> schemas.InventorySummary:
     """
     Compute the current inventory summary.  This sums the current
@@ -301,8 +347,12 @@ def get_inventory_summary(db: Session) -> schemas.InventorySummary:
     classification.
     """
     timestamp = datetime.utcnow()
+    settings = get_inventory_settings(db)
+    threshold = settings.low_stock_threshold_pcs
     cards: List[schemas.InventoryCard] = []
     classifications = list_classifications(db)
+    total_qty_pcs = 0
+    total_stock_value = 0.0
     for c in classifications:
         balance = c.inventory_balance
         qty_pcs = balance.qty_pcs if balance else 0
@@ -311,6 +361,11 @@ def get_inventory_summary(db: Session) -> schemas.InventorySummary:
         # default price per dozen
         price = utils.get_current_price(db, c.id, models.UnitEnum.DOZEN)
         unit_price = price.price_per_unit if price else None
+        stock_value = qty_dozen * unit_price if unit_price is not None else None
+        if stock_value is not None:
+            stock_value = round(stock_value, 2)
+            total_stock_value += stock_value
+        total_qty_pcs += qty_pcs
         cards.append(
             schemas.InventoryCard(
                 classification_id=c.id,
@@ -320,9 +375,25 @@ def get_inventory_summary(db: Session) -> schemas.InventorySummary:
                 qty_dozen=qty_dozen,
                 qty_pcs=qty_pcs,
                 unit_price=unit_price,
+                stock_value=stock_value,
+                threshold_pcs=threshold,
+                is_low_stock=qty_pcs <= threshold,
             )
         )
-    return schemas.InventorySummary(timestamp=timestamp, cards=cards)
+    totals = schemas.InventoryTotals(
+        qty_tray=utils.from_pcs(total_qty_pcs, models.UnitEnum.TRAY),
+        qty_dozen=utils.from_pcs(total_qty_pcs, models.UnitEnum.DOZEN),
+        qty_pcs=total_qty_pcs,
+        stock_value=round(total_stock_value, 2),
+    )
+    recent_sales = get_recent_sales_snapshot(db)
+    return schemas.InventorySummary(
+        timestamp=timestamp,
+        settings=schemas.InventorySettings.model_validate(settings),
+        totals=totals,
+        recent_sales=recent_sales,
+        cards=cards,
+    )
 
 
 def list_movements(

@@ -24,6 +24,27 @@ def inventory_summary(
     return crud.get_inventory_summary(db)
 
 
+@router.get("/settings", response_model=schemas.InventorySettings)
+def get_inventory_settings(
+    db: Session = Depends(get_db), current_user: models.User = Depends(auth.get_current_active_user)
+):
+    """Return the inventory configuration settings."""
+    settings = crud.get_inventory_settings(db)
+    return schemas.InventorySettings.model_validate(settings)
+
+
+@router.put("/settings", response_model=schemas.InventorySettings)
+def update_inventory_settings(
+    update: schemas.InventorySettingsUpdate,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(auth.get_current_active_user),
+):
+    """Update inventory configuration settings. Requires admin role."""
+    if current_user.role != models.RoleEnum.ADMIN:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized")
+    return crud.update_inventory_settings(db, update)
+
+
 @router.get("/movements", response_model=list[schemas.MovementOut])
 def list_inventory_movements(
     type: Optional[models.MovementType] = Query(None),
