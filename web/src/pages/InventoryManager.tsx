@@ -19,6 +19,10 @@ interface InventoryCard {
   qty_dozen: number;
   qty_pcs: number;
   unit_price: number | null;
+  price_per_tray: number | null;
+  price_tray_changed_at: string | null;
+  price_per_dozen: number | null;
+  price_dozen_changed_at: string | null;
   stock_value: number | null;
   threshold_pcs: number | null;
   is_low: boolean;
@@ -106,6 +110,46 @@ interface DailySalesSummary {
 type InventoryStreamState = {
   summary: InventorySummaryResponse | null;
   movements: Movement[];
+};
+
+const RECENT_PRICE_WINDOW_MS = 1000 * 60 * 60 * 48;
+
+const isRecentPriceChange = (timestamp: string | null) => {
+  if (!timestamp) return false;
+  const changedAt = new Date(timestamp).getTime();
+  if (Number.isNaN(changedAt)) return false;
+  return Date.now() - changedAt <= RECENT_PRICE_WINDOW_MS;
+};
+
+const formatPriceChangeLabel = (timestamp: string | null) => {
+  if (!timestamp) {
+    return 'Change date unavailable';
+  }
+  const changedAt = new Date(timestamp);
+  if (Number.isNaN(changedAt.getTime())) {
+    return 'Change date unavailable';
+  }
+  const diffMs = Date.now() - changedAt.getTime();
+  if (diffMs < 0) {
+    return `Effective on ${changedAt.toLocaleDateString()}`;
+  }
+  const diffSeconds = Math.round(diffMs / 1000);
+  if (diffSeconds < 60) {
+    return 'Updated just now';
+  }
+  const diffMinutes = Math.round(diffSeconds / 60);
+  if (diffMinutes < 60) {
+    return `Updated ${diffMinutes} minute${diffMinutes === 1 ? '' : 's'} ago`;
+  }
+  const diffHours = Math.round(diffMinutes / 60);
+  if (diffHours < 24) {
+    return `Updated ${diffHours} hour${diffHours === 1 ? '' : 's'} ago`;
+  }
+  const diffDays = Math.round(diffHours / 24);
+  if (diffDays < 7) {
+    return `Updated ${diffDays} day${diffDays === 1 ? '' : 's'} ago`;
+  }
+  return `Updated on ${changedAt.toLocaleDateString()}`;
 };
 
 const InventoryManagerPage: React.FC = () => {
@@ -494,11 +538,51 @@ const InventoryManagerPage: React.FC = () => {
                   <p className={`text-sm ${card.is_low ? 'font-semibold text-red-600' : 'text-gray-700'}`}>
                     {card.qty_pcs.toLocaleString()} pcs
                   </p>
-                  {card.unit_price !== null && (
-                    <p className="text-sm text-gray-800 mt-1">
-                      {currencyFormatter.format(card.unit_price)} per dozen
-                    </p>
-                  )}
+                  <div className="mt-2 space-y-2">
+                    {[
+                      {
+                        key: 'dozen',
+                        label: 'Per dozen',
+                        price: card.price_per_dozen,
+                        changedAt: card.price_dozen_changed_at,
+                      },
+                      {
+                        key: 'tray',
+                        label: 'Per tray',
+                        price: card.price_per_tray,
+                        changedAt: card.price_tray_changed_at,
+                      },
+                    ].map((priceInfo) => {
+                      const recent = isRecentPriceChange(priceInfo.changedAt);
+                      return (
+                        <div
+                          key={priceInfo.key}
+                          className={`rounded border px-3 py-2 text-sm ${
+                            recent
+                              ? 'border-amber-300 bg-amber-50'
+                              : 'border-gray-200 bg-gray-50'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between font-medium text-gray-700">
+                            <span>{priceInfo.label}</span>
+                            <span>
+                              {priceInfo.price !== null
+                                ? currencyFormatter.format(priceInfo.price)
+                                : '—'}
+                            </span>
+                          </div>
+                          <div className="mt-1 flex items-center justify-between text-xs text-gray-500">
+                            <span>{formatPriceChangeLabel(priceInfo.changedAt)}</span>
+                            {recent && (
+                              <span className="ml-2 inline-flex items-center rounded-full bg-amber-200 px-2 py-0.5 font-semibold uppercase tracking-wide text-amber-800">
+                                Recent
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
                   {card.stock_value !== null && (
                     <p className="text-sm text-gray-600">Stock value: {currencyFormatter.format(card.stock_value)}</p>
                   )}

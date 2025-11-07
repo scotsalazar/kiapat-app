@@ -30,6 +30,102 @@ interface InvoiceItemForm {
 
 const units = ['TRAY', 'DOZEN', 'PCS'];
 
+const TRAY_SIZE = 30;
+const DOZEN_SIZE = 12;
+const RECENT_PRICE_WINDOW_MS = 1000 * 60 * 60 * 48;
+
+const isRecentPriceChange = (timestamp?: string | null) => {
+  if (!timestamp) return false;
+  const changedAt = new Date(timestamp).getTime();
+  if (Number.isNaN(changedAt)) return false;
+  return Date.now() - changedAt <= RECENT_PRICE_WINDOW_MS;
+};
+
+const formatPriceChangeLabel = (timestamp?: string | null) => {
+  if (!timestamp) {
+    return 'Change date unavailable';
+  }
+  const changedAt = new Date(timestamp);
+  if (Number.isNaN(changedAt.getTime())) {
+    return 'Change date unavailable';
+  }
+  const diffMs = Date.now() - changedAt.getTime();
+  if (diffMs < 0) {
+    return `Effective on ${changedAt.toLocaleDateString()}`;
+  }
+  const diffSeconds = Math.round(diffMs / 1000);
+  if (diffSeconds < 60) {
+    return 'Updated just now';
+  }
+  const diffMinutes = Math.round(diffSeconds / 60);
+  if (diffMinutes < 60) {
+    return `Updated ${diffMinutes} minute${diffMinutes === 1 ? '' : 's'} ago`;
+  }
+  const diffHours = Math.round(diffMinutes / 60);
+  if (diffHours < 24) {
+    return `Updated ${diffHours} hour${diffHours === 1 ? '' : 's'} ago`;
+  }
+  const diffDays = Math.round(diffHours / 24);
+  if (diffDays < 7) {
+    return `Updated ${diffDays} day${diffDays === 1 ? '' : 's'} ago`;
+  }
+  return `Updated on ${changedAt.toLocaleDateString()}`;
+};
+
+type PriceMap = Record<string, Price>;
+
+const getDerivedUnitPrice = (priceMap: PriceMap, unit: string): number | undefined => {
+  const direct = priceMap[unit];
+  if (direct) {
+    return direct.price_per_unit;
+  }
+  const dozen = priceMap['DOZEN'];
+  const tray = priceMap['TRAY'];
+  if (unit === 'TRAY' && dozen) {
+    return dozen.price_per_unit * (TRAY_SIZE / DOZEN_SIZE);
+  }
+  if (unit === 'DOZEN' && tray) {
+    return tray.price_per_unit / (TRAY_SIZE / DOZEN_SIZE);
+  }
+  if (unit === 'PCS') {
+    if (dozen) {
+      return dozen.price_per_unit / DOZEN_SIZE;
+    }
+    if (tray) {
+      return tray.price_per_unit / TRAY_SIZE;
+    }
+  }
+  return undefined;
+};
+
+const getChangeTimestamp = (priceMap: PriceMap, unit: string): string | undefined => {
+  const direct = priceMap[unit]?.effective_from;
+  if (direct) {
+    return direct;
+  }
+  if (unit === 'TRAY') {
+    return priceMap['DOZEN']?.effective_from;
+  }
+  if (unit === 'DOZEN') {
+    return priceMap['TRAY']?.effective_from;
+  }
+  return priceMap['DOZEN']?.effective_from ?? priceMap['TRAY']?.effective_from;
+};
+
+const getLatestChangeTimestamp = (priceMap: PriceMap): string | undefined => {
+  const timestamps = ['TRAY', 'DOZEN']
+    .map((unit) => getChangeTimestamp(priceMap, unit))
+    .filter((ts): ts is string => Boolean(ts));
+  if (!timestamps.length) {
+    return undefined;
+  }
+  return timestamps
+    .map((ts) => new Date(ts))
+    .filter((date) => !Number.isNaN(date.getTime()))
+    .sort((a, b) => b.getTime() - a.getTime())[0]
+    .toISOString();
+};
+
 interface InvoiceOverride {
   id: number;
   classification_id: number;
@@ -66,12 +162,88 @@ const DriverInvoicePage: React.FC = () => {
 
   const authHeader = useMemo(() => (token ? { Authorization: `Bearer ${token}` } : {}), [token]);
   const { showToast } = useToast();
+  const currencyFormatter = useMemo(
+    () => new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }),
+    [],
+  );
 
   const classificationMap = useMemo(() => {
     const map = new Map<number, Classification>();
     classifications.forEach((cls) => map.set(cls.id, cls));
     return map;
   }, [classifications]);
+
+  const priceLookup = useMemo(() => {
+    const map = new Map<number, PriceMap>();
+    prices.forEach((price) => {
+      if (!map.has(price.classification_id)) {
+        map.set(price.classification_id, {});
+      }
+      map.get(price.classification_id)![price.unit] = price;
+    });
+    return map;
+  }, [prices]);
+
+  const getUnitPriceForClassification = useCallback(
+    (classificationId: number, unitName: string): number | undefined => {
+      const priceMap = priceLookup.get(classificationId);
+      if (!priceMap) return undefined;
+      return getDerivedUnitPrice(priceMap, unitName);
+    },
+    [priceLookup],
+  );
+
+  const formatUnitOptionLabel = useCallback(
+    (priceMap: PriceMap | undefined, unitName: string) => {
+      const baseLabel = `${unitName.charAt(0)}${unitName.slice(1).toLowerCase()}`;
+      if (!priceMap) {
+        return baseLabel;
+      }
+      const price = getDerivedUnitPrice(priceMap, unitName);
+      if (price == null) {
+        return `${baseLabel} (N/A)`;
+      }
+      if (unitName === 'TRAY') {
+        const perDozen = getDerivedUnitPrice(priceMap, 'DOZEN');
+        if (perDozen != null) {
+          return `${baseLabel} (${currencyFormatter.format(price)} | ${currencyFormatter.format(perDozen)}/dozen)`;
+        }
+      }
+      if (unitName === 'DOZEN') {
+        const perTray = getDerivedUnitPrice(priceMap, 'TRAY');
+        if (perTray != null) {
+          return `${baseLabel} (${currencyFormatter.format(price)} | ${currencyFormatter.format(perTray)}/tray)`;
+        }
+      }
+      if (unitName === 'PCS') {
+        return `${baseLabel} (${currencyFormatter.format(price)} each)`;
+      }
+      return `${baseLabel} (${currencyFormatter.format(price)})`;
+    },
+    [currencyFormatter],
+  );
+
+  const buildSelectTooltip = useCallback(
+    (priceMap: PriceMap | undefined) => {
+      if (!priceMap) return undefined;
+      const trayPrice = getDerivedUnitPrice(priceMap, 'TRAY');
+      const dozenPrice = getDerivedUnitPrice(priceMap, 'DOZEN');
+      if (trayPrice == null && dozenPrice == null) {
+        return undefined;
+      }
+      const lines: string[] = [];
+      if (trayPrice != null) {
+        const change = getChangeTimestamp(priceMap, 'TRAY');
+        lines.push(`Tray: ${currencyFormatter.format(trayPrice)} (${formatPriceChangeLabel(change)})`);
+      }
+      if (dozenPrice != null) {
+        const change = getChangeTimestamp(priceMap, 'DOZEN');
+        lines.push(`Dozen: ${currencyFormatter.format(dozenPrice)} (${formatPriceChangeLabel(change)})`);
+      }
+      return lines.join('\n');
+    },
+    [currencyFormatter],
+  );
 
   const priceStreamInitialData = useMemo<DriverInventoryStreamState>(
     () => ({ prices: initialPrices }),
@@ -170,14 +342,21 @@ const DriverInvoicePage: React.FC = () => {
     const clsId = newItems[index].classification_id;
     const unit = newItems[index].unit;
     const qty = newItems[index].qty;
-    if (clsId && unit) {
-      const price = prices.find(
-        (p) => p.classification_id === clsId && p.unit === unit,
-      );
-      if (price) {
-        newItems[index].unit_price = price.price_per_unit;
-        newItems[index].line_total = price.price_per_unit * qty;
+    if (clsId && unit && Number.isFinite(qty)) {
+      const priceValue =
+        typeof clsId === 'number'
+          ? getUnitPriceForClassification(clsId, unit)
+          : undefined;
+      if (priceValue != null) {
+        newItems[index].unit_price = priceValue;
+        newItems[index].line_total = priceValue * qty;
+      } else {
+        delete newItems[index].unit_price;
+        delete newItems[index].line_total;
       }
+    } else {
+      delete newItems[index].unit_price;
+      delete newItems[index].line_total;
     }
     setItems(newItems);
   };
@@ -336,56 +515,110 @@ const DriverInvoicePage: React.FC = () => {
               </tr>
             </thead>
             <tbody>
-              {items.map((item, idx) => (
-                <tr key={item.id} className="bg-white"> 
-                  <td className="px-2 py-1">
-                    <select
-                      className="border rounded px-2 py-1"
-                      value={item.classification_id}
-                      onChange={(e) => updateItem(idx, { classification_id: Number(e.target.value) })}
-                      required
-                    >
-                      <option value="" disabled>
-                        Select
-                      </option>
-                      {classifications.map((c) => (
-                        <option key={c.id} value={c.id}>
-                          {c.size} / {c.color}
+              {items.map((item, idx) => {
+                const classificationId =
+                  typeof item.classification_id === 'number'
+                    ? item.classification_id
+                    : null;
+                const priceMap = classificationId
+                  ? priceLookup.get(classificationId)
+                  : undefined;
+                const selectTooltip = buildSelectTooltip(priceMap);
+                const trayPrice = priceMap
+                  ? getDerivedUnitPrice(priceMap, 'TRAY')
+                  : undefined;
+                const dozenPrice = priceMap
+                  ? getDerivedUnitPrice(priceMap, 'DOZEN')
+                  : undefined;
+                const latestChange = priceMap
+                  ? getLatestChangeTimestamp(priceMap)
+                  : undefined;
+                const recentPriceChange = priceMap
+                  ? isRecentPriceChange(getChangeTimestamp(priceMap, 'TRAY')) ||
+                    isRecentPriceChange(getChangeTimestamp(priceMap, 'DOZEN'))
+                  : false;
+                return (
+                  <tr key={item.id} className="bg-white">
+                    <td className="px-2 py-1 align-top">
+                      <select
+                        className="border rounded px-2 py-1"
+                        value={item.classification_id}
+                        onChange={(e) =>
+                          updateItem(idx, { classification_id: Number(e.target.value) })
+                        }
+                        required
+                      >
+                        <option value="" disabled>
+                          Select
                         </option>
-                      ))}
-                    </select>
-                  </td>
-                  <td className="px-2 py-1">
-                    <input
-                      type="number"
-                      min={1}
-                      className="border rounded px-2 py-1 w-20"
-                      value={item.qty}
-                      onChange={(e) => updateItem(idx, { qty: parseInt(e.target.value, 10) })}
-                      required
-                    />
-                  </td>
-                  <td className="px-2 py-1">
-                    <select
-                      className="border rounded px-2 py-1"
-                      value={item.unit}
-                      onChange={(e) => updateItem(idx, { unit: e.target.value })}
-                    >
-                      {units.map((u) => (
-                        <option key={u} value={u}>
-                          {u.charAt(0)}{u.slice(1).toLowerCase()}
-                        </option>
-                      ))}
-                    </select>
-                  </td>
-                  <td className="px-2 py-1 text-right">
-                    {item.unit_price ? `₱${item.unit_price.toFixed(2)}` : '-'}
-                  </td>
-                    <td className="px-2 py-1 text-right">
-                      {item.line_total ? `₱${item.line_total.toFixed(2)}` : '-'}
+                        {classifications.map((c) => (
+                          <option key={c.id} value={c.id}>
+                            {c.size} / {c.color}
+                          </option>
+                        ))}
+                      </select>
                     </td>
-                </tr>
-              ))}
+                    <td className="px-2 py-1 align-top">
+                      <input
+                        type="number"
+                        min={1}
+                        className="border rounded px-2 py-1 w-20"
+                        value={item.qty}
+                        onChange={(e) =>
+                          updateItem(idx, { qty: parseInt(e.target.value, 10) })
+                        }
+                        required
+                      />
+                    </td>
+                    <td className="px-2 py-1 align-top">
+                      <select
+                        className="border rounded px-2 py-1"
+                        value={item.unit}
+                        onChange={(e) => updateItem(idx, { unit: e.target.value })}
+                        title={selectTooltip}
+                      >
+                        {units.map((u) => (
+                          <option key={u} value={u}>
+                            {formatUnitOptionLabel(priceMap, u)}
+                          </option>
+                        ))}
+                      </select>
+                      {priceMap && (
+                        <div className="mt-1 text-xs text-gray-500 leading-4">
+                          <div>
+                            Tray:{' '}
+                            {trayPrice != null
+                              ? currencyFormatter.format(trayPrice)
+                              : 'N/A'}{' '}
+                            • Dozen:{' '}
+                            {dozenPrice != null
+                              ? currencyFormatter.format(dozenPrice)
+                              : 'N/A'}
+                          </div>
+                          <div className="mt-0.5 flex items-center gap-2">
+                            <span>{formatPriceChangeLabel(latestChange)}</span>
+                            {recentPriceChange && (
+                              <span className="inline-flex items-center rounded-full bg-amber-200 px-2 py-0.5 font-semibold uppercase tracking-wide text-amber-800">
+                                Recent
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </td>
+                    <td className="px-2 py-1 text-right align-top">
+                      {item.unit_price != null
+                        ? currencyFormatter.format(item.unit_price)
+                        : '-'}
+                    </td>
+                    <td className="px-2 py-1 text-right align-top">
+                      {item.line_total != null
+                        ? currencyFormatter.format(item.line_total)
+                        : '-'}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
           <button
@@ -397,7 +630,9 @@ const DriverInvoicePage: React.FC = () => {
           </button>
         </div>
         {/* Total */}
-        <div className="text-right text-lg font-semibold">Total: ₱{total.toFixed(2)}</div>
+        <div className="text-right text-lg font-semibold">
+          Total: {currencyFormatter.format(total)}
+        </div>
         {/* Signature */}
         <div>
           <h2 className="text-xl font-semibold mb-1">Signature</h2>

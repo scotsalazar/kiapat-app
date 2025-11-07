@@ -154,6 +154,10 @@ class InventoryCard(BaseModel):
     qty_dozen: float
     qty_pcs: int
     unit_price: Optional[float]
+    price_per_tray: Optional[float] = None
+    price_tray_changed_at: Optional[datetime] = None
+    price_per_dozen: Optional[float] = None
+    price_dozen_changed_at: Optional[datetime] = None
     stock_value: Optional[float]
     threshold_pcs: Optional[int]
     is_low: bool

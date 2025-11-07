@@ -358,11 +358,14 @@ def get_inventory_summary(db: Session) -> schemas.InventorySummary:
         qty_tray = utils.from_pcs(qty_pcs, models.UnitEnum.TRAY)
         qty_dozen = utils.from_pcs(qty_pcs, models.UnitEnum.DOZEN)
         # default price per dozen
-        price = utils.get_current_price(db, c.id, models.UnitEnum.DOZEN)
-        unit_price = price.price_per_unit if price else None
+        price_dozen = utils.get_current_price(db, c.id, models.UnitEnum.DOZEN)
+        price_tray = utils.get_current_price(db, c.id, models.UnitEnum.TRAY)
+        price_per_dozen = price_dozen.price_per_unit if price_dozen else None
+        price_per_tray = price_tray.price_per_unit if price_tray else None
+        unit_price = price_per_dozen
         stock_value = None
-        if unit_price is not None:
-            stock_value = qty_dozen * unit_price
+        if price_per_dozen is not None:
+            stock_value = qty_dozen * price_per_dozen
             total_stock_value += stock_value
             has_stock_value = True
         total_qty_pcs += qty_pcs
@@ -376,6 +379,10 @@ def get_inventory_summary(db: Session) -> schemas.InventorySummary:
                 qty_dozen=qty_dozen,
                 qty_pcs=qty_pcs,
                 unit_price=unit_price,
+                price_per_tray=price_per_tray,
+                price_tray_changed_at=price_tray.effective_from if price_tray else None,
+                price_per_dozen=price_per_dozen,
+                price_dozen_changed_at=price_dozen.effective_from if price_dozen else None,
                 stock_value=stock_value,
                 threshold_pcs=threshold_pcs,
                 is_low=threshold_pcs is not None and qty_pcs <= threshold_pcs,
