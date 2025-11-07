@@ -11,7 +11,33 @@ import InvoicePreviewModal from '../components/InvoicePreviewModal';
 import type { Classification, InvoiceItemForm, Price } from '../types/invoice';
 import { formatDateTime } from '../utils/dateTime';
 
-const units = ['TRAY', 'DOZEN', 'PCS'];
+const units = ['TRAY', 'DOZEN', 'PCS'] as const;
+type UnitOption = (typeof units)[number];
+
+const unitVisuals: Record<UnitOption, { src: string; alt: string }> = {
+  TRAY: {
+    src: '/tray.svg',
+    alt: 'Tray of eggs unit icon',
+  },
+  DOZEN: {
+    src: '/dozen.svg',
+    alt: 'Dozen of eggs unit icon',
+  },
+  PCS: {
+    src: '/piece.svg',
+    alt: 'Single egg unit icon',
+  },
+};
+
+const normalizeUnit = (value: string | undefined | null): UnitOption | null => {
+  if (!value) {
+    return null;
+  }
+  const upperValue = value.toUpperCase();
+  return units.includes(upperValue as UnitOption)
+    ? (upperValue as UnitOption)
+    : null;
+};
 const PRICE_RECENT_CHANGE_WINDOW_MS = 1000 * 60 * 60 * 48; // 48 hours
 
 type PriceLookupEntry = {
@@ -555,6 +581,10 @@ const DriverInvoicePage: React.FC = () => {
                 const latestPriceChangeLabel = latestPriceChange
                   ? formatDateTime(latestPriceChange)
                   : '';
+                const normalizedUnit = normalizeUnit(item.unit);
+                const unitVisual = normalizedUnit
+                  ? unitVisuals[normalizedUnit]
+                  : unitVisuals.PCS;
 
                 return (
                   <tr key={item.id} className="align-top text-slate-900 dark:text-slate-100">
@@ -598,61 +628,68 @@ const DriverInvoicePage: React.FC = () => {
                       />
                     </td>
                     <td className="px-2 py-2 align-top">
-                      <div className="flex flex-col gap-1 text-sm">
-                        <select
-                          className="rounded border border-slate-300 px-2 py-1 text-slate-900 transition-colors focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
-                          value={item.unit}
-                          onChange={(e) => updateItem(item.id, { unit: e.target.value })}
-                          title={unitSelectTitle}
-                          aria-label={unitAriaLabel}
-                        >
-                          {units.map((u) => (
-                            <option key={u} value={u}>
-                              {t(
-                                u === 'TRAY'
-                                  ? 'common.labels.tray'
-                                  : u === 'DOZEN'
-                                  ? 'common.labels.dozen'
-                                  : 'common.labels.pcs',
-                              )}
-                            </option>
-                          ))}
-                        </select>
-                        {!classificationId && (
-                          <div className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
-                            {t('driverInvoice.form.unitTooltipWithoutClassification')}
-                          </div>
-                        )}
-                        {classificationId && priceEntry && (
-                          <div className="mt-1 space-y-1 text-[11px] leading-tight text-slate-500 dark:text-slate-400">
-                            <div className="flex items-center justify-between gap-2">
-                              <span>{t('common.labels.tray')}</span>
-                              <span className="font-medium text-slate-700 dark:text-slate-200">
-                                {formatCurrencyValue(trayPrice)}
-                              </span>
+                      <div className="flex items-start gap-3">
+                        <img
+                          src={unitVisual.src}
+                          alt={unitVisual.alt}
+                          className="h-10 w-10 flex-shrink-0 rounded-md bg-slate-100 p-1 shadow-sm object-contain dark:bg-slate-800 sm:h-12 sm:w-12"
+                        />
+                        <div className="flex flex-1 flex-col gap-1 text-sm">
+                          <select
+                            className="rounded border border-slate-300 px-2 py-1 text-slate-900 transition-colors focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
+                            value={item.unit}
+                            onChange={(e) => updateItem(item.id, { unit: e.target.value })}
+                            title={unitSelectTitle}
+                            aria-label={unitAriaLabel}
+                          >
+                            {units.map((u) => (
+                              <option key={u} value={u}>
+                                {t(
+                                  u === 'TRAY'
+                                    ? 'common.labels.tray'
+                                    : u === 'DOZEN'
+                                    ? 'common.labels.dozen'
+                                    : 'common.labels.pcs',
+                                )}
+                              </option>
+                            ))}
+                          </select>
+                          {!classificationId && (
+                            <div className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
+                              {t('driverInvoice.form.unitTooltipWithoutClassification')}
                             </div>
-                            <div className="flex items-center justify-between gap-2">
-                              <span>{t('common.labels.dozen')}</span>
-                              <span className="font-medium text-slate-700 dark:text-slate-200">
-                                {formatCurrencyValue(dozenPrice)}
-                              </span>
-                            </div>
-                            {latestPriceChange && (
-                              <div className={isRecentPriceChange ? 'text-blue-600 dark:text-blue-300' : 'text-slate-400 dark:text-slate-500'}>
-                                {latestPriceChangeLabel
-                                  ? t('inventory.pricing.updated', {
-                                      value: latestPriceChangeLabel,
-                                    })
-                                  : null}
+                          )}
+                          {classificationId && priceEntry && (
+                            <div className="mt-1 space-y-1 text-[11px] leading-tight text-slate-500 dark:text-slate-400">
+                              <div className="flex items-center justify-between gap-2">
+                                <span>{t('common.labels.tray')}</span>
+                                <span className="font-medium text-slate-700 dark:text-slate-200">
+                                  {formatCurrencyValue(trayPrice)}
+                                </span>
                               </div>
-                            )}
-                          </div>
-                        )}
-                        {classificationId && !priceEntry && (
-                          <div className="mt-1 text-[11px] text-red-600 dark:text-red-400">
-                            {t('driverInvoice.form.pricingUnavailable')}
-                          </div>
-                        )}
+                              <div className="flex items-center justify-between gap-2">
+                                <span>{t('common.labels.dozen')}</span>
+                                <span className="font-medium text-slate-700 dark:text-slate-200">
+                                  {formatCurrencyValue(dozenPrice)}
+                                </span>
+                              </div>
+                              {latestPriceChange && (
+                                <div className={isRecentPriceChange ? 'text-blue-600 dark:text-blue-300' : 'text-slate-400 dark:text-slate-500'}>
+                                  {latestPriceChangeLabel
+                                    ? t('inventory.pricing.updated', {
+                                        value: latestPriceChangeLabel,
+                                      })
+                                    : null}
+                                </div>
+                              )}
+                            </div>
+                          )}
+                          {classificationId && !priceEntry && (
+                            <div className="mt-1 text-[11px] text-red-600 dark:text-red-400">
+                              {t('driverInvoice.form.pricingUnavailable')}
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </td>
                     <td className="px-2 py-2 text-right align-top">

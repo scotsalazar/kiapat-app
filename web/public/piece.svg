@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-labelledby="title desc">
+  <title>Single egg icon</title>
+  <desc>A single egg resting on a small base representing a piece unit.</desc>
+  <defs>
+    <linearGradient id="eggGradient" x1="0" x2="0" y1="0" y2="1">
+      <stop offset="0%" stop-color="#f8fafc" />
+      <stop offset="100%" stop-color="#e2e8f0" />
+    </linearGradient>
+  </defs>
+  <ellipse cx="64" cy="100" rx="26" ry="10" fill="#94a3b8" opacity="0.4" />
+  <path d="M64 20c-18 0-30 20-30 40s12 44 30 44 30-24 30-44-12-40-30-40z" fill="url(#eggGradient)" stroke="#cbd5f5" stroke-width="4" />
+  <path d="M48 96c4 6 12 10 16 10s12-4 16-10" fill="none" stroke="#64748b" stroke-linecap="round" stroke-width="4" />
+</svg>

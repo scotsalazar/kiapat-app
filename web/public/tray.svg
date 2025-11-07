@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-labelledby="title desc">
+  <title>Tray of eggs icon</title>
+  <desc>A side view illustration of a shallow tray holding four eggs.</desc>
+  <rect x="12" y="60" width="104" height="34" rx="8" fill="#4f46e5" />
+  <rect x="8" y="74" width="112" height="30" rx="10" fill="#312e81" />
+  <g fill="#f8fafc" stroke="#cbd5f5" stroke-width="4">
+    <ellipse cx="32" cy="62" rx="16" ry="20" />
+    <ellipse cx="56" cy="58" rx="16" ry="20" />
+    <ellipse cx="80" cy="60" rx="16" ry="20" />
+    <ellipse cx="104" cy="64" rx="16" ry="20" />
+  </g>
+</svg>
