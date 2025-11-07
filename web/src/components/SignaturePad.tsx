@@ -1,4 +1,5 @@
 import React, { useRef, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 
 interface SignaturePadProps {
   onChange?: (dataUrl: string) => void;
@@ -7,6 +8,7 @@ interface SignaturePadProps {
 const SignaturePad: React.FC<SignaturePadProps> = ({ onChange }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const drawing = useRef(false);
+  const { t } = useTranslation();
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -73,7 +75,7 @@ const SignaturePad: React.FC<SignaturePadProps> = ({ onChange }) => {
         onClick={clear}
         className="mt-2 px-2 py-1 text-sm bg-gray-200 rounded"
       >
-        Clear
+        {t('signaturePad.clear')}
       </button>
     </div>
   );

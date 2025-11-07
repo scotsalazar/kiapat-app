@@ -1,10 +1,12 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import axios from 'axios';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../hooks/useAuth';
 import { useToast } from '../components/ToastProvider';
 import { parseApiError } from '../utils/apiErrors';
 import useInventoryStream, { InventoryUpdateMessage } from '../hooks/useInventoryStream';
+import { formatDate, formatDateTime } from '../utils/dateTime';
 
 interface Classification {
   id: number;
@@ -144,6 +146,7 @@ const InventoryManagerPage: React.FC = () => {
   const { token, user } = useAuth();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
+  const { t } = useTranslation();
   const [initialSummary, setInitialSummary] =
     useState<InventorySummaryResponse | null>(null);
   const [initialMovements, setInitialMovements] = useState<Movement[]>([]);
@@ -229,8 +232,10 @@ const InventoryManagerPage: React.FC = () => {
 
   const formatCurrencyValue = useCallback(
     (value: number | null | undefined) =>
-      value !== null && value !== undefined ? currencyFormatter.format(value) : '—',
-    [currencyFormatter],
+      value !== null && value !== undefined
+        ? currencyFormatter.format(value)
+        : t('common.notAvailable'),
+    [currencyFormatter, t],
   );
 
   const recentSalesEntry = useMemo(() => {
@@ -366,42 +371,42 @@ const InventoryManagerPage: React.FC = () => {
     switch (streamStatus) {
       case 'open':
         return {
-          label: 'Connected',
+          label: t('common.status.connected'),
           dotClass: 'bg-green-500',
           textClass: 'text-green-600',
         };
       case 'reconnecting':
         return {
-          label: 'Reconnecting…',
+          label: t('common.status.reconnecting'),
           dotClass: 'bg-yellow-500',
           textClass: 'text-yellow-600',
         };
       case 'connecting':
         return {
-          label: 'Connecting…',
+          label: t('common.status.connecting'),
           dotClass: 'bg-yellow-500',
           textClass: 'text-yellow-600',
         };
       case 'error':
         return {
-          label: 'Connection error',
+          label: t('common.status.error'),
           dotClass: 'bg-red-500',
           textClass: 'text-red-600',
         };
       case 'closed':
         return {
-          label: 'Disconnected',
+          label: t('common.status.disconnected'),
           dotClass: 'bg-gray-400',
           textClass: 'text-gray-500',
         };
       default:
         return {
-          label: 'Offline',
+          label: t('common.status.offline'),
           dotClass: 'bg-gray-400',
           textClass: 'text-gray-500',
         };
     }
-  }, [streamStatus]);
+  }, [streamStatus, t]);
 
   const loadData = useCallback(async () => {
     if (!token) return;
@@ -452,10 +457,10 @@ const InventoryManagerPage: React.FC = () => {
         setDailySales([]);
       }
     } catch (err) {
-      const { message } = parseApiError(err, 'Failed to load inventory data');
+      const { message } = parseApiError(err, t('inventory.errors.load'));
       showToast(message, 'error');
     }
-  }, [authHeader, showToast, token, user?.role, sizeFilter, colorFilter, lowStockOnly]);
+  }, [authHeader, showToast, token, user?.role, sizeFilter, colorFilter, lowStockOnly, t]);
 
   useEffect(() => {
     loadData();
@@ -482,13 +487,14 @@ const InventoryManagerPage: React.FC = () => {
         { classification_id: selectedCls, qty: qty, unit },
         { headers: authHeader },
       );
-      setSuccessMessage('Draft created');
-      showToast('Inventory draft created', 'success');
+      const draftMessage = t('inventory.messages.draftCreated');
+      setSuccessMessage(draftMessage);
+      showToast(t('inventory.messages.inventoryDraftCreated'), 'success');
       setQty(0);
       setSelectedCls('');
       loadData();
     } catch (err) {
-      const { message } = parseApiError(err, 'Error creating movement');
+      const { message } = parseApiError(err, t('inventory.errors.create'));
       setFormError(message);
       showToast(message, 'error');
     }
@@ -516,10 +522,10 @@ const InventoryManagerPage: React.FC = () => {
         { thresholds: [{ classification_id: classificationId, threshold_pcs: thresholdValue }] },
         { headers: authHeader },
       );
-      showToast('Threshold updated', 'success');
+      showToast(t('inventory.messages.thresholdUpdated'), 'success');
       await loadData();
     } catch (err) {
-      const { message } = parseApiError(err, 'Failed to update threshold');
+      const { message } = parseApiError(err, t('inventory.errors.updateThreshold'));
       showToast(message, 'error');
     } finally {
       setThresholdSaving((prev) => ({ ...prev, [classificationId]: false }));
@@ -529,10 +535,10 @@ const InventoryManagerPage: React.FC = () => {
   const handleVerify = async (id: number) => {
     try {
       await axios.post('/api/inventory/in/verify', { movement_id: id }, { headers: authHeader });
-      showToast('Movement verified', 'success');
+      showToast(t('inventory.messages.movementVerified'), 'success');
       loadData();
     } catch (err) {
-      const { message } = parseApiError(err, 'Failed to verify movement');
+      const { message } = parseApiError(err, t('inventory.errors.verify'));
       showToast(message, 'error');
     }
   };
@@ -540,28 +546,28 @@ const InventoryManagerPage: React.FC = () => {
   const handleCommit = async (id: number) => {
     try {
       await axios.post('/api/inventory/in/commit', { movement_id: id }, { headers: authHeader });
-      showToast('Movement committed', 'success');
+      showToast(t('inventory.messages.movementCommitted'), 'success');
       loadData();
     } catch (err) {
-      const { message } = parseApiError(err, 'Failed to commit movement');
+      const { message } = parseApiError(err, t('inventory.errors.commit'));
       showToast(message, 'error');
     }
   };
 
   const handleApproveOverride = async (invoiceId: number) => {
     try {
-      const note = window.prompt('Optional note for approval', '');
+      const note = window.prompt(t('common.prompts.approvalNote'), '');
       await axios.post(
         `/api/sales/invoices/${invoiceId}/override/approve`,
         note ? { decision_reason: note } : {},
         { headers: authHeader },
       );
       setFormError('');
-      setSuccessMessage('Override approved');
-      showToast('Override approved', 'success');
+      setSuccessMessage(t('inventory.messages.overrideApproved'));
+      showToast(t('inventory.messages.overrideApproved'), 'success');
       loadData();
     } catch (err) {
-      const { message } = parseApiError(err, 'Failed to approve override');
+      const { message } = parseApiError(err, t('inventory.errors.approveOverride'));
       setFormError(message);
       showToast(message, 'error');
     }
@@ -569,42 +575,45 @@ const InventoryManagerPage: React.FC = () => {
 
   const handleRejectOverride = async (invoiceId: number) => {
     try {
-      const reason = window.prompt('Provide a reason for rejecting this override', '');
+      const reason = window.prompt(t('common.prompts.rejectOverride'), '');
       await axios.post(
         `/api/sales/invoices/${invoiceId}/override/reject`,
         reason ? { decision_reason: reason } : {},
         { headers: authHeader },
       );
       setFormError('');
-      setSuccessMessage('Override rejected');
-      showToast('Override rejected', 'success');
+      setSuccessMessage(t('inventory.messages.overrideRejected'));
+      showToast(t('inventory.messages.overrideRejected'), 'success');
       loadData();
     } catch (err) {
-      const { message } = parseApiError(err, 'Failed to reject override');
+      const { message } = parseApiError(err, t('inventory.errors.rejectOverride'));
       setFormError(message);
       showToast(message, 'error');
     }
   };
 
+  const lastUpdateLabel = summary ? formatDateTime(summary.timestamp) : '';
+  const recentSalesDate = recentSalesEntry ? formatDate(recentSalesEntry.date) : '';
+
   return (
     <div className="p-4 md:p-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
-          <h1 className="text-2xl font-bold">Kiapat Inventory</h1>
+          <h1 className="text-2xl font-bold">{t('inventory.title')}</h1>
           <div className="flex flex-wrap gap-2">
             <button
               type="button"
               onClick={() => navigate('/invoices/history')}
               className="rounded bg-blue-600 px-3 py-1.5 text-sm font-medium text-white shadow hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1"
             >
-              View invoice history
+              {t('common.actions.viewInvoiceHistory')}
             </button>
             <button
               type="button"
               onClick={() => navigate('/admin/users')}
               className="rounded border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1"
             >
-              Manage users
+              {t('common.actions.manageUsers')}
             </button>
           </div>
         </div>
@@ -614,9 +623,9 @@ const InventoryManagerPage: React.FC = () => {
             <span>{streamStatusMeta.label}</span>
           </div>
           <div className="text-xs text-gray-500">
-            {summary
-              ? `Last update ${new Date(summary.timestamp).toLocaleString()}`
-              : 'Awaiting inventory data'}
+            {summary && lastUpdateLabel
+              ? t('inventory.stream.lastUpdate', { value: lastUpdateLabel })
+              : t('common.messages.awaitingInventory')}
           </div>
           {streamError && (
             <div className="mt-1 text-xs text-red-600">{streamError}</div>
@@ -628,54 +637,55 @@ const InventoryManagerPage: React.FC = () => {
       {summary && (
         <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <div className="rounded-lg border border-gray-200 bg-white p-4 shadow">
-            <h2 className="text-sm font-medium text-gray-500">Total stock</h2>
+            <h2 className="text-sm font-medium text-gray-500">{t('inventory.cards.totalStock.title')}</h2>
             <p className="mt-2 text-2xl font-bold">
-              {summary.totals.qty_pcs.toLocaleString()} pcs
+              {t('inventory.filters.pieces', { value: summary.totals.qty_pcs.toLocaleString() })}
             </p>
             <p className="text-sm text-gray-500">
-              {summary.totals.qty_tray.toFixed(1)} trays • {summary.totals.qty_dozen.toFixed(1)} dozens
+              {t('inventory.filters.trays', { value: summary.totals.qty_tray.toFixed(1) })} •{' '}
+              {t('inventory.filters.dozens', { value: summary.totals.qty_dozen.toFixed(1) })}
             </p>
             <p className="mt-2 text-xs uppercase tracking-wide text-gray-500">
-              Low stock classifications: {lowStockCount}
+              {t('inventory.cards.totalStock.lowStockCount', { count: lowStockCount })}
             </p>
           </div>
           <div className="rounded-lg border border-gray-200 bg-white p-4 shadow">
-            <h2 className="text-sm font-medium text-gray-500">Stock value</h2>
+            <h2 className="text-sm font-medium text-gray-500">{t('inventory.cards.stockValue.title')}</h2>
             <p className="mt-2 text-2xl font-bold">
               {summary.totals.stock_value !== null
                 ? currencyFormatter.format(summary.totals.stock_value)
-                : '—'}
+                : t('common.notAvailable')}
             </p>
             <p className="text-sm text-gray-500">
-              Based on current per-dozen pricing. Per-tray rates are shown per classification below.
+              {t('inventory.cards.stockValue.description')}
             </p>
           </div>
           <div className="rounded-lg border border-gray-200 bg-white p-4 shadow">
-            <h2 className="text-sm font-medium text-gray-500">Recent sales</h2>
+            <h2 className="text-sm font-medium text-gray-500">{t('inventory.cards.recentSales.title')}</h2>
             {recentSalesEntry ? (
               <>
                 <p className="mt-2 text-2xl font-bold">
                   {currencyFormatter.format(recentSalesEntry.total_amount)}
                 </p>
                 <p className="text-sm text-gray-500">
-                  {new Date(recentSalesEntry.date).toLocaleDateString()} •{' '}
-                  {recentSalesEntry.eggs_sold_pcs.toLocaleString()} pcs sold •{' '}
-                  {recentSalesEntry.invoice_count} invoices
+                  {t('inventory.cards.recentSales.summary', {
+                    date: recentSalesDate || t('common.notAvailable'),
+                    pcs: recentSalesEntry.eggs_sold_pcs.toLocaleString(),
+                    count: recentSalesEntry.invoice_count,
+                  })}
                 </p>
               </>
             ) : (
-              <p className="mt-2 text-sm text-gray-500">
-                No sales recorded in the last 7 days.
-              </p>
+              <p className="mt-2 text-sm text-gray-500">{t('inventory.cards.recentSales.none')}</p>
             )}
           </div>
         </div>
       )}
       <div className="mt-6 rounded-lg border border-gray-200 bg-white p-4 shadow">
-        <div className="flex flex-wrap items-end gap-4">
-          <div className="flex flex-col">
+          <div className="flex flex-wrap items-end gap-4">
+            <div className="flex flex-col">
             <label htmlFor="size-filter" className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-              Size
+              {t('common.labels.size')}
             </label>
             <select
               id="size-filter"
@@ -683,7 +693,7 @@ const InventoryManagerPage: React.FC = () => {
               value={sizeFilter}
               onChange={(event) => setSizeFilter(event.target.value)}
             >
-              <option value="">All sizes</option>
+              <option value="">{t('inventory.filters.allSizes')}</option>
               {sizeOptions.map((option) => (
                 <option key={option} value={option}>
                   {formatFilterLabel(option)}
@@ -693,7 +703,7 @@ const InventoryManagerPage: React.FC = () => {
           </div>
           <div className="flex flex-col">
             <label htmlFor="color-filter" className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-              Color
+              {t('common.labels.color')}
             </label>
             <select
               id="color-filter"
@@ -701,7 +711,7 @@ const InventoryManagerPage: React.FC = () => {
               value={colorFilter}
               onChange={(event) => setColorFilter(event.target.value)}
             >
-              <option value="">All colors</option>
+              <option value="">{t('inventory.filters.allColors')}</option>
               {colorOptions.map((option) => (
                 <option key={option} value={option}>
                   {formatFilterLabel(option)}
@@ -711,14 +721,14 @@ const InventoryManagerPage: React.FC = () => {
           </div>
           <div className="flex flex-1 flex-col min-w-[200px]">
             <label htmlFor="inventory-search" className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-              Search
+              {t('common.labels.search')}
             </label>
             <input
               id="inventory-search"
               type="search"
               value={searchTerm}
               onChange={(event) => setSearchTerm(event.target.value)}
-              placeholder="Search by size or color"
+              placeholder={t('common.labels.searchPlaceholder')}
               className="mt-1 w-full rounded border border-gray-300 px-3 py-1.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
             />
           </div>
@@ -729,7 +739,7 @@ const InventoryManagerPage: React.FC = () => {
               checked={lowStockOnly}
               onChange={(event) => setLowStockOnly(event.target.checked)}
             />
-            Low stock only
+            {t('common.labels.lowStockOnly')}
           </label>
           <button
             type="button"
@@ -737,26 +747,35 @@ const InventoryManagerPage: React.FC = () => {
             onClick={handleClearFilters}
             disabled={!hasActiveFilters}
           >
-            Clear filters
+            {t('common.actions.clearFilters')}
           </button>
         </div>
         <div className="mt-3 text-sm text-gray-600">
           {hasActiveFilters ? (
             <span>
-              Showing {filteredCards.length} of {totalCards} classifications.
+              {t('inventory.filters.showingFiltered', {
+                count: filteredCards.length,
+                total: totalCards,
+              })}
               {filteredTotals && (
                 <>
                   {' '}
-                  Totals: {filteredTotals.qty_tray.toFixed(1)} trays • {filteredTotals.qty_dozen.toFixed(1)} dozens •{' '}
-                  {filteredTotals.qty_pcs.toLocaleString()} pcs
+                  {t('common.messages.inventoryTotalsPrefix')}{' '}
+                  {t('inventory.filters.trays', { value: filteredTotals.qty_tray.toFixed(1) })} •{' '}
+                  {t('inventory.filters.dozens', { value: filteredTotals.qty_dozen.toFixed(1) })} •{' '}
+                  {t('inventory.filters.pieces', {
+                    value: filteredTotals.qty_pcs.toLocaleString(),
+                  })}
                   {filteredTotals.stock_value !== null
-                    ? ` • ${currencyFormatter.format(filteredTotals.stock_value)}`
+                    ? ` • ${t('inventory.stockValueLabel', {
+                        value: currencyFormatter.format(filteredTotals.stock_value),
+                      })}`
                     : ''}
                 </>
               )}
             </span>
           ) : (
-            <span>Showing all {totalCards} classifications.</span>
+            <span>{t('inventory.filters.showingAll', { total: totalCards })}</span>
           )}
         </div>
       </div>
@@ -764,7 +783,7 @@ const InventoryManagerPage: React.FC = () => {
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mt-4">
         {filteredCards.length === 0 ? (
           <div className="col-span-full rounded border border-dashed border-gray-300 bg-gray-50 p-8 text-center text-sm text-gray-600">
-            No classifications match the current filters.
+            {t('inventory.filters.noMatches')}
           </div>
         ) : (
           filteredCards.map((card) => {
@@ -776,6 +795,7 @@ const InventoryManagerPage: React.FC = () => {
               Date.now() - latestPriceChange.getTime() <= RECENT_PRICE_CHANGE_WINDOW_MS;
             const shouldShowPriceDetails =
               perDozenPrice !== null || perTrayPrice !== null || latestPriceChange !== null;
+            const latestPriceChangeLabel = latestPriceChange ? formatDateTime(latestPriceChange) : '';
 
             return (
               <div
@@ -829,13 +849,13 @@ const InventoryManagerPage: React.FC = () => {
                   }`}
                 >
                   <div className="flex items-center justify-between gap-3">
-                    <span className="text-gray-600">Per tray</span>
+                    <span className="text-gray-600">{t('common.labels.perTray')}</span>
                     <span className="font-medium text-gray-800">
                       {formatCurrencyValue(perTrayPrice)}
                     </span>
                   </div>
                   <div className="flex items-center justify-between gap-3">
-                    <span className="text-gray-600">Per dozen</span>
+                    <span className="text-gray-600">{t('common.labels.perDozen')}</span>
                     <span className="font-medium text-gray-800">
                       {formatCurrencyValue(perDozenPrice)}
                     </span>
@@ -846,18 +866,27 @@ const InventoryManagerPage: React.FC = () => {
                         isRecentPriceChange ? 'text-blue-600' : 'text-gray-500'
                       }`}
                     >
-                      Updated {latestPriceChange.toLocaleString()}
+                      {latestPriceChangeLabel
+                        ? t('inventory.pricing.updated', { value: latestPriceChangeLabel })
+                        : null}
                     </div>
                   )}
                 </div>
               )}
               {card.stock_value !== null && (
                 <p className="mt-3 text-sm text-gray-600">
-                  Stock value: {currencyFormatter.format(card.stock_value)}
+                  {t('inventory.stockValueLabel', {
+                    value: currencyFormatter.format(card.stock_value),
+                  })}
                 </p>
               )}
               <p className="mt-2 text-xs uppercase tracking-wide text-gray-500">
-                Threshold: {card.threshold_pcs !== null ? `${card.threshold_pcs.toLocaleString()} pcs` : 'Not set'}
+                {t('inventory.threshold.label')}{' '}
+                {card.threshold_pcs !== null
+                  ? t('inventory.filters.pieces', {
+                      value: card.threshold_pcs.toLocaleString(),
+                    })
+                  : t('inventory.threshold.notSet')}
               </p>
               {user?.role === 'admin' && (
                 <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -865,7 +894,7 @@ const InventoryManagerPage: React.FC = () => {
                     className="text-xs font-medium uppercase tracking-wide text-gray-500"
                     htmlFor={`threshold-${card.classification_id}`}
                   >
-                    Update threshold
+                    {t('inventory.threshold.update')}
                   </label>
                   <input
                     id={`threshold-${card.classification_id}`}
@@ -881,7 +910,9 @@ const InventoryManagerPage: React.FC = () => {
                     className="rounded bg-indigo-600 px-3 py-1 text-sm font-medium text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:bg-indigo-300"
                     disabled={Boolean(thresholdSaving[card.classification_id])}
                   >
-                    {thresholdSaving[card.classification_id] ? 'Saving…' : 'Save'}
+                    {thresholdSaving[card.classification_id]
+                      ? t('common.actions.saving')
+                      : t('common.actions.save')}
                   </button>
                 </div>
               )}
@@ -892,16 +923,20 @@ const InventoryManagerPage: React.FC = () => {
       </div>
       {/* Add Inventory Form */}
       <div className="mt-6">
-        <h2 className="text-xl font-semibold mb-2">Add Inventory</h2>
+        <h2 className="text-xl font-semibold mb-2">{t('inventory.forms.addInventory')}</h2>
         <form className="flex flex-col sm:flex-row items-center gap-2" onSubmit={handleAdd}>
+          <label htmlFor="add-inventory-classification" className="sr-only">
+            {t('common.labels.classification')}
+          </label>
           <select
+            id="add-inventory-classification"
             className="border rounded px-3 py-2"
             value={selectedCls}
             onChange={(e) => setSelectedCls(Number(e.target.value))}
             required
           >
             <option value="" disabled>
-              Classification
+              {t('inventory.forms.classificationPlaceholder')}
             </option>
             {classifications.map((c) => (
               <option key={c.id} value={c.id}>
@@ -909,49 +944,71 @@ const InventoryManagerPage: React.FC = () => {
               </option>
             ))}
           </select>
+          <label htmlFor="add-inventory-quantity" className="sr-only">
+            {t('common.labels.quantity')}
+          </label>
           <input
+            id="add-inventory-quantity"
             type="number"
             className="border rounded px-3 py-2"
             min={1}
             value={qty}
             onChange={(e) => setQty(parseInt(e.target.value, 10))}
-            placeholder="Quantity"
+            placeholder={t('inventory.forms.quantityPlaceholder')}
             required
           />
+          <label htmlFor="add-inventory-unit" className="sr-only">
+            {t('common.labels.unit')}
+          </label>
           <select
+            id="add-inventory-unit"
             className="border rounded px-3 py-2"
             value={unit}
             onChange={(e) => setUnit(e.target.value)}
           >
-            <option value="TRAY">Tray</option>
-            <option value="DOZEN">Dozen</option>
-            <option value="PCS">Pcs</option>
+            <option value="TRAY">{t('common.labels.tray')}</option>
+            <option value="DOZEN">{t('common.labels.dozen')}</option>
+            <option value="PCS">{t('common.labels.pcs')}</option>
           </select>
           <button
             type="submit"
             className="bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700"
           >
-            Add Draft
+            {t('common.actions.addDraft')}
           </button>
         </form>
       </div>
       {user?.role === 'admin' && (
         <div className="mt-6">
-          <h2 className="text-xl font-semibold mb-2">Pending override approvals</h2>
+          <h2 className="text-xl font-semibold mb-2">{t('inventory.overrides.title')}</h2>
           {pendingOverrides.length === 0 ? (
-            <p className="text-sm text-gray-600">No override requests awaiting review.</p>
+            <p className="text-sm text-gray-600">{t('inventory.overrides.none')}</p>
           ) : (
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Invoice</th>
-                    <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Customer</th>
-                    <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Requested</th>
-                    <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Available</th>
-                    <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Driver</th>
-                    <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Submitted</th>
-                    <th className="px-3 py-2 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Actions</th>
+                    <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                      {t('inventory.overrides.table.invoice')}
+                    </th>
+                    <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                      {t('inventory.overrides.table.customer')}
+                    </th>
+                    <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                      {t('inventory.overrides.table.requested')}
+                    </th>
+                    <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                      {t('inventory.overrides.table.available')}
+                    </th>
+                    <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                      {t('inventory.overrides.table.driver')}
+                    </th>
+                    <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                      {t('inventory.overrides.table.submitted')}
+                    </th>
+                    <th className="px-3 py-2 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                      {t('inventory.overrides.table.actions')}
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
@@ -959,6 +1016,7 @@ const InventoryManagerPage: React.FC = () => {
                     const invoice = override.invoice;
                     const classification = override.classification;
                     const shortage = override.requested_qty_pcs - override.available_qty_pcs;
+                    const submittedAt = formatDateTime(override.created_at);
                     return (
                       <tr key={override.id}>
                         <td className="px-3 py-2 text-sm text-gray-700">
@@ -968,7 +1026,7 @@ const InventoryManagerPage: React.FC = () => {
                           )}
                         </td>
                         <td className="px-3 py-2 text-sm text-gray-700">
-                          {invoice?.customer_name || 'Walk-in'}
+                          {invoice?.customer_name || t('common.messages.walkIn')}
                           {invoice?.customer_phone && (
                             <div className="text-xs text-gray-500">{invoice.customer_phone}</div>
                           )}
@@ -984,14 +1042,16 @@ const InventoryManagerPage: React.FC = () => {
                         <td className="px-3 py-2 text-sm text-gray-700">
                           {override.available_qty_pcs} pcs
                           {shortage > 0 && (
-                            <div className="text-xs text-red-500">Short {shortage} pcs</div>
+                            <div className="text-xs text-red-500">
+                              {t('common.messages.shortage', { value: shortage })}
+                            </div>
                           )}
                         </td>
                         <td className="px-3 py-2 text-sm text-gray-700">
                           {invoice?.created_by_user?.name || invoice?.created_by_user?.username || `#${invoice?.created_by ?? ''}`}
                         </td>
                         <td className="px-3 py-2 text-sm text-gray-700">
-                          {new Date(override.created_at).toLocaleString()}
+                          {submittedAt}
                         </td>
                         <td className="px-3 py-2 text-sm text-right space-x-2">
                           <button
@@ -999,14 +1059,14 @@ const InventoryManagerPage: React.FC = () => {
                             onClick={() => handleApproveOverride(override.invoice_id)}
                             className="px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700"
                           >
-                            Approve
+                            {t('common.actions.approve')}
                           </button>
                           <button
                             type="button"
                             onClick={() => handleRejectOverride(override.invoice_id)}
                             className="px-3 py-1 bg-red-600 text-white rounded hover:bg-red-700"
                           >
-                            Reject
+                            {t('common.actions.reject')}
                           </button>
                         </td>
                       </tr>
@@ -1020,43 +1080,51 @@ const InventoryManagerPage: React.FC = () => {
       )}
       {/* Movements List */}
       <div className="mt-6">
-        <h2 className="text-xl font-semibold mb-2">Recent Movements</h2>
+        <h2 className="text-xl font-semibold mb-2">{t('inventory.movements.title')}</h2>
         <ul className="space-y-2">
-          {movements.map((m) => (
-            <li
-              key={m.id}
-              className="bg-white p-3 rounded shadow flex flex-col sm:flex-row sm:items-center sm:justify-between"
-            >
-              <div>
-                <p className="font-semibold">
-                  {m.type} {m.qty_entered} {m.unit_entered} (cls #{m.classification_id})
-                </p>
-                <p className="text-sm text-gray-600">
-                  Status: {m.status} • {new Date(m.created_at).toLocaleString()}
-                </p>
-              </div>
-              {user?.role === 'admin' && m.type === 'IN' && (
-                <div className="flex gap-2 mt-2 sm:mt-0">
-                  {m.status === 'DRAFT' && (
-                    <button
-                      onClick={() => handleVerify(m.id)}
-                      className="px-2 py-1 bg-yellow-500 text-white rounded"
-                    >
-                      Verify
-                    </button>
-                  )}
-                  {m.status === 'VERIFIED' && (
-                    <button
-                      onClick={() => handleCommit(m.id)}
-                      className="px-2 py-1 bg-green-600 text-white rounded"
-                    >
-                      Commit
-                    </button>
-                  )}
+          {movements.map((m) => {
+            const createdLabel = formatDateTime(m.created_at) || t('common.notAvailable');
+            return (
+              <li
+                key={m.id}
+                className="bg-white p-3 rounded shadow flex flex-col sm:flex-row sm:items-center sm:justify-between"
+              >
+                <div>
+                  <p className="font-semibold">
+                    {t('inventory.movements.entry', {
+                      type: m.type,
+                      qty: m.qty_entered,
+                      unit: m.unit_entered,
+                      classification: m.classification_id,
+                    })}
+                  </p>
+                  <p className="text-sm text-gray-600">
+                    {t('inventory.movements.status', { status: m.status, created: createdLabel })}
+                  </p>
                 </div>
-              )}
-            </li>
-          ))}
+                {user?.role === 'admin' && m.type === 'IN' && (
+                  <div className="flex gap-2 mt-2 sm:mt-0">
+                    {m.status === 'DRAFT' && (
+                      <button
+                        onClick={() => handleVerify(m.id)}
+                        className="px-2 py-1 bg-yellow-500 text-white rounded"
+                      >
+                        {t('common.actions.verify')}
+                      </button>
+                    )}
+                    {m.status === 'VERIFIED' && (
+                      <button
+                        onClick={() => handleCommit(m.id)}
+                        className="px-2 py-1 bg-green-600 text-white rounded"
+                      >
+                        {t('common.actions.commit')}
+                      </button>
+                    )}
+                  </div>
+                )}
+              </li>
+            );
+          })}
         </ul>
       </div>
     </div>
