@@ -335,7 +335,14 @@ def delete_price(db: Session, price_id: int) -> None:
     db.commit()
 
 
-def get_inventory_summary(db: Session) -> schemas.InventorySummary:
+def get_inventory_summary(
+    db: Session,
+    *,
+    size: Optional[models.SizeEnum] = None,
+    color: Optional[models.ColorEnum] = None,
+    search: Optional[str] = None,
+    low_stock_only: bool = False,
+) -> schemas.InventorySummary:
     """
     Compute the current inventory summary.  This sums the current
     inventory balances and returns quantities in trays, dozens and
@@ -345,6 +352,11 @@ def get_inventory_summary(db: Session) -> schemas.InventorySummary:
     timestamp = datetime.utcnow()
     cards: List[schemas.InventoryCard] = []
     classifications = list_classifications(db)
+    if size is not None:
+        classifications = [c for c in classifications if c.size == size]
+    if color is not None:
+        classifications = [c for c in classifications if c.color == color]
+    normalized_search = search.strip().lower() if search else None
     thresholds = {
         threshold.classification_id: threshold.threshold_pcs
         for threshold in db.query(models.InventoryThreshold).all()
@@ -363,24 +375,30 @@ def get_inventory_summary(db: Session) -> schemas.InventorySummary:
         stock_value = None
         if unit_price is not None:
             stock_value = qty_dozen * unit_price
+        threshold_pcs = thresholds.get(c.id)
+        card = schemas.InventoryCard(
+            classification_id=c.id,
+            size=c.size,
+            color=c.color,
+            qty_tray=qty_tray,
+            qty_dozen=qty_dozen,
+            qty_pcs=qty_pcs,
+            unit_price=unit_price,
+            stock_value=stock_value,
+            threshold_pcs=threshold_pcs,
+            is_low=threshold_pcs is not None and qty_pcs <= threshold_pcs,
+        )
+        if normalized_search is not None:
+            haystack = f"{card.size} {card.color}".lower()
+            if normalized_search not in haystack:
+                continue
+        if low_stock_only and not card.is_low:
+            continue
+        if stock_value is not None:
             total_stock_value += stock_value
             has_stock_value = True
         total_qty_pcs += qty_pcs
-        threshold_pcs = thresholds.get(c.id)
-        cards.append(
-            schemas.InventoryCard(
-                classification_id=c.id,
-                size=c.size,
-                color=c.color,
-                qty_tray=qty_tray,
-                qty_dozen=qty_dozen,
-                qty_pcs=qty_pcs,
-                unit_price=unit_price,
-                stock_value=stock_value,
-                threshold_pcs=threshold_pcs,
-                is_low=threshold_pcs is not None and qty_pcs <= threshold_pcs,
-            )
-        )
+        cards.append(card)
     totals = schemas.InventoryTotals(
         qty_tray=utils.from_pcs(total_qty_pcs, models.UnitEnum.TRAY),
         qty_dozen=utils.from_pcs(total_qty_pcs, models.UnitEnum.DOZEN),

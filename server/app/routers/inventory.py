@@ -19,10 +19,21 @@ router = APIRouter(prefix="/api/inventory", tags=["inventory"])
 
 @router.get("/summary", response_model=schemas.InventorySummary)
 def inventory_summary(
-    db: Session = Depends(get_db), current_user: models.User = Depends(auth.get_current_active_user)
+    size: Optional[models.SizeEnum] = Query(None),
+    color: Optional[models.ColorEnum] = Query(None),
+    low_stock: bool = Query(False, description="Return only low stock classifications when true."),
+    q: Optional[str] = Query(None, description="Search term matching size or colour."),
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(auth.get_current_active_user),
 ):
     """Return the current inventory balances per classification."""
-    return crud.get_inventory_summary(db)
+    return crud.get_inventory_summary(
+        db,
+        size=size,
+        color=color,
+        search=q,
+        low_stock_only=low_stock,
+    )
 
 
 @router.get("/thresholds", response_model=list[schemas.InventoryThresholdOut])

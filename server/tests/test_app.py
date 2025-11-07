@@ -211,6 +211,62 @@ def test_inventory_threshold_configuration(client):
     assert card["is_low"] is False
 
 
+def test_inventory_summary_filters(client):
+    seed_db(client)
+    admin_token = login(client, "admin", "admin123")
+
+    resp = client.get(
+        "/api/catalog/classifications",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert resp.status_code == 200
+    classifications = resp.json()
+    assert classifications
+    target_cls = classifications[0]
+
+    resp = client.put(
+        "/api/inventory/thresholds",
+        json={
+            "thresholds": [
+                {
+                    "classification_id": target_cls["id"],
+                    "threshold_pcs": 50,
+                }
+            ]
+        },
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert resp.status_code == 200
+
+    resp = client.get(
+        "/api/inventory/summary",
+        params={"size": target_cls["size"]},
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert resp.status_code == 200
+    summary = resp.json()
+    assert all(card["size"] == target_cls["size"] for card in summary["cards"])
+
+    resp = client.get(
+        "/api/inventory/summary",
+        params={"color": target_cls["color"], "q": target_cls["color"].lower()},
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert resp.status_code == 200
+    summary = resp.json()
+    assert all(card["color"] == target_cls["color"] for card in summary["cards"])
+
+    resp = client.get(
+        "/api/inventory/summary",
+        params={"low_stock": True},
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert resp.status_code == 200
+    summary = resp.json()
+    assert all(card["is_low"] for card in summary["cards"])
+    assert any(card["classification_id"] == target_cls["id"] for card in summary["cards"])
+
+
 def test_invoice_override_flow(client):
     seed_db(client)
     admin_token = login(client, "admin", "admin123")

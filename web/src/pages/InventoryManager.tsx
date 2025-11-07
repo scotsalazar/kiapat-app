@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import axios from 'axios';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { useToast } from '../components/ToastProvider';
 import { parseApiError } from '../utils/apiErrors';
@@ -109,9 +109,17 @@ type InventoryStreamState = {
   movements: Movement[];
 };
 
+type InventoryFilters = {
+  size: string;
+  color: string;
+  lowStockOnly: boolean;
+  search: string;
+};
+
 const InventoryManagerPage: React.FC = () => {
   const { token, user } = useAuth();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [initialSummary, setInitialSummary] =
     useState<InventorySummaryResponse | null>(null);
   const [initialMovements, setInitialMovements] = useState<Movement[]>([]);
@@ -125,6 +133,12 @@ const InventoryManagerPage: React.FC = () => {
   const [dailySales, setDailySales] = useState<DailySalesSummary[]>([]);
   const [thresholdEdits, setThresholdEdits] = useState<Record<number, number | ''>>({});
   const [thresholdSaving, setThresholdSaving] = useState<Record<number, boolean>>({});
+  const [filters, setFilters] = useState<InventoryFilters>(() => ({
+    size: searchParams.get('size') ?? '',
+    color: searchParams.get('color') ?? '',
+    lowStockOnly: searchParams.get('low_stock') === 'true',
+    search: searchParams.get('q') ?? '',
+  }));
 
   const authHeader = useMemo(() => (token ? { Authorization: `Bearer ${token}` } : {}), [token]);
   const { showToast } = useToast();
@@ -145,6 +159,23 @@ const InventoryManagerPage: React.FC = () => {
     }),
     [initialSummary, initialMovements],
   );
+
+  useEffect(() => {
+    const params = new URLSearchParams();
+    if (filters.size) {
+      params.set('size', filters.size);
+    }
+    if (filters.color) {
+      params.set('color', filters.color);
+    }
+    if (filters.lowStockOnly) {
+      params.set('low_stock', 'true');
+    }
+    if (filters.search.trim()) {
+      params.set('q', filters.search.trim());
+    }
+    setSearchParams(params, { replace: true });
+  }, [filters, setSearchParams]);
 
   const mergeInventoryUpdate = useCallback(
     (
@@ -178,10 +209,107 @@ const InventoryManagerPage: React.FC = () => {
   const summary = inventoryData.summary;
   const movements = inventoryData.movements ?? [];
 
+  const filteredSummary = useMemo<InventorySummaryResponse | null>(() => {
+    if (!summary) return null;
+    const trimmedSearch = filters.search.trim().toLowerCase();
+    const filteredCards = summary.cards.filter((card) => {
+      if (filters.size && card.size !== filters.size) {
+        return false;
+      }
+      if (filters.color && card.color !== filters.color) {
+        return false;
+      }
+      if (filters.lowStockOnly && !card.is_low) {
+        return false;
+      }
+      if (trimmedSearch) {
+        const haystack = `${card.size} ${card.color}`.toLowerCase();
+        if (!haystack.includes(trimmedSearch)) {
+          return false;
+        }
+      }
+      return true;
+    });
+
+    const totals = filteredCards.reduce<{
+      qty_tray: number;
+      qty_dozen: number;
+      qty_pcs: number;
+      stock_value: number;
+      hasStockValue: boolean;
+    }>((acc, card) => {
+      acc.qty_tray += card.qty_tray;
+      acc.qty_dozen += card.qty_dozen;
+      acc.qty_pcs += card.qty_pcs;
+      if (card.stock_value !== null) {
+        acc.stock_value += card.stock_value;
+        acc.hasStockValue = true;
+      }
+      return acc;
+    }, {
+      qty_tray: 0,
+      qty_dozen: 0,
+      qty_pcs: 0,
+      stock_value: 0,
+      hasStockValue: false,
+    });
+
+    return {
+      ...summary,
+      cards: filteredCards,
+      totals: {
+        qty_tray: totals.qty_tray,
+        qty_dozen: totals.qty_dozen,
+        qty_pcs: totals.qty_pcs,
+        stock_value: totals.hasStockValue ? totals.stock_value : null,
+      },
+    };
+  }, [filters, summary]);
+
   const lowStockCount = useMemo(
-    () => summary?.cards.filter((card) => card.is_low).length ?? 0,
-    [summary],
+    () => filteredSummary?.cards.filter((card) => card.is_low).length ?? 0,
+    [filteredSummary],
   );
+
+  const sizeOptions = useMemo(() => {
+    const unique = new Set<string>();
+    classifications.forEach((classification) => {
+      unique.add(classification.size);
+    });
+    return Array.from(unique).sort();
+  }, [classifications]);
+
+  const colorOptions = useMemo(() => {
+    const unique = new Set<string>();
+    classifications.forEach((classification) => {
+      unique.add(classification.color);
+    });
+    return Array.from(unique).sort();
+  }, [classifications]);
+
+  const filtersActive = useMemo(
+    () =>
+      Boolean(
+        filters.size || filters.color || filters.lowStockOnly || filters.search.trim(),
+      ),
+    [filters],
+  );
+
+  const handleFilterChange = useCallback(
+    <K extends keyof InventoryFilters>(key: K, value: InventoryFilters[K]) => {
+      setFilters((prev) => {
+        if (prev[key] === value) {
+          return prev;
+        }
+        return { ...prev, [key]: value };
+      });
+    },
+    [],
+  );
+
+  const handleClearFilters = useCallback(() => {
+    setFilters({ size: '', color: '', lowStockOnly: false, search: '' });
+  }, []);
 
   const streamStatusMeta = useMemo(() => {
     switch (streamStatus) {
@@ -227,8 +355,25 @@ const InventoryManagerPage: React.FC = () => {
   const loadData = useCallback(async () => {
     if (!token) return;
     try {
+      const summaryParams: Record<string, string> = {};
+      if (filters.size) {
+        summaryParams.size = filters.size;
+      }
+      if (filters.color) {
+        summaryParams.color = filters.color;
+      }
+      if (filters.lowStockOnly) {
+        summaryParams.low_stock = 'true';
+      }
+      const trimmedSearch = filters.search.trim();
+      if (trimmedSearch) {
+        summaryParams.q = trimmedSearch;
+      }
       const [summaryRes, movementsRes, clsRes] = await Promise.all([
-        axios.get<InventorySummaryResponse>('/api/inventory/summary', { headers: authHeader }),
+        axios.get<InventorySummaryResponse>('/api/inventory/summary', {
+          headers: authHeader,
+          params: summaryParams,
+        }),
         axios.get<Movement[]>('/api/inventory/movements?limit=20', { headers: authHeader }),
         axios.get<Classification[]>('/api/catalog/classifications', { headers: authHeader }),
       ]);
@@ -263,7 +408,7 @@ const InventoryManagerPage: React.FC = () => {
       const { message } = parseApiError(err, 'Failed to load inventory data');
       showToast(message, 'error');
     }
-  }, [authHeader, showToast, token, user?.role]);
+  }, [authHeader, filters, showToast, token, user?.role]);
 
   useEffect(() => {
     loadData();
@@ -433,15 +578,15 @@ const InventoryManagerPage: React.FC = () => {
       </div>
       {successMessage && <p className="text-green-600 mt-2">{successMessage}</p>}
       {formError && <p className="text-red-600 mt-2">{formError}</p>}
-      {summary && (
+      {filteredSummary && (
         <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <div className="rounded-lg border border-gray-200 bg-white p-4 shadow">
             <h2 className="text-sm font-medium text-gray-500">Total stock</h2>
             <p className="mt-2 text-2xl font-bold">
-              {summary.totals.qty_pcs.toLocaleString()} pcs
+              {filteredSummary.totals.qty_pcs.toLocaleString()} pcs
             </p>
             <p className="text-sm text-gray-500">
-              {summary.totals.qty_tray.toFixed(1)} trays • {summary.totals.qty_dozen.toFixed(1)} dozens
+              {filteredSummary.totals.qty_tray.toFixed(1)} trays • {filteredSummary.totals.qty_dozen.toFixed(1)} dozens
             </p>
             <p className="mt-2 text-xs uppercase tracking-wide text-gray-500">
               Low stock classifications: {lowStockCount}
@@ -450,8 +595,8 @@ const InventoryManagerPage: React.FC = () => {
           <div className="rounded-lg border border-gray-200 bg-white p-4 shadow">
             <h2 className="text-sm font-medium text-gray-500">Stock value</h2>
             <p className="mt-2 text-2xl font-bold">
-              {summary.totals.stock_value !== null
-                ? currencyFormatter.format(summary.totals.stock_value)
+              {filteredSummary.totals.stock_value !== null
+                ? currencyFormatter.format(filteredSummary.totals.stock_value)
                 : '—'}
             </p>
             <p className="text-sm text-gray-500">Based on current price per dozen.</p>
@@ -477,9 +622,91 @@ const InventoryManagerPage: React.FC = () => {
           </div>
         </div>
       )}
+      <div className="mt-6 rounded-lg border border-gray-200 bg-white p-4 shadow">
+        <div className="flex flex-col gap-4 md:flex-row md:flex-wrap md:items-end">
+          <div className="flex flex-col">
+            <label
+              className="text-xs font-semibold uppercase tracking-wide text-gray-500"
+              htmlFor="inventory-filter-search"
+            >
+              Search
+            </label>
+            <input
+              id="inventory-filter-search"
+              type="search"
+              value={filters.search}
+              onChange={(e) => handleFilterChange('search', e.target.value)}
+              placeholder="Search by size or color"
+              className="mt-1 w-64 rounded border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+            />
+          </div>
+          <div className="flex flex-col">
+            <label
+              className="text-xs font-semibold uppercase tracking-wide text-gray-500"
+              htmlFor="inventory-filter-size"
+            >
+              Size
+            </label>
+            <select
+              id="inventory-filter-size"
+              value={filters.size}
+              onChange={(e) => handleFilterChange('size', e.target.value)}
+              className="mt-1 w-40 rounded border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+            >
+              <option value="">All sizes</option>
+              {sizeOptions.map((size) => (
+                <option key={size} value={size}>
+                  {size.charAt(0)}
+                  {size.slice(1).toLowerCase()}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="flex flex-col">
+            <label
+              className="text-xs font-semibold uppercase tracking-wide text-gray-500"
+              htmlFor="inventory-filter-color"
+            >
+              Color
+            </label>
+            <select
+              id="inventory-filter-color"
+              value={filters.color}
+              onChange={(e) => handleFilterChange('color', e.target.value)}
+              className="mt-1 w-40 rounded border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+            >
+              <option value="">All colors</option>
+              {colorOptions.map((color) => (
+                <option key={color} value={color}>
+                  {color.charAt(0)}
+                  {color.slice(1).toLowerCase()}
+                </option>
+              ))}
+            </select>
+          </div>
+          <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
+            <input
+              type="checkbox"
+              className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+              checked={filters.lowStockOnly}
+              onChange={(e) => handleFilterChange('lowStockOnly', e.target.checked)}
+            />
+            Low stock only
+          </label>
+          {filtersActive && (
+            <button
+              type="button"
+              onClick={handleClearFilters}
+              className="text-sm font-medium text-indigo-600 hover:text-indigo-700"
+            >
+              Clear filters
+            </button>
+          )}
+        </div>
+      </div>
       {/* Inventory Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mt-4">
-        {summary?.cards.map((card) => (
+        {filteredSummary?.cards.map((card) => (
           <div
             key={card.classification_id}
             className={`rounded border p-4 shadow transition ${
@@ -554,6 +781,11 @@ const InventoryManagerPage: React.FC = () => {
           </div>
         ))}
       </div>
+      {filteredSummary && filteredSummary.cards.length === 0 && (
+        <p className="mt-4 text-sm text-gray-600">
+          No inventory matches the selected filters.
+        </p>
+      )}
       {/* Add Inventory Form */}
       <div className="mt-6">
         <h2 className="text-xl font-semibold mb-2">Add Inventory</h2>
