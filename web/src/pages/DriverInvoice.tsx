@@ -150,37 +150,37 @@ const DriverInvoicePage: React.FC = () => {
         return {
           label: t('common.status.connected'),
           dotClass: 'bg-green-500',
-          textClass: 'text-green-600',
+          textClass: 'text-green-600 dark:text-green-400',
         };
       case 'reconnecting':
         return {
           label: t('common.status.reconnecting'),
           dotClass: 'bg-yellow-500',
-          textClass: 'text-yellow-600',
+          textClass: 'text-yellow-600 dark:text-yellow-400',
         };
       case 'connecting':
         return {
           label: t('common.status.connecting'),
           dotClass: 'bg-yellow-500',
-          textClass: 'text-yellow-600',
+          textClass: 'text-yellow-600 dark:text-yellow-400',
         };
       case 'error':
         return {
           label: t('common.status.error'),
           dotClass: 'bg-red-500',
-          textClass: 'text-red-600',
+          textClass: 'text-red-600 dark:text-red-400',
         };
       case 'closed':
         return {
           label: t('common.status.disconnected'),
           dotClass: 'bg-gray-400',
-          textClass: 'text-gray-500',
+          textClass: 'text-gray-500 dark:text-slate-400',
         };
       default:
         return {
           label: t('common.status.offline'),
           dotClass: 'bg-gray-400',
-          textClass: 'text-gray-500',
+          textClass: 'text-gray-500 dark:text-slate-400',
         };
     }
   }, [streamStatus, t]);
@@ -382,25 +382,25 @@ const DriverInvoicePage: React.FC = () => {
   }, [classificationMap, items, prices, signatureDataUrl, t]);
 
   return (
-    <div className="p-4 md:p-6">
-      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+    <div className="space-y-6">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
-          <h1 className="text-2xl font-bold">{t('driverInvoice.title')}</h1>
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">{t('driverInvoice.title')}</h1>
           <button
             type="button"
             onClick={() => navigate('/invoices/history')}
-            className="rounded bg-blue-600 px-3 py-1.5 text-sm font-medium text-white shadow hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1"
+            className="rounded bg-blue-600 px-3 py-1.5 text-sm font-medium text-white shadow transition hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 focus:ring-offset-slate-100 dark:focus:ring-offset-slate-900"
           >
             {t('common.actions.viewInvoiceHistory')}
           </button>
         </div>
         <div className="flex flex-col items-start text-sm sm:items-end">
-          <div className={`flex items-center gap-2 ${streamStatusMeta.textClass}`}>
+          <div className={`flex items-center gap-2 ${streamStatusMeta.textClass} dark:text-slate-300`}>
             <span className={`h-2 w-2 rounded-full ${streamStatusMeta.dotClass}`} />
-            <span>{streamStatusMeta.label}</span>
+            <span className="text-slate-700 dark:text-slate-300">{streamStatusMeta.label}</span>
           </div>
           {streamError && (
-            <div className="mt-1 text-xs text-red-600">{streamError}</div>
+            <div className="mt-1 text-xs text-red-600 dark:text-red-400">{streamError}</div>
           )}
         </div>
       </div>
@@ -408,10 +408,10 @@ const DriverInvoicePage: React.FC = () => {
         <p
           className={`mb-2 ${
             messageTone === 'error'
-              ? 'text-red-600'
+              ? 'text-red-600 dark:text-red-400'
               : messageTone === 'warning'
-              ? 'text-yellow-700'
-              : 'text-green-600'
+              ? 'text-yellow-700 dark:text-yellow-400'
+              : 'text-green-600 dark:text-green-400'
           }`}
         >
           {message}
@@ -421,10 +421,10 @@ const DriverInvoicePage: React.FC = () => {
         <div
           className={`border p-2 rounded mb-4 ${
             invoiceStatus === 'PENDING_OVERRIDE'
-              ? 'bg-yellow-50 border-yellow-400 text-yellow-800'
+              ? 'border-yellow-400 bg-yellow-50 text-yellow-800 dark:border-yellow-500 dark:bg-yellow-900/40 dark:text-yellow-200'
               : invoiceStatus === 'REJECTED'
-              ? 'bg-red-50 border-red-400 text-red-700'
-              : 'bg-green-50 border-green-400 text-green-700'
+              ? 'border-red-400 bg-red-50 text-red-700 dark:border-red-500 dark:bg-red-900/40 dark:text-red-200'
+              : 'border-green-400 bg-green-50 text-green-700 dark:border-green-500 dark:bg-green-900/40 dark:text-green-200'
           }`}
         >
           Invoice #{invoiceId}{' '}
@@ -436,9 +436,9 @@ const DriverInvoicePage: React.FC = () => {
         </div>
       )}
       {overrides.length > 0 && (
-        <div className="mb-4 border border-yellow-300 bg-yellow-50 text-yellow-900 rounded p-3">
-          <h2 className="font-semibold mb-2">{t('driverInvoice.overrides.title')}</h2>
-          <ul className="list-disc pl-5 space-y-1 text-sm">
+        <div className="rounded border border-yellow-300 bg-yellow-50 p-3 text-yellow-900 transition-colors dark:border-yellow-500 dark:bg-yellow-900/30 dark:text-yellow-100">
+          <h2 className="mb-2 font-semibold text-slate-900 dark:text-yellow-100">{t('driverInvoice.overrides.title')}</h2>
+          <ul className="space-y-1 list-disc pl-5 text-sm">
             {overrides.map((override) => {
               const cls = classificationMap.get(override.classification_id);
               const shortage = override.requested_qty_pcs - override.available_qty_pcs;
@@ -467,57 +467,57 @@ const DriverInvoicePage: React.FC = () => {
         </div>
       )}
       <form onSubmit={handleSubmit} className="space-y-4">
-        <div className="flex flex-col md:flex-row gap-4">
-          <label className="flex flex-col text-sm flex-1">
-            <span className="font-medium text-gray-700">{t('common.labels.customerName')}</span>
+        <div className="flex flex-col gap-4 md:flex-row">
+          <label className="flex flex-1 flex-col text-sm">
+            <span className="font-medium text-slate-700 dark:text-slate-200">{t('common.labels.customerName')}</span>
             <input
               id="invoice-customer-name"
               type="text"
               placeholder={t('driverInvoice.form.customerNamePlaceholder')}
               value={customerName}
               onChange={(e) => setCustomerName(e.target.value)}
-              className="border rounded px-3 py-2"
+              className="rounded border border-slate-300 px-3 py-2 text-slate-900 transition-colors focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
             />
           </label>
-          <label className="flex flex-col text-sm flex-1">
-            <span className="font-medium text-gray-700">{t('common.labels.customerPhone')}</span>
+          <label className="flex flex-1 flex-col text-sm">
+            <span className="font-medium text-slate-700 dark:text-slate-200">{t('common.labels.customerPhone')}</span>
             <input
               id="invoice-customer-phone"
               type="text"
               placeholder={t('driverInvoice.form.customerPhonePlaceholder')}
               value={customerPhone}
               onChange={(e) => setCustomerPhone(e.target.value)}
-              className="border rounded px-3 py-2"
+              className="rounded border border-slate-300 px-3 py-2 text-slate-900 transition-colors focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
             />
           </label>
         </div>
         {/* Line Items */}
         <div>
-          <h2 className="text-xl font-semibold mb-2">{t('driverInvoice.form.itemsTitle')}</h2>
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead>
+          <h2 className="mb-2 text-xl font-semibold text-slate-900 dark:text-slate-100">{t('driverInvoice.form.itemsTitle')}</h2>
+          <table className="min-w-full divide-y divide-slate-200 overflow-hidden rounded-lg border border-slate-200 text-sm dark:divide-slate-700 dark:border-slate-700">
+            <thead className="bg-slate-100 text-slate-600 dark:bg-slate-900 dark:text-slate-300">
               <tr>
-                <th className="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-2 py-2 text-left text-xs font-semibold uppercase tracking-wider">
                   {t('driverInvoice.form.classificationHeader')}
                 </th>
-                <th className="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-2 py-2 text-left text-xs font-semibold uppercase tracking-wider">
                   {t('driverInvoice.form.quantityHeader')}
                 </th>
-                <th className="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-2 py-2 text-left text-xs font-semibold uppercase tracking-wider">
                   {t('driverInvoice.form.unitHeader')}
                 </th>
-                <th className="px-2 py-1 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-2 py-2 text-right text-xs font-semibold uppercase tracking-wider">
                   {t('driverInvoice.form.priceHeader')}
                 </th>
-                <th className="px-2 py-1 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-2 py-2 text-right text-xs font-semibold uppercase tracking-wider">
                   {t('driverInvoice.form.totalHeader')}
                 </th>
-                <th className="px-2 py-1 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-2 py-2 text-right text-xs font-semibold uppercase tracking-wider">
                   {t('driverInvoice.form.actionsHeader')}
                 </th>
               </tr>
             </thead>
-            <tbody>
+            <tbody className="divide-y divide-slate-200 bg-white dark:divide-slate-700 dark:bg-slate-900">
               {items.map((item, index) => {
                 const classificationId =
                   typeof item.classification_id === 'number' ? item.classification_id : null;
@@ -546,7 +546,6 @@ const DriverInvoicePage: React.FC = () => {
                 const lineItemLabel = t('driverInvoice.aria.classification', {
                   index: index + 1,
                 });
-
                 const quantityAriaLabel = t('driverInvoice.aria.quantity', {
                   index: index + 1,
                 });
@@ -558,10 +557,10 @@ const DriverInvoicePage: React.FC = () => {
                   : '';
 
                 return (
-                  <tr key={item.id} className="bg-white align-top">
-                    <td className="px-2 py-1 align-top">
+                  <tr key={item.id} className="align-top text-slate-900 dark:text-slate-100">
+                    <td className="px-2 py-2 align-top">
                       <select
-                        className="border rounded px-2 py-1"
+                        className="w-full rounded border border-slate-300 px-2 py-1 text-sm text-slate-900 transition-colors focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
                         value={item.classification_id || ''}
                         onChange={(e) =>
                           updateItem(item.id, {
@@ -583,11 +582,11 @@ const DriverInvoicePage: React.FC = () => {
                         ))}
                       </select>
                     </td>
-                    <td className="px-2 py-1 align-top">
+                    <td className="px-2 py-2 align-top">
                       <input
                         type="number"
                         min={1}
-                        className="border rounded px-2 py-1 w-20"
+                        className="w-20 rounded border border-slate-300 px-2 py-1 text-sm text-slate-900 transition-colors focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
                         value={item.qty}
                         onChange={(e) =>
                           updateItem(item.id, {
@@ -598,10 +597,10 @@ const DriverInvoicePage: React.FC = () => {
                         aria-label={quantityAriaLabel}
                       />
                     </td>
-                    <td className="px-2 py-1 align-top">
-                      <div className="flex flex-col">
+                    <td className="px-2 py-2 align-top">
+                      <div className="flex flex-col gap-1 text-sm">
                         <select
-                          className="border rounded px-2 py-1"
+                          className="rounded border border-slate-300 px-2 py-1 text-slate-900 transition-colors focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
                           value={item.unit}
                           onChange={(e) => updateItem(item.id, { unit: e.target.value })}
                           title={unitSelectTitle}
@@ -620,30 +619,26 @@ const DriverInvoicePage: React.FC = () => {
                           ))}
                         </select>
                         {!classificationId && (
-                          <div className="mt-1 text-[11px] text-gray-400">
+                          <div className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
                             {t('driverInvoice.form.unitTooltipWithoutClassification')}
                           </div>
                         )}
                         {classificationId && priceEntry && (
-                          <div className="mt-1 space-y-1 text-[11px] leading-tight text-gray-500">
+                          <div className="mt-1 space-y-1 text-[11px] leading-tight text-slate-500 dark:text-slate-400">
                             <div className="flex items-center justify-between gap-2">
                               <span>{t('common.labels.tray')}</span>
-                              <span className="font-medium text-gray-700">
+                              <span className="font-medium text-slate-700 dark:text-slate-200">
                                 {formatCurrencyValue(trayPrice)}
                               </span>
                             </div>
                             <div className="flex items-center justify-between gap-2">
                               <span>{t('common.labels.dozen')}</span>
-                              <span className="font-medium text-gray-700">
+                              <span className="font-medium text-slate-700 dark:text-slate-200">
                                 {formatCurrencyValue(dozenPrice)}
                               </span>
                             </div>
                             {latestPriceChange && (
-                              <div
-                                className={
-                                  isRecentPriceChange ? 'text-blue-600' : 'text-gray-400'
-                                }
-                              >
+                              <div className={isRecentPriceChange ? 'text-blue-600 dark:text-blue-300' : 'text-slate-400 dark:text-slate-500'}>
                                 {latestPriceChangeLabel
                                   ? t('inventory.pricing.updated', {
                                       value: latestPriceChangeLabel,
@@ -654,23 +649,27 @@ const DriverInvoicePage: React.FC = () => {
                           </div>
                         )}
                         {classificationId && !priceEntry && (
-                          <div className="mt-1 text-[11px] text-red-600">
+                          <div className="mt-1 text-[11px] text-red-600 dark:text-red-400">
                             {t('driverInvoice.form.pricingUnavailable')}
                           </div>
                         )}
                       </div>
                     </td>
-                    <td className="px-2 py-1 text-right align-top">
-                      {formatCurrencyValue(item.unit_price)}
+                    <td className="px-2 py-2 text-right align-top">
+                      <span className="font-medium text-slate-900 dark:text-slate-100">
+                        {formatCurrencyValue(item.unit_price)}
+                      </span>
                     </td>
-                    <td className="px-2 py-1 text-right align-top">
-                      {formatCurrencyValue(item.line_total)}
+                    <td className="px-2 py-2 text-right align-top">
+                      <span className="font-semibold text-slate-900 dark:text-slate-100">
+                        {formatCurrencyValue(item.line_total)}
+                      </span>
                     </td>
-                    <td className="px-2 py-1 text-right align-top">
+                    <td className="px-2 py-2 text-right align-top">
                       <button
                         type="button"
                         onClick={() => removeItem(item.id)}
-                        className="text-xs text-red-600 hover:underline"
+                        className="text-xs font-medium text-red-600 transition hover:text-red-500 dark:text-red-400 dark:hover:text-red-300"
                       >
                         {t('common.actions.remove')}
                       </button>
@@ -683,23 +682,23 @@ const DriverInvoicePage: React.FC = () => {
           <button
             type="button"
             onClick={addItem}
-            className="mt-2 px-3 py-1 bg-indigo-600 text-white rounded"
+            className="mt-2 rounded bg-indigo-600 px-3 py-1 text-sm font-medium text-white transition hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:ring-offset-slate-100 dark:focus:ring-offset-slate-900"
           >
             {t('common.actions.addItem')}
           </button>
         </div>
         {/* Total */}
-        <div className="text-right text-lg font-semibold">
+        <div className="text-right text-lg font-semibold text-slate-900 dark:text-slate-100">
           {t('driverInvoice.form.totalLabel')} {formatCurrencyValue(total)}
         </div>
         {/* Signature */}
         <div>
-          <h2 className="text-xl font-semibold mb-1">{t('common.labels.signature')}</h2>
+          <h2 className="mb-1 text-xl font-semibold text-slate-900 dark:text-slate-100">{t('common.labels.signature')}</h2>
           <SignaturePad onChange={setSignatureDataUrl} />
         </div>
         <button
           type="submit"
-          className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
+          className="rounded bg-green-600 px-4 py-2 text-white transition hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 focus:ring-offset-slate-100 dark:focus:ring-offset-slate-900"
         >
           {t('common.actions.previewInvoice')}
         </button>

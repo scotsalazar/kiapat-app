@@ -7,6 +7,7 @@ import InventoryManagerPage from './pages/InventoryManager';
 import AdminUsersPage from './pages/AdminUsers';
 import DriverInvoicePage from './pages/DriverInvoice';
 import InvoiceHistoryPage from './pages/InvoiceHistory';
+import AppLayout from './components/AppLayout';
 
 const RequireAuth: React.FC<{ allowedRoles?: string[]; children: JSX.Element }> = ({ allowedRoles, children }) => {
   const { user } = useAuth();
@@ -42,7 +43,9 @@ const App: React.FC = () => {
             path="/admin/users"
             element={
               <RequireAuth allowedRoles={['admin']}>
-                <AdminUsersPage />
+                <AppLayout>
+                  <AdminUsersPage />
+                </AppLayout>
               </RequireAuth>
             }
           />
@@ -50,7 +53,9 @@ const App: React.FC = () => {
             path="/inventory"
             element={
               <RequireAuth allowedRoles={['admin']}>
-                <InventoryManagerPage />
+                <AppLayout>
+                  <InventoryManagerPage />
+                </AppLayout>
               </RequireAuth>
             }
           />
@@ -58,7 +63,9 @@ const App: React.FC = () => {
             path="/invoice"
             element={
               <RequireAuth allowedRoles={['driver']}>
-                <DriverInvoicePage />
+                <AppLayout>
+                  <DriverInvoicePage />
+                </AppLayout>
               </RequireAuth>
             }
           />
@@ -66,7 +73,9 @@ const App: React.FC = () => {
             path="/invoices/history"
             element={
               <RequireAuth allowedRoles={['admin', 'driver']}>
-                <InvoiceHistoryPage />
+                <AppLayout>
+                  <InvoiceHistoryPage />
+                </AppLayout>
               </RequireAuth>
             }
           />

@@ -373,37 +373,37 @@ const InventoryManagerPage: React.FC = () => {
         return {
           label: t('common.status.connected'),
           dotClass: 'bg-green-500',
-          textClass: 'text-green-600',
+          textClass: 'text-green-600 dark:text-green-400',
         };
       case 'reconnecting':
         return {
           label: t('common.status.reconnecting'),
           dotClass: 'bg-yellow-500',
-          textClass: 'text-yellow-600',
+          textClass: 'text-yellow-600 dark:text-yellow-400',
         };
       case 'connecting':
         return {
           label: t('common.status.connecting'),
           dotClass: 'bg-yellow-500',
-          textClass: 'text-yellow-600',
+          textClass: 'text-yellow-600 dark:text-yellow-400',
         };
       case 'error':
         return {
           label: t('common.status.error'),
           dotClass: 'bg-red-500',
-          textClass: 'text-red-600',
+          textClass: 'text-red-600 dark:text-red-400',
         };
       case 'closed':
         return {
           label: t('common.status.disconnected'),
           dotClass: 'bg-gray-400',
-          textClass: 'text-gray-500',
+          textClass: 'text-gray-500 dark:text-slate-400',
         };
       default:
         return {
           label: t('common.status.offline'),
           dotClass: 'bg-gray-400',
-          textClass: 'text-gray-500',
+          textClass: 'text-gray-500 dark:text-slate-400',
         };
     }
   }, [streamStatus, t]);
@@ -596,78 +596,78 @@ const InventoryManagerPage: React.FC = () => {
   const recentSalesDate = recentSalesEntry ? formatDate(recentSalesEntry.date) : '';
 
   return (
-    <div className="p-4 md:p-6">
+    <div className="space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
-          <h1 className="text-2xl font-bold">{t('inventory.title')}</h1>
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">{t('inventory.title')}</h1>
           <div className="flex flex-wrap gap-2">
             <button
               type="button"
               onClick={() => navigate('/invoices/history')}
-              className="rounded bg-blue-600 px-3 py-1.5 text-sm font-medium text-white shadow hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1"
+              className="rounded bg-blue-600 px-3 py-1.5 text-sm font-medium text-white shadow transition hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 focus:ring-offset-slate-100 dark:focus:ring-offset-slate-900"
             >
               {t('common.actions.viewInvoiceHistory')}
             </button>
             <button
               type="button"
               onClick={() => navigate('/admin/users')}
-              className="rounded border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1"
+              className="rounded border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 transition hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 focus:ring-offset-slate-100 dark:border-slate-600 dark:text-slate-100 dark:hover:bg-slate-800/80 dark:focus:ring-offset-slate-900"
             >
               {t('common.actions.manageUsers')}
             </button>
           </div>
         </div>
         <div className="flex flex-col items-start text-sm sm:items-end">
-          <div className={`flex items-center gap-2 ${streamStatusMeta.textClass}`}>
+          <div className={`flex items-center gap-2 ${streamStatusMeta.textClass} dark:text-slate-300`}>
             <span className={`h-2 w-2 rounded-full ${streamStatusMeta.dotClass}`} />
-            <span>{streamStatusMeta.label}</span>
+            <span className="text-slate-700 dark:text-slate-300">{streamStatusMeta.label}</span>
           </div>
-          <div className="text-xs text-gray-500">
+          <div className="text-xs text-slate-500 dark:text-slate-400">
             {summary && lastUpdateLabel
               ? t('inventory.stream.lastUpdate', { value: lastUpdateLabel })
               : t('common.messages.awaitingInventory')}
           </div>
           {streamError && (
-            <div className="mt-1 text-xs text-red-600">{streamError}</div>
+            <div className="mt-1 text-xs text-red-600 dark:text-red-400">{streamError}</div>
           )}
         </div>
       </div>
-      {successMessage && <p className="text-green-600 mt-2">{successMessage}</p>}
-      {formError && <p className="text-red-600 mt-2">{formError}</p>}
+      {successMessage && <p className="mt-2 text-green-600 dark:text-green-400">{successMessage}</p>}
+      {formError && <p className="mt-2 text-red-600 dark:text-red-400">{formError}</p>}
       {summary && (
         <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          <div className="rounded-lg border border-gray-200 bg-white p-4 shadow">
-            <h2 className="text-sm font-medium text-gray-500">{t('inventory.cards.totalStock.title')}</h2>
-            <p className="mt-2 text-2xl font-bold">
+          <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm transition-colors dark:border-slate-700 dark:bg-slate-900 dark:shadow-slate-900/40">
+            <h2 className="text-sm font-medium text-slate-600 dark:text-slate-300">{t('inventory.cards.totalStock.title')}</h2>
+            <p className="mt-2 text-2xl font-bold text-slate-900 dark:text-slate-100">
               {t('inventory.filters.pieces', { value: summary.totals.qty_pcs.toLocaleString() })}
             </p>
-            <p className="text-sm text-gray-500">
+            <p className="text-sm text-slate-500 dark:text-slate-400">
               {t('inventory.filters.trays', { value: summary.totals.qty_tray.toFixed(1) })} •{' '}
               {t('inventory.filters.dozens', { value: summary.totals.qty_dozen.toFixed(1) })}
             </p>
-            <p className="mt-2 text-xs uppercase tracking-wide text-gray-500">
+            <p className="mt-2 text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">
               {t('inventory.cards.totalStock.lowStockCount', { count: lowStockCount })}
             </p>
           </div>
-          <div className="rounded-lg border border-gray-200 bg-white p-4 shadow">
-            <h2 className="text-sm font-medium text-gray-500">{t('inventory.cards.stockValue.title')}</h2>
-            <p className="mt-2 text-2xl font-bold">
+          <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm transition-colors dark:border-slate-700 dark:bg-slate-900 dark:shadow-slate-900/40">
+            <h2 className="text-sm font-medium text-slate-600 dark:text-slate-300">{t('inventory.cards.stockValue.title')}</h2>
+            <p className="mt-2 text-2xl font-bold text-slate-900 dark:text-slate-100">
               {summary.totals.stock_value !== null
                 ? currencyFormatter.format(summary.totals.stock_value)
                 : t('common.notAvailable')}
             </p>
-            <p className="text-sm text-gray-500">
+            <p className="text-sm text-slate-500 dark:text-slate-400">
               {t('inventory.cards.stockValue.description')}
             </p>
           </div>
-          <div className="rounded-lg border border-gray-200 bg-white p-4 shadow">
-            <h2 className="text-sm font-medium text-gray-500">{t('inventory.cards.recentSales.title')}</h2>
+          <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm transition-colors dark:border-slate-700 dark:bg-slate-900 dark:shadow-slate-900/40">
+            <h2 className="text-sm font-medium text-slate-600 dark:text-slate-300">{t('inventory.cards.recentSales.title')}</h2>
             {recentSalesEntry ? (
               <>
-                <p className="mt-2 text-2xl font-bold">
+                <p className="mt-2 text-2xl font-bold text-slate-900 dark:text-slate-100">
                   {currencyFormatter.format(recentSalesEntry.total_amount)}
                 </p>
-                <p className="text-sm text-gray-500">
+                <p className="text-sm text-slate-500 dark:text-slate-400">
                   {t('inventory.cards.recentSales.summary', {
                     date: recentSalesDate || t('common.notAvailable'),
                     pcs: recentSalesEntry.eggs_sold_pcs.toLocaleString(),
@@ -676,20 +676,20 @@ const InventoryManagerPage: React.FC = () => {
                 </p>
               </>
             ) : (
-              <p className="mt-2 text-sm text-gray-500">{t('inventory.cards.recentSales.none')}</p>
+              <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">{t('inventory.cards.recentSales.none')}</p>
             )}
           </div>
         </div>
       )}
-      <div className="mt-6 rounded-lg border border-gray-200 bg-white p-4 shadow">
+      <div className="mt-6 rounded-lg border border-slate-200 bg-white p-4 shadow-sm transition-colors dark:border-slate-700 dark:bg-slate-900 dark:shadow-slate-900/40">
           <div className="flex flex-wrap items-end gap-4">
             <div className="flex flex-col">
-            <label htmlFor="size-filter" className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+            <label htmlFor="size-filter" className="text-xs font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-300">
               {t('common.labels.size')}
             </label>
             <select
               id="size-filter"
-              className="mt-1 w-40 rounded border border-gray-300 px-2 py-1 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="mt-1 w-40 rounded border border-slate-300 px-2 py-1 text-sm text-slate-900 transition-colors focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
               value={sizeFilter}
               onChange={(event) => setSizeFilter(event.target.value)}
             >
@@ -701,13 +701,13 @@ const InventoryManagerPage: React.FC = () => {
               ))}
             </select>
           </div>
-          <div className="flex flex-col">
-            <label htmlFor="color-filter" className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+            <div className="flex flex-col">
+            <label htmlFor="color-filter" className="text-xs font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-300">
               {t('common.labels.color')}
             </label>
             <select
               id="color-filter"
-              className="mt-1 w-40 rounded border border-gray-300 px-2 py-1 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="mt-1 w-40 rounded border border-slate-300 px-2 py-1 text-sm text-slate-900 transition-colors focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
               value={colorFilter}
               onChange={(event) => setColorFilter(event.target.value)}
             >
@@ -719,8 +719,8 @@ const InventoryManagerPage: React.FC = () => {
               ))}
             </select>
           </div>
-          <div className="flex flex-1 flex-col min-w-[200px]">
-            <label htmlFor="inventory-search" className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+          <div className="flex min-w-[200px] flex-1 flex-col">
+            <label htmlFor="inventory-search" className="text-xs font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-300">
               {t('common.labels.search')}
             </label>
             <input
@@ -729,13 +729,13 @@ const InventoryManagerPage: React.FC = () => {
               value={searchTerm}
               onChange={(event) => setSearchTerm(event.target.value)}
               placeholder={t('common.labels.searchPlaceholder')}
-              className="mt-1 w-full rounded border border-gray-300 px-3 py-1.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="mt-1 w-full rounded border border-slate-300 px-3 py-1.5 text-sm text-slate-900 transition-colors focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
             />
           </div>
-          <label className="flex items-center gap-2 text-sm text-gray-700">
+          <label className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-200">
             <input
               type="checkbox"
-              className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+              className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 dark:border-slate-600 dark:bg-slate-800"
               checked={lowStockOnly}
               onChange={(event) => setLowStockOnly(event.target.checked)}
             />
@@ -743,14 +743,14 @@ const InventoryManagerPage: React.FC = () => {
           </label>
           <button
             type="button"
-            className="ml-auto rounded border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 transition hover:border-gray-400 hover:bg-gray-50"
+            className="ml-auto rounded border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 transition hover:border-slate-400 hover:bg-slate-100 dark:border-slate-600 dark:text-slate-100 dark:hover:border-slate-500 dark:hover:bg-slate-800/80"
             onClick={handleClearFilters}
             disabled={!hasActiveFilters}
           >
             {t('common.actions.clearFilters')}
           </button>
         </div>
-        <div className="mt-3 text-sm text-gray-600">
+        <div className="mt-3 text-sm text-slate-600 dark:text-slate-300">
           {hasActiveFilters ? (
             <span>
               {t('inventory.filters.showingFiltered', {
@@ -780,9 +780,9 @@ const InventoryManagerPage: React.FC = () => {
         </div>
       </div>
       {/* Inventory Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mt-4">
+      <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3">
         {filteredCards.length === 0 ? (
-          <div className="col-span-full rounded border border-dashed border-gray-300 bg-gray-50 p-8 text-center text-sm text-gray-600">
+          <div className="col-span-full rounded border border-dashed border-slate-300 bg-slate-100 p-8 text-center text-sm text-slate-600 dark:border-slate-600 dark:bg-slate-800/60 dark:text-slate-300">
             {t('inventory.filters.noMatches')}
           </div>
         ) : (
@@ -800,10 +800,10 @@ const InventoryManagerPage: React.FC = () => {
             return (
               <div
                 key={card.classification_id}
-                className={`relative rounded border p-4 shadow transition ${
+                className={`relative rounded border p-4 shadow-sm transition-colors ${
                   card.is_low
-                    ? 'border-red-400 bg-red-50/40 ring-1 ring-red-300'
-                    : 'border-gray-200 bg-white'
+                    ? 'border-red-400 bg-red-50/40 ring-1 ring-red-300 dark:border-red-500 dark:bg-red-900/30'
+                    : 'border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900'
                 }`}
               >
               {isRecentPriceChange && (
@@ -820,21 +820,27 @@ const InventoryManagerPage: React.FC = () => {
                   />
                   <div>
                     <div className="flex items-center gap-2">
-                      <h3 className="font-semibold">
+                      <h3 className="font-semibold text-slate-900 dark:text-slate-100">
                         {card.size.charAt(0)}
                         {card.size.slice(1).toLowerCase()} / {card.color.charAt(0)}
                         {card.color.slice(1).toLowerCase()}
                       </h3>
                       {card.is_low && (
-                        <span className="inline-flex items-center rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-700">
+                        <span className="inline-flex items-center rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-700 dark:bg-red-900 dark:text-red-200">
                           Low stock
                         </span>
                       )}
                     </div>
-                    <p className="text-sm text-gray-600">
+                    <p className="text-sm text-slate-600 dark:text-slate-300">
                       {card.qty_tray.toFixed(1)} trays • {card.qty_dozen.toFixed(1)} dozens
                     </p>
-                    <p className={`text-sm ${card.is_low ? 'font-semibold text-red-600' : 'text-gray-700'}`}>
+                    <p
+                      className={`text-sm ${
+                        card.is_low
+                          ? 'font-semibold text-red-600 dark:text-red-400'
+                          : 'text-slate-700 dark:text-slate-200'
+                      }`}
+                    >
                       {card.qty_pcs.toLocaleString()} pcs
                     </p>
                   </div>
@@ -844,26 +850,26 @@ const InventoryManagerPage: React.FC = () => {
                 <div
                   className={`mt-3 space-y-1 rounded-md border p-3 text-sm ${
                     isRecentPriceChange
-                      ? 'border-blue-200 bg-blue-50/70'
-                      : 'border-gray-200 bg-gray-50'
+                      ? 'border-blue-200 bg-blue-50/70 dark:border-blue-400/60 dark:bg-blue-900/40'
+                      : 'border-slate-200 bg-slate-100 dark:border-slate-700 dark:bg-slate-800/80'
                   }`}
                 >
                   <div className="flex items-center justify-between gap-3">
-                    <span className="text-gray-600">{t('common.labels.perTray')}</span>
-                    <span className="font-medium text-gray-800">
+                    <span className="text-slate-600 dark:text-slate-300">{t('common.labels.perTray')}</span>
+                    <span className="font-medium text-slate-800 dark:text-slate-100">
                       {formatCurrencyValue(perTrayPrice)}
                     </span>
                   </div>
                   <div className="flex items-center justify-between gap-3">
-                    <span className="text-gray-600">{t('common.labels.perDozen')}</span>
-                    <span className="font-medium text-gray-800">
+                    <span className="text-slate-600 dark:text-slate-300">{t('common.labels.perDozen')}</span>
+                    <span className="font-medium text-slate-800 dark:text-slate-100">
                       {formatCurrencyValue(perDozenPrice)}
                     </span>
                   </div>
                   {latestPriceChange && (
                     <div
                       className={`pt-1 text-xs ${
-                        isRecentPriceChange ? 'text-blue-600' : 'text-gray-500'
+                        isRecentPriceChange ? 'text-blue-600 dark:text-blue-300' : 'text-slate-500 dark:text-slate-400'
                       }`}
                     >
                       {latestPriceChangeLabel
@@ -874,13 +880,13 @@ const InventoryManagerPage: React.FC = () => {
                 </div>
               )}
               {card.stock_value !== null && (
-                <p className="mt-3 text-sm text-gray-600">
+                <p className="mt-3 text-sm text-slate-600 dark:text-slate-300">
                   {t('inventory.stockValueLabel', {
                     value: currencyFormatter.format(card.stock_value),
                   })}
                 </p>
               )}
-              <p className="mt-2 text-xs uppercase tracking-wide text-gray-500">
+              <p className="mt-2 text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">
                 {t('inventory.threshold.label')}{' '}
                 {card.threshold_pcs !== null
                   ? t('inventory.filters.pieces', {
@@ -891,7 +897,7 @@ const InventoryManagerPage: React.FC = () => {
               {user?.role === 'admin' && (
                 <div className="mt-3 flex flex-wrap items-center gap-2">
                   <label
-                    className="text-xs font-medium uppercase tracking-wide text-gray-500"
+                    className="text-xs font-medium uppercase tracking-wide text-slate-600 dark:text-slate-300"
                     htmlFor={`threshold-${card.classification_id}`}
                   >
                     {t('inventory.threshold.update')}
@@ -900,14 +906,14 @@ const InventoryManagerPage: React.FC = () => {
                     id={`threshold-${card.classification_id}`}
                     type="number"
                     min={0}
-                    className="w-24 rounded border px-2 py-1 text-sm"
+                    className="w-24 rounded border border-slate-300 px-2 py-1 text-sm text-slate-900 transition-colors focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
                     value={thresholdEdits[card.classification_id] ?? ''}
                     onChange={(e) => handleThresholdInputChange(card.classification_id, e.target.value)}
                   />
                   <button
                     type="button"
                     onClick={() => handleSaveThreshold(card.classification_id)}
-                    className="rounded bg-indigo-600 px-3 py-1 text-sm font-medium text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:bg-indigo-300"
+                    className="rounded bg-indigo-600 px-3 py-1 text-sm font-medium text-white transition hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:ring-offset-slate-100 disabled:cursor-not-allowed disabled:bg-indigo-300 dark:focus:ring-offset-slate-900"
                     disabled={Boolean(thresholdSaving[card.classification_id])}
                   >
                     {thresholdSaving[card.classification_id]
@@ -923,14 +929,14 @@ const InventoryManagerPage: React.FC = () => {
       </div>
       {/* Add Inventory Form */}
       <div className="mt-6">
-        <h2 className="text-xl font-semibold mb-2">{t('inventory.forms.addInventory')}</h2>
-        <form className="flex flex-col sm:flex-row items-center gap-2" onSubmit={handleAdd}>
+        <h2 className="mb-2 text-xl font-semibold text-slate-900 dark:text-slate-100">{t('inventory.forms.addInventory')}</h2>
+        <form className="flex flex-col items-center gap-2 sm:flex-row" onSubmit={handleAdd}>
           <label htmlFor="add-inventory-classification" className="sr-only">
             {t('common.labels.classification')}
           </label>
           <select
             id="add-inventory-classification"
-            className="border rounded px-3 py-2"
+            className="rounded border border-slate-300 px-3 py-2 text-slate-900 transition-colors focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
             value={selectedCls}
             onChange={(e) => setSelectedCls(Number(e.target.value))}
             required
@@ -950,7 +956,7 @@ const InventoryManagerPage: React.FC = () => {
           <input
             id="add-inventory-quantity"
             type="number"
-            className="border rounded px-3 py-2"
+            className="rounded border border-slate-300 px-3 py-2 text-slate-900 transition-colors focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
             min={1}
             value={qty}
             onChange={(e) => setQty(parseInt(e.target.value, 10))}
@@ -962,7 +968,7 @@ const InventoryManagerPage: React.FC = () => {
           </label>
           <select
             id="add-inventory-unit"
-            className="border rounded px-3 py-2"
+            className="rounded border border-slate-300 px-3 py-2 text-slate-900 transition-colors focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
             value={unit}
             onChange={(e) => setUnit(e.target.value)}
           >
@@ -972,7 +978,7 @@ const InventoryManagerPage: React.FC = () => {
           </select>
           <button
             type="submit"
-            className="bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700"
+            className="rounded bg-indigo-600 px-4 py-2 text-white transition hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:ring-offset-slate-100 dark:focus:ring-offset-slate-900"
           >
             {t('common.actions.addDraft')}
           </button>
@@ -980,38 +986,38 @@ const InventoryManagerPage: React.FC = () => {
       </div>
       {user?.role === 'admin' && (
         <div className="mt-6">
-          <h2 className="text-xl font-semibold mb-2">{t('inventory.overrides.title')}</h2>
+          <h2 className="mb-2 text-xl font-semibold text-slate-900 dark:text-slate-100">{t('inventory.overrides.title')}</h2>
           {pendingOverrides.length === 0 ? (
-            <p className="text-sm text-gray-600">{t('inventory.overrides.none')}</p>
+            <p className="text-sm text-slate-600 dark:text-slate-300">{t('inventory.overrides.none')}</p>
           ) : (
             <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
+              <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-700">
+                <thead className="bg-slate-100 text-slate-600 dark:bg-slate-900 dark:text-slate-300">
                   <tr>
-                    <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                    <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider">
                       {t('inventory.overrides.table.invoice')}
                     </th>
-                    <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                    <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider">
                       {t('inventory.overrides.table.customer')}
                     </th>
-                    <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                    <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider">
                       {t('inventory.overrides.table.requested')}
                     </th>
-                    <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                    <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider">
                       {t('inventory.overrides.table.available')}
                     </th>
-                    <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                    <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider">
                       {t('inventory.overrides.table.driver')}
                     </th>
-                    <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                    <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider">
                       {t('inventory.overrides.table.submitted')}
                     </th>
-                    <th className="px-3 py-2 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                    <th className="px-3 py-2 text-right text-xs font-semibold uppercase tracking-wider">
                       {t('inventory.overrides.table.actions')}
                     </th>
                   </tr>
                 </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
+                <tbody className="divide-y divide-slate-200 bg-white text-slate-800 dark:divide-slate-700 dark:bg-slate-900 dark:text-slate-100">
                   {pendingOverrides.map((override) => {
                     const invoice = override.invoice;
                     const classification = override.classification;
@@ -1019,52 +1025,52 @@ const InventoryManagerPage: React.FC = () => {
                     const submittedAt = formatDateTime(override.created_at);
                     return (
                       <tr key={override.id}>
-                        <td className="px-3 py-2 text-sm text-gray-700">
+                        <td className="px-3 py-2 text-sm">
                           #{override.invoice_id}
                           {invoice && (
-                            <div className="text-xs text-gray-500">₱{invoice.total_amount.toFixed(2)}</div>
+                            <div className="text-xs text-slate-500 dark:text-slate-400">₱{invoice.total_amount.toFixed(2)}</div>
                           )}
                         </td>
-                        <td className="px-3 py-2 text-sm text-gray-700">
+                        <td className="px-3 py-2 text-sm">
                           {invoice?.customer_name || t('common.messages.walkIn')}
                           {invoice?.customer_phone && (
-                            <div className="text-xs text-gray-500">{invoice.customer_phone}</div>
+                            <div className="text-xs text-slate-500 dark:text-slate-400">{invoice.customer_phone}</div>
                           )}
                         </td>
-                        <td className="px-3 py-2 text-sm text-gray-700">
+                        <td className="px-3 py-2 text-sm">
                           {override.requested_qty_pcs} pcs ({override.requested_unit.toLowerCase()})
                           {classification && (
-                            <div className="text-xs text-gray-500">
+                            <div className="text-xs text-slate-500 dark:text-slate-400">
                               {classification.size} / {classification.color}
                             </div>
                           )}
                         </td>
-                        <td className="px-3 py-2 text-sm text-gray-700">
+                        <td className="px-3 py-2 text-sm">
                           {override.available_qty_pcs} pcs
                           {shortage > 0 && (
-                            <div className="text-xs text-red-500">
+                            <div className="text-xs text-red-500 dark:text-red-400">
                               {t('common.messages.shortage', { value: shortage })}
                             </div>
                           )}
                         </td>
-                        <td className="px-3 py-2 text-sm text-gray-700">
+                        <td className="px-3 py-2 text-sm">
                           {invoice?.created_by_user?.name || invoice?.created_by_user?.username || `#${invoice?.created_by ?? ''}`}
                         </td>
-                        <td className="px-3 py-2 text-sm text-gray-700">
+                        <td className="px-3 py-2 text-sm">
                           {submittedAt}
                         </td>
-                        <td className="px-3 py-2 text-sm text-right space-x-2">
+                        <td className="space-x-2 px-3 py-2 text-right text-sm">
                           <button
                             type="button"
                             onClick={() => handleApproveOverride(override.invoice_id)}
-                            className="px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700"
+                            className="rounded bg-green-600 px-3 py-1 text-white transition hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 focus:ring-offset-slate-100 dark:focus:ring-offset-slate-900"
                           >
                             {t('common.actions.approve')}
                           </button>
                           <button
                             type="button"
                             onClick={() => handleRejectOverride(override.invoice_id)}
-                            className="px-3 py-1 bg-red-600 text-white rounded hover:bg-red-700"
+                            className="rounded bg-red-600 px-3 py-1 text-white transition hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 focus:ring-offset-slate-100 dark:focus:ring-offset-slate-900"
                           >
                             {t('common.actions.reject')}
                           </button>
@@ -1080,17 +1086,17 @@ const InventoryManagerPage: React.FC = () => {
       )}
       {/* Movements List */}
       <div className="mt-6">
-        <h2 className="text-xl font-semibold mb-2">{t('inventory.movements.title')}</h2>
+        <h2 className="mb-2 text-xl font-semibold text-slate-900 dark:text-slate-100">{t('inventory.movements.title')}</h2>
         <ul className="space-y-2">
           {movements.map((m) => {
             const createdLabel = formatDateTime(m.created_at) || t('common.notAvailable');
             return (
               <li
                 key={m.id}
-                className="bg-white p-3 rounded shadow flex flex-col sm:flex-row sm:items-center sm:justify-between"
+                className="flex flex-col rounded border border-slate-200 bg-white p-3 shadow-sm transition-colors sm:flex-row sm:items-center sm:justify-between dark:border-slate-700 dark:bg-slate-900 dark:shadow-slate-900/40"
               >
                 <div>
-                  <p className="font-semibold">
+                  <p className="font-semibold text-slate-900 dark:text-slate-100">
                     {t('inventory.movements.entry', {
                       type: m.type,
                       qty: m.qty_entered,
@@ -1098,16 +1104,16 @@ const InventoryManagerPage: React.FC = () => {
                       classification: m.classification_id,
                     })}
                   </p>
-                  <p className="text-sm text-gray-600">
+                  <p className="text-sm text-slate-600 dark:text-slate-300">
                     {t('inventory.movements.status', { status: m.status, created: createdLabel })}
                   </p>
                 </div>
                 {user?.role === 'admin' && m.type === 'IN' && (
-                  <div className="flex gap-2 mt-2 sm:mt-0">
+                  <div className="mt-2 flex gap-2 sm:mt-0">
                     {m.status === 'DRAFT' && (
                       <button
                         onClick={() => handleVerify(m.id)}
-                        className="px-2 py-1 bg-yellow-500 text-white rounded"
+                        className="rounded bg-yellow-500 px-2 py-1 text-white transition hover:bg-yellow-600 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:ring-offset-2 focus:ring-offset-slate-100 dark:focus:ring-offset-slate-900"
                       >
                         {t('common.actions.verify')}
                       </button>
@@ -1115,7 +1121,7 @@ const InventoryManagerPage: React.FC = () => {
                     {m.status === 'VERIFIED' && (
                       <button
                         onClick={() => handleCommit(m.id)}
-                        className="px-2 py-1 bg-green-600 text-white rounded"
+                        className="rounded bg-green-600 px-2 py-1 text-white transition hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 focus:ring-offset-slate-100 dark:focus:ring-offset-slate-900"
                       >
                         {t('common.actions.commit')}
                       </button>
