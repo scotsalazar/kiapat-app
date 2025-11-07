@@ -1,0 +1,244 @@
+{
+  "common": {
+    "status": {
+      "connected": "Nakakonekta",
+      "connecting": "Kumokonekta…",
+      "reconnecting": "Muling kumokonekta…",
+      "error": "Error sa koneksyon",
+      "disconnected": "Naputol",
+      "offline": "Offline"
+    },
+    "buttons": {
+      "inventory": "Imbentaryo",
+      "home": "Home",
+      "refresh": "I-refresh",
+      "approve": "Aprubahan",
+      "reject": "Tanggihan",
+      "verify": "Beripikahin",
+      "commit": "I-commit",
+      "previous": "Nakaraan",
+      "next": "Susunod"
+    },
+    "placeholders": {
+      "select": "Pumili",
+      "quantity": "Dami",
+      "searchNameOrPhone": "Hanapin ang pangalan o telepono",
+      "nameOrUsername": "Pangalan o username"
+    }
+  },
+  "login": {
+    "title": "Mag-sign in sa iyong account",
+    "username": "Username",
+    "password": "Password",
+    "submit": "Mag-sign in",
+    "invalidCredentials": "Maling kredensyal"
+  },
+  "driverInvoice": {
+    "title": "Gumawa ng Sales Invoice",
+    "messages": {
+      "created": "Nagawa ang invoice",
+      "pendingApproval": "Naipasa ang invoice. Naghihintay ng pag-apruba ng admin dahil mababa ang stock.",
+      "requiresAttention": "Kailangang asikasuhin ang invoice. Makipag-ugnayan sa administrator.",
+      "creationError": "May error sa paggawa ng invoice"
+    },
+    "invoiceNotice": "Invoice #{{id}} {{status}}",
+    "invoiceStatus": {
+      "created": "nagawa",
+      "pendingApproval": "naghihintay ng pag-apruba",
+      "requiresFollowUp": "kailangang sundan ng admin"
+    },
+    "overrideDetails": "Detalye ng hiniling na override",
+    "overrideItem": "{{classification}}: hiniling na {{requested}} pcs ({{unit}}), available {{available}} pcs{{shortage}}",
+    "overrideShortage": " (kulang ng {{value}} pcs)",
+    "noOverrides": "Walang override na naghihintay ng pagsusuri.",
+    "customerNameLabel": "Pangalan ng customer",
+    "customerPhoneLabel": "Telepono ng customer",
+    "items": "Mga Item",
+    "tableHeaders": {
+      "classification": "Klasipikasyon",
+      "quantity": "Dami",
+      "unit": "Yunit",
+      "price": "Presyo",
+      "total": "Kabuuan"
+    },
+    "units": {
+      "TRAY": "Tray",
+      "DOZEN": "Dosena",
+      "PCS": "Piraso"
+    },
+    "total": "Kabuuan: ₱{{amount}}",
+    "signature": "Pirma",
+    "form": {
+      "addItem": "Magdagdag ng Item",
+      "submit": "Ipasa ang Invoice"
+    }
+  },
+  "inventory": {
+    "pageTitle": "Kiapat Inventory",
+    "awaitingData": "Naghihintay ng data ng imbentaryo",
+    "lastUpdate": "Huling update {{value}}",
+    "summary": {
+      "totalStockTitle": "Kabuuang stock",
+      "totalStockMix": "{{trays}} tray • {{dozens}} dosena",
+      "lowStock": "Mga klasipikasyong mababa ang stock: {{count}}",
+      "stockValueTitle": "Halaga ng stock",
+      "stockValueBasedOn": "Batay sa kasalukuyang presyo bawat dosena.",
+      "recentSalesTitle": "Pinakahuling benta",
+      "recentSalesSummary": "{{date}} • {{pieces}} pcs naibenta • {{count}} invoice",
+      "recentSalesEmpty": "Walang benta sa nakalipas na 7 araw."
+    },
+    "cards": {
+      "stockValue": "Halaga ng stock: {{value}}",
+      "threshold": {
+        "label": "Threshold",
+        "value": "Threshold: {{value}} pcs",
+        "notSet": "Walang nakatakda",
+        "update": "Baguhin ang threshold",
+        "saving": "Sine-save…",
+        "save": "I-save"
+      }
+    },
+    "actions": {
+      "addInventoryTitle": "Magdagdag ng Imbentaryo",
+      "classificationPlaceholder": "Klasipikasyon",
+      "quantityPlaceholder": "Dami",
+      "unitTray": "Tray",
+      "unitDozen": "Dosena",
+      "unitPieces": "Piraso",
+      "addDraft": "Magdagdag ng Draft",
+      "pendingOverridesTitle": "Mga override na naghihintay ng pag-apruba",
+      "noPendingOverrides": "Walang override na naghihintay ng pagsusuri.",
+      "recentMovementsTitle": "Mga Pinakahuling Galaw",
+      "movementStatus": "Status: {{status}} • {{time}}",
+      "shortage": "Kulang ng {{value}} pcs"
+    },
+    "table": {
+      "invoice": "Invoice",
+      "customer": "Customer",
+      "requested": "Hiniling",
+      "available": "Available",
+      "driver": "Driver",
+      "submitted": "Isinumite",
+      "actions": "Mga Aksyon"
+    },
+    "prompts": {
+      "approvalNote": "Opsyonal na tala para sa pag-apruba",
+      "rejectionReason": "Magbigay ng dahilan kung bakit tinatanggihan ang override"
+    },
+    "messages": {
+      "draftCreated": "Nagawa ang draft",
+      "inventoryDraftCreated": "Nagawa ang draft ng imbentaryo",
+      "failedToLoad": "Nabigong kunin ang data ng imbentaryo",
+      "movementCreateError": "May error sa paggawa ng galaw",
+      "thresholdUpdated": "Na-update ang threshold",
+      "failedToUpdateThreshold": "Nabigong i-update ang threshold",
+      "movementVerified": "Na-verify ang galaw",
+      "failedToVerifyMovement": "Nabigong i-verify ang galaw",
+      "movementCommitted": "Na-commit ang galaw",
+      "failedToCommitMovement": "Nabigong i-commit ang galaw",
+      "overrideApproved": "Inaprubahan ang override",
+      "failedToApproveOverride": "Nabigong aprubahan ang override",
+      "overrideRejected": "Tinanggihan ang override",
+      "failedToRejectOverride": "Nabigong tanggihan ang override"
+    }
+  },
+  "adminUsers": {
+    "title": "Pangangasiwa ng User",
+    "buttons": {
+      "inventory": "Imbentaryo",
+      "home": "Home"
+    },
+    "status": {
+      "userCreated": "Matagumpay na nagawa ang user",
+      "userUpdated": "Matagumpay na na-update ang user",
+      "passwordReset": "Na-reset ang password para kay {{username}}",
+      "userDeleted": "Natanggal si {{username}}"
+    },
+    "errors": {
+      "load": "Nabigong kunin ang mga user",
+      "create": "Nabigong gumawa ng user",
+      "update": "Nabigong i-update ang user",
+      "resetPassword": "Nabigong i-reset ang password",
+      "delete": "Nabigong tanggalin ang user"
+    },
+    "prompts": {
+      "resetPassword": "Maglagay ng bagong password para kay {{username}}",
+      "deleteUser": "Tanggalin si {{username}}?"
+    },
+    "create": {
+      "title": "Gumawa ng user",
+      "name": "Pangalan",
+      "username": "Username",
+      "email": "Email",
+      "role": "Role",
+      "password": "Password",
+      "passwordHelp": "Dapat maglaman ang password ng malaking titik, maliit na titik, at numero.",
+      "submit": "Gumawa ng user"
+    },
+    "roles": {
+      "driver": "Driver",
+      "admin": "Admin"
+    },
+    "list": {
+      "title": "Mga umiiral na user",
+      "refresh": "I-refresh",
+      "loading": "Ina-load ang mga user…",
+      "columns": {
+        "name": "Pangalan",
+        "username": "Username",
+        "email": "Email",
+        "role": "Role",
+        "created": "Nagawa",
+        "actions": "Mga Aksyon"
+      },
+      "edit": "I-edit",
+      "resetPassword": "I-reset ang password",
+      "delete": "Tanggalin"
+    },
+    "edit": {
+      "title": "I-edit si {{username}}",
+      "name": "Pangalan",
+      "email": "Email",
+      "role": "Role",
+      "save": "I-save ang mga pagbabago",
+      "cancel": "Kanselahin"
+    }
+  },
+  "invoiceHistory": {
+    "title": "Kasaysayan ng Invoice",
+    "description": "Gamitin ang mga filter sa ibaba upang ayusin ang resulta base sa petsa, customer, driver, at status.",
+    "errors": {
+      "load": "Nabigong kunin ang mga invoice"
+    },
+    "filters": {
+      "startDate": "Petsa ng simula",
+      "endDate": "Petsa ng pagtatapos",
+      "customer": "Customer",
+      "driver": "Driver",
+      "status": "Status",
+      "invoiceStatus": "Status ng invoice",
+      "pageSize": "Laki ng pahina",
+      "allStatuses": "Lahat ng status",
+      "allInvoiceStatuses": "Lahat ng status ng invoice"
+    },
+    "pagination": {
+      "summary": "Ipinapakita ang pahina {{page}} ng {{pageCount}} • {{total}} kabuuang invoice{{plural}}",
+      "perPage": "{{count}} bawat pahina"
+    },
+    "table": {
+      "invoice": "Invoice #",
+      "created": "Nagawa",
+      "customer": "Customer",
+      "driver": "Driver",
+      "status": "Status",
+      "total": "Kabuuan",
+      "items": "Mga Item"
+    },
+    "states": {
+      "loading": "Ina-load ang mga invoice...",
+      "empty": "Walang nakitang invoice para sa mga piniling filter.",
+      "walkIn": "Walk-in",
+      "overrideCount": "{{count}} override{{plural}}"
+    }
+  }
+}

@@ -1,0 +1,244 @@
+{
+  "common": {
+    "status": {
+      "connected": "Connected",
+      "connecting": "Connecting…",
+      "reconnecting": "Reconnecting…",
+      "error": "Connection error",
+      "disconnected": "Disconnected",
+      "offline": "Offline"
+    },
+    "buttons": {
+      "inventory": "Inventory",
+      "home": "Home",
+      "refresh": "Refresh",
+      "approve": "Approve",
+      "reject": "Reject",
+      "verify": "Verify",
+      "commit": "Commit",
+      "previous": "Previous",
+      "next": "Next"
+    },
+    "placeholders": {
+      "select": "Select",
+      "quantity": "Quantity",
+      "searchNameOrPhone": "Search name or phone",
+      "nameOrUsername": "Name or username"
+    }
+  },
+  "login": {
+    "title": "Sign in to your account",
+    "username": "Username",
+    "password": "Password",
+    "submit": "Sign in",
+    "invalidCredentials": "Invalid credentials"
+  },
+  "driverInvoice": {
+    "title": "Generate Sales Invoice",
+    "messages": {
+      "created": "Invoice created",
+      "pendingApproval": "Invoice submitted. Awaiting admin approval due to low stock.",
+      "requiresAttention": "Invoice requires attention. Please contact an administrator.",
+      "creationError": "Error creating invoice"
+    },
+    "invoiceNotice": "Invoice #{{id}} {{status}}",
+    "invoiceStatus": {
+      "created": "created",
+      "pendingApproval": "pending approval",
+      "requiresFollowUp": "requires admin follow-up"
+    },
+    "overrideDetails": "Requested override details",
+    "overrideItem": "{{classification}}: requested {{requested}} pcs ({{unit}}), available {{available}} pcs{{shortage}}",
+    "overrideShortage": " (short {{value}} pcs)",
+    "noOverrides": "No override requests awaiting review.",
+    "customerNameLabel": "Customer name",
+    "customerPhoneLabel": "Customer phone",
+    "items": "Items",
+    "tableHeaders": {
+      "classification": "Classification",
+      "quantity": "Quantity",
+      "unit": "Unit",
+      "price": "Price",
+      "total": "Total"
+    },
+    "units": {
+      "TRAY": "Tray",
+      "DOZEN": "Dozen",
+      "PCS": "Pcs"
+    },
+    "total": "Total: ₱{{amount}}",
+    "signature": "Signature",
+    "form": {
+      "addItem": "Add Item",
+      "submit": "Submit Invoice"
+    }
+  },
+  "inventory": {
+    "pageTitle": "Kiapat Inventory",
+    "awaitingData": "Awaiting inventory data",
+    "lastUpdate": "Last update {{value}}",
+    "summary": {
+      "totalStockTitle": "Total stock",
+      "totalStockMix": "{{trays}} trays • {{dozens}} dozens",
+      "lowStock": "Low stock classifications: {{count}}",
+      "stockValueTitle": "Stock value",
+      "stockValueBasedOn": "Based on current price per dozen.",
+      "recentSalesTitle": "Recent sales",
+      "recentSalesSummary": "{{date}} • {{pieces}} pcs sold • {{count}} invoices",
+      "recentSalesEmpty": "No sales recorded in the last 7 days."
+    },
+    "cards": {
+      "stockValue": "Stock value: {{value}}",
+      "threshold": {
+        "label": "Threshold",
+        "value": "Threshold: {{value}} pcs",
+        "notSet": "Not set",
+        "update": "Update threshold",
+        "saving": "Saving…",
+        "save": "Save"
+      }
+    },
+    "actions": {
+      "addInventoryTitle": "Add Inventory",
+      "classificationPlaceholder": "Classification",
+      "quantityPlaceholder": "Quantity",
+      "unitTray": "Tray",
+      "unitDozen": "Dozen",
+      "unitPieces": "Pcs",
+      "addDraft": "Add Draft",
+      "pendingOverridesTitle": "Pending override approvals",
+      "noPendingOverrides": "No override requests awaiting review.",
+      "recentMovementsTitle": "Recent Movements",
+      "movementStatus": "Status: {{status}} • {{time}}",
+      "shortage": "Short {{value}} pcs"
+    },
+    "table": {
+      "invoice": "Invoice",
+      "customer": "Customer",
+      "requested": "Requested",
+      "available": "Available",
+      "driver": "Driver",
+      "submitted": "Submitted",
+      "actions": "Actions"
+    },
+    "prompts": {
+      "approvalNote": "Optional note for approval",
+      "rejectionReason": "Provide a reason for rejecting this override"
+    },
+    "messages": {
+      "draftCreated": "Draft created",
+      "inventoryDraftCreated": "Inventory draft created",
+      "failedToLoad": "Failed to load inventory data",
+      "movementCreateError": "Error creating movement",
+      "thresholdUpdated": "Threshold updated",
+      "failedToUpdateThreshold": "Failed to update threshold",
+      "movementVerified": "Movement verified",
+      "failedToVerifyMovement": "Failed to verify movement",
+      "movementCommitted": "Movement committed",
+      "failedToCommitMovement": "Failed to commit movement",
+      "overrideApproved": "Override approved",
+      "failedToApproveOverride": "Failed to approve override",
+      "overrideRejected": "Override rejected",
+      "failedToRejectOverride": "Failed to reject override"
+    }
+  },
+  "adminUsers": {
+    "title": "User Administration",
+    "buttons": {
+      "inventory": "Inventory",
+      "home": "Home"
+    },
+    "status": {
+      "userCreated": "User created successfully",
+      "userUpdated": "User updated successfully",
+      "passwordReset": "Password reset for {{username}}",
+      "userDeleted": "Deleted {{username}}"
+    },
+    "errors": {
+      "load": "Failed to load users",
+      "create": "Failed to create user",
+      "update": "Failed to update user",
+      "resetPassword": "Failed to reset password",
+      "delete": "Failed to delete user"
+    },
+    "prompts": {
+      "resetPassword": "Enter new password for {{username}}",
+      "deleteUser": "Delete user {{username}}?"
+    },
+    "create": {
+      "title": "Create user",
+      "name": "Name",
+      "username": "Username",
+      "email": "Email",
+      "role": "Role",
+      "password": "Password",
+      "passwordHelp": "Passwords must include upper, lower and numeric characters.",
+      "submit": "Create user"
+    },
+    "roles": {
+      "driver": "Driver",
+      "admin": "Admin"
+    },
+    "list": {
+      "title": "Existing users",
+      "refresh": "Refresh",
+      "loading": "Loading users…",
+      "columns": {
+        "name": "Name",
+        "username": "Username",
+        "email": "Email",
+        "role": "Role",
+        "created": "Created",
+        "actions": "Actions"
+      },
+      "edit": "Edit",
+      "resetPassword": "Reset password",
+      "delete": "Delete"
+    },
+    "edit": {
+      "title": "Edit {{username}}",
+      "name": "Name",
+      "email": "Email",
+      "role": "Role",
+      "save": "Save changes",
+      "cancel": "Cancel"
+    }
+  },
+  "invoiceHistory": {
+    "title": "Invoice History",
+    "description": "Use the filters below to refine invoice results by date range, customer, driver, and status.",
+    "errors": {
+      "load": "Failed to load invoices"
+    },
+    "filters": {
+      "startDate": "Start date",
+      "endDate": "End date",
+      "customer": "Customer",
+      "driver": "Driver",
+      "status": "Status",
+      "invoiceStatus": "Invoice status",
+      "pageSize": "Page size",
+      "allStatuses": "All statuses",
+      "allInvoiceStatuses": "All invoice statuses"
+    },
+    "pagination": {
+      "summary": "Showing page {{page}} of {{pageCount}} • {{total}} total invoice{{plural}}",
+      "perPage": "{{count}} per page"
+    },
+    "table": {
+      "invoice": "Invoice #",
+      "created": "Created",
+      "customer": "Customer",
+      "driver": "Driver",
+      "status": "Status",
+      "total": "Total",
+      "items": "Items"
+    },
+    "states": {
+      "loading": "Loading invoices...",
+      "empty": "No invoices found for the selected filters.",
+      "walkIn": "Walk-in",
+      "overrideCount": "{{count}} override{{plural}}"
+    }
+  }
+}

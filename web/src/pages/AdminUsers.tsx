@@ -1,9 +1,11 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../hooks/useAuth';
 import { useToast } from '../components/ToastProvider';
 import { parseApiError } from '../utils/apiErrors';
+import { formatDateTime } from '../utils/date';
 
 interface ManagedUser {
   id: number;
@@ -31,6 +33,7 @@ interface EditFormState {
 const AdminUsersPage: React.FC = () => {
   const { token, logout } = useAuth();
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const [users, setUsers] = useState<ManagedUser[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -63,7 +66,7 @@ const AdminUsersPage: React.FC = () => {
         logout();
         return;
       }
-      const { message } = parseApiError(err, 'Failed to load users');
+      const { message } = parseApiError(err, t('adminUsers.errors.load'));
       setLoadError(message);
       showToast(message, 'error');
     } finally {
@@ -93,11 +96,12 @@ const AdminUsersPage: React.FC = () => {
         { headers: authHeader },
       );
       setCreateForm({ name: '', username: '', email: '', password: '', role: 'driver' });
-      setCreateSuccess('User created successfully');
-      showToast('User created successfully', 'success');
+      const createdMessage = t('adminUsers.status.userCreated');
+      setCreateSuccess(createdMessage);
+      showToast(createdMessage, 'success');
       loadUsers();
     } catch (err) {
-      const { message } = parseApiError(err, 'Failed to create user');
+      const { message } = parseApiError(err, t('adminUsers.errors.create'));
       setCreateError(message);
       showToast(message, 'error');
     }
@@ -120,19 +124,20 @@ const AdminUsersPage: React.FC = () => {
         { name: editForm.name, email: editForm.email || null, role: editForm.role },
         { headers: authHeader },
       );
-      setStatusMessage('User updated successfully');
-      showToast('User updated successfully', 'success');
+      const updatedMessage = t('adminUsers.status.userUpdated');
+      setStatusMessage(updatedMessage);
+      showToast(updatedMessage, 'success');
       setEditingUser(null);
       loadUsers();
     } catch (err) {
-      const { message } = parseApiError(err, 'Failed to update user');
+      const { message } = parseApiError(err, t('adminUsers.errors.update'));
       setEditError(message);
       showToast(message, 'error');
     }
   };
 
   const handleResetPassword = async (user: ManagedUser) => {
-    const newPassword = window.prompt(`Enter new password for ${user.username}`);
+    const newPassword = window.prompt(t('adminUsers.prompts.resetPassword', { username: user.username }));
     if (!newPassword) return;
     setStatusMessage(null);
     try {
@@ -141,24 +146,26 @@ const AdminUsersPage: React.FC = () => {
         { new_password: newPassword },
         { headers: authHeader },
       );
-      setStatusMessage(`Password reset for ${user.username}`);
-      showToast(`Password reset for ${user.username}`, 'success');
+      const resetMessage = t('adminUsers.status.passwordReset', { username: user.username });
+      setStatusMessage(resetMessage);
+      showToast(resetMessage, 'success');
     } catch (err) {
-      const { message } = parseApiError(err, 'Failed to reset password');
+      const { message } = parseApiError(err, t('adminUsers.errors.resetPassword'));
       showToast(message, 'error');
     }
   };
 
   const handleDelete = async (user: ManagedUser) => {
-    if (!window.confirm(`Delete user ${user.username}?`)) return;
+    if (!window.confirm(t('adminUsers.prompts.deleteUser', { username: user.username }))) return;
     setStatusMessage(null);
     try {
       await axios.delete(`/api/users/${user.id}`, { headers: authHeader });
-      setStatusMessage(`Deleted ${user.username}`);
-      showToast(`Deleted ${user.username}`, 'success');
+      const deletedMessage = t('adminUsers.status.userDeleted', { username: user.username });
+      setStatusMessage(deletedMessage);
+      showToast(deletedMessage, 'success');
       loadUsers();
     } catch (err) {
-      const { message } = parseApiError(err, 'Failed to delete user');
+      const { message } = parseApiError(err, t('adminUsers.errors.delete'));
       showToast(message, 'error');
     }
   };
@@ -166,21 +173,21 @@ const AdminUsersPage: React.FC = () => {
   return (
     <div className="p-4 md:p-6 space-y-6">
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-        <h1 className="text-2xl font-bold">User Administration</h1>
+        <h1 className="text-2xl font-bold">{t('adminUsers.title')}</h1>
         <div className="flex gap-2">
           <button
             type="button"
             className="px-4 py-2 rounded bg-gray-200 hover:bg-gray-300"
             onClick={() => navigate('/inventory')}
           >
-            Inventory
+            {t('common.buttons.inventory')}
           </button>
           <button
             type="button"
             className="px-4 py-2 rounded bg-gray-200 hover:bg-gray-300"
             onClick={() => navigate('/')}
           >
-            Home
+            {t('common.buttons.home')}
           </button>
         </div>
       </div>
@@ -189,10 +196,10 @@ const AdminUsersPage: React.FC = () => {
       {loadError && <div className="text-red-600">{loadError}</div>}
 
       <section className="bg-white shadow rounded p-4">
-        <h2 className="text-xl font-semibold mb-3">Create user</h2>
+        <h2 className="text-xl font-semibold mb-3">{t('adminUsers.create.title')}</h2>
         <form className="grid gap-3 md:grid-cols-2" onSubmit={handleCreateSubmit}>
           <div className="flex flex-col">
-            <label className="text-sm font-medium">Name</label>
+            <label className="text-sm font-medium">{t('adminUsers.create.name')}</label>
             <input
               className="border rounded px-3 py-2"
               value={createForm.name}
@@ -201,7 +208,7 @@ const AdminUsersPage: React.FC = () => {
             />
           </div>
           <div className="flex flex-col">
-            <label className="text-sm font-medium">Username</label>
+            <label className="text-sm font-medium">{t('adminUsers.create.username')}</label>
             <input
               className="border rounded px-3 py-2"
               value={createForm.username}
@@ -210,7 +217,7 @@ const AdminUsersPage: React.FC = () => {
             />
           </div>
           <div className="flex flex-col">
-            <label className="text-sm font-medium">Email</label>
+            <label className="text-sm font-medium">{t('adminUsers.create.email')}</label>
             <input
               type="email"
               className="border rounded px-3 py-2"
@@ -219,18 +226,18 @@ const AdminUsersPage: React.FC = () => {
             />
           </div>
           <div className="flex flex-col">
-            <label className="text-sm font-medium">Role</label>
+            <label className="text-sm font-medium">{t('adminUsers.create.role')}</label>
             <select
               className="border rounded px-3 py-2"
               value={createForm.role}
               onChange={(e) => setCreateForm({ ...createForm, role: e.target.value as 'admin' | 'driver' })}
             >
-              <option value="driver">Driver</option>
-              <option value="admin">Admin</option>
+              <option value="driver">{t('adminUsers.roles.driver')}</option>
+              <option value="admin">{t('adminUsers.roles.admin')}</option>
             </select>
           </div>
           <div className="flex flex-col md:col-span-2">
-            <label className="text-sm font-medium">Password</label>
+            <label className="text-sm font-medium">{t('adminUsers.create.password')}</label>
             <input
               type="password"
               className="border rounded px-3 py-2"
@@ -238,13 +245,13 @@ const AdminUsersPage: React.FC = () => {
               onChange={(e) => setCreateForm({ ...createForm, password: e.target.value })}
               required
             />
-            <p className="text-xs text-gray-500 mt-1">Passwords must include upper, lower and numeric characters.</p>
+            <p className="text-xs text-gray-500 mt-1">{t('adminUsers.create.passwordHelp')}</p>
           </div>
           {createError && <div className="text-red-600 md:col-span-2">{createError}</div>}
           {createSuccess && <div className="text-green-600 md:col-span-2">{createSuccess}</div>}
           <div className="md:col-span-2">
             <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
-              Create user
+              {t('adminUsers.create.submit')}
             </button>
           </div>
         </form>
@@ -252,24 +259,24 @@ const AdminUsersPage: React.FC = () => {
 
       <section className="bg-white shadow rounded p-4">
         <div className="flex items-center justify-between mb-3">
-          <h2 className="text-xl font-semibold">Existing users</h2>
+          <h2 className="text-xl font-semibold">{t('adminUsers.list.title')}</h2>
           <button type="button" className="text-sm text-blue-600" onClick={loadUsers} disabled={loading}>
-            Refresh
+            {t('adminUsers.list.refresh')}
           </button>
         </div>
         {loading ? (
-          <div>Loading users…</div>
+          <div>{t('adminUsers.list.loading')}</div>
         ) : (
           <div className="overflow-x-auto">
             <table className="min-w-full text-sm">
               <thead>
                 <tr className="text-left border-b">
-                  <th className="py-2 pr-4">Name</th>
-                  <th className="py-2 pr-4">Username</th>
-                  <th className="py-2 pr-4">Email</th>
-                  <th className="py-2 pr-4">Role</th>
-                  <th className="py-2 pr-4">Created</th>
-                  <th className="py-2">Actions</th>
+                  <th className="py-2 pr-4">{t('adminUsers.list.columns.name')}</th>
+                  <th className="py-2 pr-4">{t('adminUsers.list.columns.username')}</th>
+                  <th className="py-2 pr-4">{t('adminUsers.list.columns.email')}</th>
+                  <th className="py-2 pr-4">{t('adminUsers.list.columns.role')}</th>
+                  <th className="py-2 pr-4">{t('adminUsers.list.columns.created')}</th>
+                  <th className="py-2">{t('adminUsers.list.columns.actions')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -278,29 +285,29 @@ const AdminUsersPage: React.FC = () => {
                     <td className="py-2 pr-4">{user.name}</td>
                     <td className="py-2 pr-4">{user.username}</td>
                     <td className="py-2 pr-4">{user.email || '—'}</td>
-                    <td className="py-2 pr-4 capitalize">{user.role}</td>
-                    <td className="py-2 pr-4">{new Date(user.created_at).toLocaleString()}</td>
+                    <td className="py-2 pr-4 capitalize">{t(`adminUsers.roles.${user.role}`)}</td>
+                    <td className="py-2 pr-4">{formatDateTime(user.created_at)}</td>
                     <td className="py-2 flex gap-2 flex-wrap">
                       <button
                         type="button"
                         className="text-blue-600 hover:underline"
                         onClick={() => startEdit(user)}
                       >
-                        Edit
+                        {t('adminUsers.list.edit')}
                       </button>
                       <button
                         type="button"
                         className="text-amber-600 hover:underline"
                         onClick={() => handleResetPassword(user)}
                       >
-                        Reset password
+                        {t('adminUsers.list.resetPassword')}
                       </button>
                       <button
                         type="button"
                         className="text-red-600 hover:underline"
                         onClick={() => handleDelete(user)}
                       >
-                        Delete
+                        {t('adminUsers.list.delete')}
                       </button>
                     </td>
                   </tr>
@@ -313,10 +320,10 @@ const AdminUsersPage: React.FC = () => {
 
       {editingUser && (
         <section className="bg-white shadow rounded p-4">
-          <h2 className="text-xl font-semibold mb-3">Edit {editingUser.username}</h2>
+          <h2 className="text-xl font-semibold mb-3">{t('adminUsers.edit.title', { username: editingUser.username })}</h2>
           <form className="grid gap-3 md:grid-cols-2" onSubmit={handleEditSubmit}>
             <div className="flex flex-col">
-              <label className="text-sm font-medium">Name</label>
+              <label className="text-sm font-medium">{t('adminUsers.edit.name')}</label>
               <input
                 className="border rounded px-3 py-2"
                 value={editForm.name}
@@ -325,7 +332,7 @@ const AdminUsersPage: React.FC = () => {
               />
             </div>
             <div className="flex flex-col">
-              <label className="text-sm font-medium">Email</label>
+              <label className="text-sm font-medium">{t('adminUsers.edit.email')}</label>
               <input
                 type="email"
                 className="border rounded px-3 py-2"
@@ -334,27 +341,27 @@ const AdminUsersPage: React.FC = () => {
               />
             </div>
             <div className="flex flex-col">
-              <label className="text-sm font-medium">Role</label>
+              <label className="text-sm font-medium">{t('adminUsers.edit.role')}</label>
               <select
                 className="border rounded px-3 py-2"
                 value={editForm.role}
                 onChange={(e) => setEditForm({ ...editForm, role: e.target.value as 'admin' | 'driver' })}
               >
-                <option value="driver">Driver</option>
-                <option value="admin">Admin</option>
+                <option value="driver">{t('adminUsers.roles.driver')}</option>
+                <option value="admin">{t('adminUsers.roles.admin')}</option>
               </select>
             </div>
             {editError && <div className="text-red-600 md:col-span-2">{editError}</div>}
             <div className="flex gap-2 md:col-span-2">
               <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
-                Save changes
+                {t('adminUsers.edit.save')}
               </button>
               <button
                 type="button"
                 className="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300"
                 onClick={() => setEditingUser(null)}
               >
-                Cancel
+                {t('adminUsers.edit.cancel')}
               </button>
             </div>
           </form>
