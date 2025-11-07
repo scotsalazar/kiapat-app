@@ -19,10 +19,16 @@ interface InventoryCard {
   qty_tray: number;
   qty_dozen: number;
   qty_pcs: number;
-  unit_price: number | null;
+  unit_price?: number | null;
   stock_value: number | null;
   threshold_pcs: number | null;
   is_low: boolean;
+  price_per_dozen?: number | null;
+  price_per_tray?: number | null;
+  price_per_dozen_changed_at?: string | null;
+  price_per_tray_changed_at?: string | null;
+  price_updated_at?: string | null;
+  unit_price_changed_at?: string | null;
 }
 
 interface InventoryTotals {
@@ -109,6 +115,31 @@ type InventoryStreamState = {
   movements: Movement[];
 };
 
+const RECENT_PRICE_CHANGE_WINDOW_MS = 1000 * 60 * 60 * 48; // 48 hours
+
+const parseTimestamp = (value?: string | null): Date | null => {
+  if (!value) {
+    return null;
+  }
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+};
+
+const getLatestPriceChangeTimestamp = (card: InventoryCard): Date | null => {
+  const timestamps = [
+    parseTimestamp(card.price_per_dozen_changed_at),
+    parseTimestamp(card.price_per_tray_changed_at),
+    parseTimestamp(card.price_updated_at),
+    parseTimestamp(card.unit_price_changed_at),
+  ].filter(Boolean) as Date[];
+
+  if (timestamps.length === 0) {
+    return null;
+  }
+
+  return new Date(Math.max(...timestamps.map((timestamp) => timestamp.getTime())));
+};
+
 const InventoryManagerPage: React.FC = () => {
   const { token, user } = useAuth();
   const navigate = useNavigate();
@@ -131,6 +162,12 @@ const InventoryManagerPage: React.FC = () => {
   const currencyFormatter = useMemo(
     () => new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }),
     [],
+  );
+
+  const formatCurrencyValue = useCallback(
+    (value: number | null | undefined) =>
+      value !== null && value !== undefined ? currencyFormatter.format(value) : '—',
+    [currencyFormatter],
   );
 
   const recentSalesEntry = useMemo(() => {
@@ -454,7 +491,9 @@ const InventoryManagerPage: React.FC = () => {
                 ? currencyFormatter.format(summary.totals.stock_value)
                 : '—'}
             </p>
-            <p className="text-sm text-gray-500">Based on current price per dozen.</p>
+            <p className="text-sm text-gray-500">
+              Based on current per-dozen pricing. Per-tray rates are shown per classification below.
+            </p>
           </div>
           <div className="rounded-lg border border-gray-200 bg-white p-4 shadow">
             <h2 className="text-sm font-medium text-gray-500">Recent sales</h2>
@@ -479,80 +518,127 @@ const InventoryManagerPage: React.FC = () => {
       )}
       {/* Inventory Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mt-4">
-        {summary?.cards.map((card) => (
-          <div
-            key={card.classification_id}
-            className={`rounded border p-4 shadow transition ${
-              card.is_low
-                ? 'border-red-400 bg-red-50/40 ring-1 ring-red-300'
-                : 'border-gray-200 bg-white'
-            }`}
-          >
-            <div className="flex items-start justify-between gap-3">
-              <div className="flex items-center">
-                <img
-                  src={card.color === 'WHITE' ? '/white-egg.png' : '/brown-egg.png'}
-                  alt="egg"
-                  className="h-12 w-12 mr-3"
-                />
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h3 className="font-semibold">
-                      {card.size.charAt(0)}
-                      {card.size.slice(1).toLowerCase()} / {card.color.charAt(0)}
-                      {card.color.slice(1).toLowerCase()}
-                    </h3>
-                    {card.is_low && (
-                      <span className="inline-flex items-center rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-700">
-                        Low stock
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-sm text-gray-600">
-                    {card.qty_tray.toFixed(1)} trays • {card.qty_dozen.toFixed(1)} dozens
-                  </p>
-                  <p className={`text-sm ${card.is_low ? 'font-semibold text-red-600' : 'text-gray-700'}`}>
-                    {card.qty_pcs.toLocaleString()} pcs
-                  </p>
-                  {card.unit_price !== null && (
-                    <p className="text-sm text-gray-800 mt-1">
-                      {currencyFormatter.format(card.unit_price)} per dozen
+        {summary?.cards.map((card) => {
+          const perDozenPrice = card.price_per_dozen ?? card.unit_price ?? null;
+          const perTrayPrice = card.price_per_tray ?? null;
+          const latestPriceChange = getLatestPriceChangeTimestamp(card);
+          const isRecentPriceChange =
+            !!latestPriceChange &&
+            Date.now() - latestPriceChange.getTime() <= RECENT_PRICE_CHANGE_WINDOW_MS;
+          const shouldShowPriceDetails =
+            perDozenPrice !== null || perTrayPrice !== null || latestPriceChange !== null;
+
+          return (
+            <div
+              key={card.classification_id}
+              className={`relative rounded border p-4 shadow transition ${
+                card.is_low
+                  ? 'border-red-400 bg-red-50/40 ring-1 ring-red-300'
+                  : 'border-gray-200 bg-white'
+              }`}
+            >
+              {isRecentPriceChange && (
+                <span className="absolute -right-2 -top-2 rounded-full bg-blue-600 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white shadow">
+                  Price updated
+                </span>
+              )}
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex items-center">
+                  <img
+                    src={card.color === 'WHITE' ? '/white-egg.png' : '/brown-egg.png'}
+                    alt="egg"
+                    className="h-12 w-12 mr-3"
+                  />
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h3 className="font-semibold">
+                        {card.size.charAt(0)}
+                        {card.size.slice(1).toLowerCase()} / {card.color.charAt(0)}
+                        {card.color.slice(1).toLowerCase()}
+                      </h3>
+                      {card.is_low && (
+                        <span className="inline-flex items-center rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-700">
+                          Low stock
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-sm text-gray-600">
+                      {card.qty_tray.toFixed(1)} trays • {card.qty_dozen.toFixed(1)} dozens
                     </p>
-                  )}
-                  {card.stock_value !== null && (
-                    <p className="text-sm text-gray-600">Stock value: {currencyFormatter.format(card.stock_value)}</p>
-                  )}
-                  <p className="mt-2 text-xs uppercase tracking-wide text-gray-500">
-                    Threshold: {card.threshold_pcs !== null ? `${card.threshold_pcs.toLocaleString()} pcs` : 'Not set'}
-                  </p>
+                    <p className={`text-sm ${card.is_low ? 'font-semibold text-red-600' : 'text-gray-700'}`}>
+                      {card.qty_pcs.toLocaleString()} pcs
+                    </p>
+                  </div>
                 </div>
               </div>
-            </div>
-            {user?.role === 'admin' && (
-              <div className="mt-3 flex flex-wrap items-center gap-2">
-                <label className="text-xs font-medium uppercase tracking-wide text-gray-500" htmlFor={`threshold-${card.classification_id}`}>
-                  Update threshold
-                </label>
-                <input
-                  id={`threshold-${card.classification_id}`}
-                  type="number"
-                  min={0}
-                  className="w-24 rounded border px-2 py-1 text-sm"
-                  value={thresholdEdits[card.classification_id] ?? ''}
-                  onChange={(e) => handleThresholdInputChange(card.classification_id, e.target.value)}
-                />
-                <button
-                  type="button"
-                  onClick={() => handleSaveThreshold(card.classification_id)}
-                  className="rounded bg-indigo-600 px-3 py-1 text-sm font-medium text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:bg-indigo-300"
-                  disabled={Boolean(thresholdSaving[card.classification_id])}
+              {shouldShowPriceDetails && (
+                <div
+                  className={`mt-3 space-y-1 rounded-md border p-3 text-sm ${
+                    isRecentPriceChange
+                      ? 'border-blue-200 bg-blue-50/70'
+                      : 'border-gray-200 bg-gray-50'
+                  }`}
                 >
-                  {thresholdSaving[card.classification_id] ? 'Saving…' : 'Save'}
-                </button>
-              </div>
-            )}
-          </div>
-        ))}
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-gray-600">Per tray</span>
+                    <span className="font-medium text-gray-800">
+                      {formatCurrencyValue(perTrayPrice)}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-gray-600">Per dozen</span>
+                    <span className="font-medium text-gray-800">
+                      {formatCurrencyValue(perDozenPrice)}
+                    </span>
+                  </div>
+                  {latestPriceChange && (
+                    <div
+                      className={`pt-1 text-xs ${
+                        isRecentPriceChange ? 'text-blue-600' : 'text-gray-500'
+                      }`}
+                    >
+                      Updated {latestPriceChange.toLocaleString()}
+                    </div>
+                  )}
+                </div>
+              )}
+              {card.stock_value !== null && (
+                <p className="mt-3 text-sm text-gray-600">
+                  Stock value: {currencyFormatter.format(card.stock_value)}
+                </p>
+              )}
+              <p className="mt-2 text-xs uppercase tracking-wide text-gray-500">
+                Threshold: {card.threshold_pcs !== null ? `${card.threshold_pcs.toLocaleString()} pcs` : 'Not set'}
+              </p>
+              {user?.role === 'admin' && (
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                  <label
+                    className="text-xs font-medium uppercase tracking-wide text-gray-500"
+                    htmlFor={`threshold-${card.classification_id}`}
+                  >
+                    Update threshold
+                  </label>
+                  <input
+                    id={`threshold-${card.classification_id}`}
+                    type="number"
+                    min={0}
+                    className="w-24 rounded border px-2 py-1 text-sm"
+                    value={thresholdEdits[card.classification_id] ?? ''}
+                    onChange={(e) => handleThresholdInputChange(card.classification_id, e.target.value)}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => handleSaveThreshold(card.classification_id)}
+                    className="rounded bg-indigo-600 px-3 py-1 text-sm font-medium text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:bg-indigo-300"
+                    disabled={Boolean(thresholdSaving[card.classification_id])}
+                  >
+                    {thresholdSaving[card.classification_id] ? 'Saving…' : 'Save'}
+                  </button>
+                </div>
+              )}
+            </div>
+          );
+        })}
       </div>
       {/* Add Inventory Form */}
       <div className="mt-6">

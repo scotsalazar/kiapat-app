@@ -10,6 +10,33 @@ import InvoicePreviewModal from '../components/InvoicePreviewModal';
 import type { Classification, InvoiceItemForm, Price } from '../types/invoice';
 
 const units = ['TRAY', 'DOZEN', 'PCS'];
+const PRICE_RECENT_CHANGE_WINDOW_MS = 1000 * 60 * 60 * 48; // 48 hours
+
+type PriceLookupEntry = {
+  TRAY?: Price;
+  DOZEN?: Price;
+  PCS?: Price;
+};
+
+const parseTimestamp = (value?: string | null): Date | null => {
+  if (!value) {
+    return null;
+  }
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+};
+
+const getLatestTimestamp = (
+  values: Array<string | null | undefined>,
+): Date | null => {
+  const timestamps = values
+    .map((value) => parseTimestamp(value))
+    .filter((value): value is Date => Boolean(value));
+  if (!timestamps.length) {
+    return null;
+  }
+  return new Date(Math.max(...timestamps.map((date) => date.getTime())));
+};
 
 interface InvoiceOverride {
   id: number;
@@ -51,6 +78,17 @@ const DriverInvoicePage: React.FC = () => {
   const authHeader = useMemo(() => (token ? { Authorization: `Bearer ${token}` } : {}), [token]);
   const { showToast } = useToast();
 
+  const currencyFormatter = useMemo(
+    () => new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }),
+    [],
+  );
+
+  const formatCurrencyValue = useCallback(
+    (value: number | null | undefined) =>
+      value !== null && value !== undefined ? currencyFormatter.format(value) : '—',
+    [currencyFormatter],
+  );
+
   const classificationMap = useMemo(() => {
     const map = new Map<number, Classification>();
     classifications.forEach((cls) => map.set(cls.id, cls));
@@ -87,6 +125,19 @@ const DriverInvoicePage: React.FC = () => {
   });
 
   const prices = priceStream.prices ?? [];
+
+  const classificationPriceLookup = useMemo(() => {
+    const map = new Map<number, PriceLookupEntry>();
+    prices.forEach((price) => {
+      const unitKey = price.unit.toUpperCase();
+      const entry = map.get(price.classification_id) ?? {};
+      if (unitKey === 'TRAY' || unitKey === 'DOZEN' || unitKey === 'PCS') {
+        entry[unitKey] = price;
+      }
+      map.set(price.classification_id, entry);
+    });
+    return map;
+  }, [prices]);
 
   const streamStatusMeta = useMemo(() => {
     switch (streamStatus) {
@@ -426,75 +477,140 @@ const DriverInvoicePage: React.FC = () => {
               </tr>
             </thead>
             <tbody>
-              {items.map((item) => (
-                <tr key={item.id} className="bg-white">
-                  <td className="px-2 py-1">
-                    <select
-                      className="border rounded px-2 py-1"
-                      value={item.classification_id || ''}
-                      onChange={(e) =>
-                        updateItem(item.id, {
-                          classification_id: e.target.value
-                            ? Number(e.target.value)
-                            : '',
-                        })
-                      }
-                      required
-                    >
-                      <option value="" disabled>
-                        Select
-                      </option>
-                      {classifications.map((c) => (
-                        <option key={c.id} value={c.id}>
-                          {c.size} / {c.color}
+              {items.map((item) => {
+                const classificationId =
+                  typeof item.classification_id === 'number' ? item.classification_id : null;
+                const priceEntry =
+                  classificationId !== null
+                    ? classificationPriceLookup.get(classificationId)
+                    : undefined;
+                const trayPrice = priceEntry?.TRAY?.price_per_unit ?? null;
+                const dozenPrice = priceEntry?.DOZEN?.price_per_unit ?? null;
+                const latestPriceChange = priceEntry
+                  ? getLatestTimestamp([
+                      priceEntry.TRAY?.effective_from,
+                      priceEntry.DOZEN?.effective_from,
+                    ])
+                  : null;
+                const isRecentPriceChange =
+                  !!latestPriceChange &&
+                  Date.now() - latestPriceChange.getTime() <= PRICE_RECENT_CHANGE_WINDOW_MS;
+                const unitSelectTitle =
+                  classificationId && priceEntry
+                    ? [
+                        `Per tray: ${formatCurrencyValue(trayPrice)}`,
+                        `Per dozen: ${formatCurrencyValue(dozenPrice)}`,
+                      ].join(' | ')
+                    : 'Select a classification to view tray/dozen pricing';
+
+                return (
+                  <tr key={item.id} className="bg-white align-top">
+                    <td className="px-2 py-1 align-top">
+                      <select
+                        className="border rounded px-2 py-1"
+                        value={item.classification_id || ''}
+                        onChange={(e) =>
+                          updateItem(item.id, {
+                            classification_id: e.target.value
+                              ? Number(e.target.value)
+                              : '',
+                          })
+                        }
+                        required
+                      >
+                        <option value="" disabled>
+                          Select
                         </option>
-                      ))}
-                    </select>
-                  </td>
-                  <td className="px-2 py-1">
-                    <input
-                      type="number"
-                      min={1}
-                      className="border rounded px-2 py-1 w-20"
-                      value={item.qty}
-                      onChange={(e) =>
-                        updateItem(item.id, {
-                          qty: Number(e.target.value) > 0 ? Number(e.target.value) : 0,
-                        })
-                      }
-                      required
-                    />
-                  </td>
-                  <td className="px-2 py-1">
-                    <select
-                      className="border rounded px-2 py-1"
-                      value={item.unit}
-                      onChange={(e) => updateItem(item.id, { unit: e.target.value })}
-                    >
-                      {units.map((u) => (
-                        <option key={u} value={u}>
-                          {u.charAt(0)}{u.slice(1).toLowerCase()}
-                        </option>
-                      ))}
-                    </select>
-                  </td>
-                  <td className="px-2 py-1 text-right">
-                    {item.unit_price ? `₱${item.unit_price.toFixed(2)}` : '-'}
-                  </td>
-                  <td className="px-2 py-1 text-right">
-                    {item.line_total ? `₱${item.line_total.toFixed(2)}` : '-'}
-                  </td>
-                  <td className="px-2 py-1 text-right">
-                    <button
-                      type="button"
-                      onClick={() => removeItem(item.id)}
-                      className="text-xs text-red-600 hover:underline"
-                    >
-                      Remove
-                    </button>
-                  </td>
-                </tr>
-              ))}
+                        {classifications.map((c) => (
+                          <option key={c.id} value={c.id}>
+                            {c.size} / {c.color}
+                          </option>
+                        ))}
+                      </select>
+                    </td>
+                    <td className="px-2 py-1 align-top">
+                      <input
+                        type="number"
+                        min={1}
+                        className="border rounded px-2 py-1 w-20"
+                        value={item.qty}
+                        onChange={(e) =>
+                          updateItem(item.id, {
+                            qty: Number(e.target.value) > 0 ? Number(e.target.value) : 0,
+                          })
+                        }
+                        required
+                      />
+                    </td>
+                    <td className="px-2 py-1 align-top">
+                      <div className="flex flex-col">
+                        <select
+                          className="border rounded px-2 py-1"
+                          value={item.unit}
+                          onChange={(e) => updateItem(item.id, { unit: e.target.value })}
+                          title={unitSelectTitle}
+                        >
+                          {units.map((u) => (
+                            <option key={u} value={u}>
+                              {u.charAt(0)}{u.slice(1).toLowerCase()}
+                            </option>
+                          ))}
+                        </select>
+                        {!classificationId && (
+                          <div className="mt-1 text-[11px] text-gray-400">
+                            Select a classification to view pricing.
+                          </div>
+                        )}
+                        {classificationId && priceEntry && (
+                          <div className="mt-1 space-y-1 text-[11px] leading-tight text-gray-500">
+                            <div className="flex items-center justify-between gap-2">
+                              <span>Tray</span>
+                              <span className="font-medium text-gray-700">
+                                {formatCurrencyValue(trayPrice)}
+                              </span>
+                            </div>
+                            <div className="flex items-center justify-between gap-2">
+                              <span>Dozen</span>
+                              <span className="font-medium text-gray-700">
+                                {formatCurrencyValue(dozenPrice)}
+                              </span>
+                            </div>
+                            {latestPriceChange && (
+                              <div
+                                className={
+                                  isRecentPriceChange ? 'text-blue-600' : 'text-gray-400'
+                                }
+                              >
+                                Updated {latestPriceChange.toLocaleString()}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                        {classificationId && !priceEntry && (
+                          <div className="mt-1 text-[11px] text-red-600">
+                            Tray/dozen pricing unavailable.
+                          </div>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-2 py-1 text-right align-top">
+                      {formatCurrencyValue(item.unit_price)}
+                    </td>
+                    <td className="px-2 py-1 text-right align-top">
+                      {formatCurrencyValue(item.line_total)}
+                    </td>
+                    <td className="px-2 py-1 text-right align-top">
+                      <button
+                        type="button"
+                        onClick={() => removeItem(item.id)}
+                        className="text-xs text-red-600 hover:underline"
+                      >
+                        Remove
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
           <button
@@ -506,7 +622,9 @@ const DriverInvoicePage: React.FC = () => {
           </button>
         </div>
         {/* Total */}
-        <div className="text-right text-lg font-semibold">Total: ₱{total.toFixed(2)}</div>
+        <div className="text-right text-lg font-semibold">
+          Total: {formatCurrencyValue(total)}
+        </div>
         {/* Signature */}
         <div>
           <h2 className="text-xl font-semibold mb-1">Signature</h2>
