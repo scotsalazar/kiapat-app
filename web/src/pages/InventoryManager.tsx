@@ -1,6 +1,6 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import axios from 'axios';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { useToast } from '../components/ToastProvider';
 import { parseApiError } from '../utils/apiErrors';
@@ -143,6 +143,7 @@ const getLatestPriceChangeTimestamp = (card: InventoryCard): Date | null => {
 const InventoryManagerPage: React.FC = () => {
   const { token, user } = useAuth();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [initialSummary, setInitialSummary] =
     useState<InventorySummaryResponse | null>(null);
   const [initialMovements, setInitialMovements] = useState<Movement[]>([]);
@@ -156,6 +157,15 @@ const InventoryManagerPage: React.FC = () => {
   const [dailySales, setDailySales] = useState<DailySalesSummary[]>([]);
   const [thresholdEdits, setThresholdEdits] = useState<Record<number, number | ''>>({});
   const [thresholdSaving, setThresholdSaving] = useState<Record<number, boolean>>({});
+  const paramsSnapshotRef = useRef<string>(searchParams.toString());
+  const [sizeFilter, setSizeFilter] = useState<string>(() => searchParams.get('size') ?? '');
+  const [colorFilter, setColorFilter] = useState<string>(() => searchParams.get('color') ?? '');
+  const [searchTerm, setSearchTerm] = useState<string>(() => searchParams.get('q') ?? '');
+  const [lowStockOnly, setLowStockOnly] = useState<boolean>(() => {
+    const raw = searchParams.get('low');
+    if (!raw) return false;
+    return ['1', 'true', 'yes'].includes(raw.toLowerCase());
+  });
 
   const authHeader = useMemo(() => (token ? { Authorization: `Bearer ${token}` } : {}), [token]);
   const { showToast } = useToast();
@@ -163,6 +173,59 @@ const InventoryManagerPage: React.FC = () => {
     () => new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }),
     [],
   );
+
+  useEffect(() => {
+    const paramsString = searchParams.toString();
+    if (paramsString === paramsSnapshotRef.current) {
+      return;
+    }
+    paramsSnapshotRef.current = paramsString;
+    const paramSize = searchParams.get('size') ?? '';
+    const paramColor = searchParams.get('color') ?? '';
+    const paramSearch = searchParams.get('q') ?? '';
+    const paramLowRaw = searchParams.get('low');
+    const paramLow = paramLowRaw
+      ? ['1', 'true', 'yes'].includes(paramLowRaw.toLowerCase())
+      : false;
+    if (paramSize !== sizeFilter) {
+      setSizeFilter(paramSize);
+    }
+    if (paramColor !== colorFilter) {
+      setColorFilter(paramColor);
+    }
+    if (paramSearch !== searchTerm) {
+      setSearchTerm(paramSearch);
+    }
+    if (paramLow !== lowStockOnly) {
+      setLowStockOnly(paramLow);
+    }
+  }, [searchParams, sizeFilter, colorFilter, searchTerm, lowStockOnly]);
+
+  useEffect(() => {
+    const params = new URLSearchParams();
+    if (sizeFilter) {
+      params.set('size', sizeFilter);
+    }
+    if (colorFilter) {
+      params.set('color', colorFilter);
+    }
+    if (searchTerm) {
+      params.set('q', searchTerm);
+    }
+    if (lowStockOnly) {
+      params.set('low', '1');
+    }
+    const nextSnapshot = params.toString();
+    if (nextSnapshot === paramsSnapshotRef.current) {
+      return;
+    }
+    paramsSnapshotRef.current = nextSnapshot;
+    if (nextSnapshot) {
+      setSearchParams(params, { replace: true });
+    } else {
+      setSearchParams(new URLSearchParams(), { replace: true });
+    }
+  }, [sizeFilter, colorFilter, searchTerm, lowStockOnly, setSearchParams]);
 
   const formatCurrencyValue = useCallback(
     (value: number | null | undefined) =>
@@ -214,11 +277,90 @@ const InventoryManagerPage: React.FC = () => {
 
   const summary = inventoryData.summary;
   const movements = inventoryData.movements ?? [];
+  const filteredCards = useMemo(() => {
+    if (!summary) {
+      return [] as InventoryCard[];
+    }
+    const tokens = searchTerm
+      .trim()
+      .toLowerCase()
+      .split(/\s+/)
+      .filter(Boolean);
+    return summary.cards.filter((card) => {
+      if (sizeFilter && card.size !== sizeFilter) {
+        return false;
+      }
+      if (colorFilter && card.color !== colorFilter) {
+        return false;
+      }
+      if (lowStockOnly && !card.is_low) {
+        return false;
+      }
+      if (!tokens.length) {
+        return true;
+      }
+      const label = `${card.size} ${card.color}`.toLowerCase();
+      return tokens.every((token) => label.includes(token));
+    });
+  }, [summary, sizeFilter, colorFilter, lowStockOnly, searchTerm]);
 
   const lowStockCount = useMemo(
-    () => summary?.cards.filter((card) => card.is_low).length ?? 0,
-    [summary],
+    () => filteredCards.filter((card) => card.is_low).length,
+    [filteredCards],
   );
+
+  const totalCards = summary?.cards.length ?? 0;
+  const hasActiveFilters = Boolean(sizeFilter || colorFilter || searchTerm.trim() || lowStockOnly);
+
+  const sizeOptions = useMemo(() => {
+    const unique = new Set<string>();
+    classifications.forEach((cls) => unique.add(cls.size));
+    return Array.from(unique).sort();
+  }, [classifications]);
+
+  const colorOptions = useMemo(() => {
+    const unique = new Set<string>();
+    classifications.forEach((cls) => unique.add(cls.color));
+    return Array.from(unique).sort();
+  }, [classifications]);
+
+  const formatFilterLabel = useCallback((value: string) => {
+    if (!value) return '';
+    return value.charAt(0) + value.slice(1).toLowerCase();
+  }, []);
+
+  const filteredTotals = useMemo(() => {
+    if (!filteredCards.length) {
+      return null;
+    }
+    let totalTray = 0;
+    let totalDozen = 0;
+    let totalPcs = 0;
+    let totalStockValue = 0;
+    let hasStockValue = false;
+    filteredCards.forEach((card) => {
+      totalTray += card.qty_tray;
+      totalDozen += card.qty_dozen;
+      totalPcs += card.qty_pcs;
+      if (card.stock_value !== null && card.stock_value !== undefined) {
+        totalStockValue += card.stock_value;
+        hasStockValue = true;
+      }
+    });
+    return {
+      qty_tray: totalTray,
+      qty_dozen: totalDozen,
+      qty_pcs: totalPcs,
+      stock_value: hasStockValue ? totalStockValue : null,
+    };
+  }, [filteredCards]);
+
+  const handleClearFilters = useCallback(() => {
+    setSizeFilter('');
+    setColorFilter('');
+    setSearchTerm('');
+    setLowStockOnly(false);
+  }, []);
 
   const streamStatusMeta = useMemo(() => {
     switch (streamStatus) {
@@ -264,8 +406,21 @@ const InventoryManagerPage: React.FC = () => {
   const loadData = useCallback(async () => {
     if (!token) return;
     try {
+      const summaryParams: Record<string, string> = {};
+      if (sizeFilter) {
+        summaryParams.size = sizeFilter;
+      }
+      if (colorFilter) {
+        summaryParams.color = colorFilter;
+      }
+      if (lowStockOnly) {
+        summaryParams.low_stock = 'true';
+      }
       const [summaryRes, movementsRes, clsRes] = await Promise.all([
-        axios.get<InventorySummaryResponse>('/api/inventory/summary', { headers: authHeader }),
+        axios.get<InventorySummaryResponse>('/api/inventory/summary', {
+          headers: authHeader,
+          params: summaryParams,
+        }),
         axios.get<Movement[]>('/api/inventory/movements?limit=20', { headers: authHeader }),
         axios.get<Classification[]>('/api/catalog/classifications', { headers: authHeader }),
       ]);
@@ -300,7 +455,7 @@ const InventoryManagerPage: React.FC = () => {
       const { message } = parseApiError(err, 'Failed to load inventory data');
       showToast(message, 'error');
     }
-  }, [authHeader, showToast, token, user?.role]);
+  }, [authHeader, showToast, token, user?.role, sizeFilter, colorFilter, lowStockOnly]);
 
   useEffect(() => {
     loadData();
@@ -516,27 +671,121 @@ const InventoryManagerPage: React.FC = () => {
           </div>
         </div>
       )}
+      <div className="mt-6 rounded-lg border border-gray-200 bg-white p-4 shadow">
+        <div className="flex flex-wrap items-end gap-4">
+          <div className="flex flex-col">
+            <label htmlFor="size-filter" className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+              Size
+            </label>
+            <select
+              id="size-filter"
+              className="mt-1 w-40 rounded border border-gray-300 px-2 py-1 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              value={sizeFilter}
+              onChange={(event) => setSizeFilter(event.target.value)}
+            >
+              <option value="">All sizes</option>
+              {sizeOptions.map((option) => (
+                <option key={option} value={option}>
+                  {formatFilterLabel(option)}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="flex flex-col">
+            <label htmlFor="color-filter" className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+              Color
+            </label>
+            <select
+              id="color-filter"
+              className="mt-1 w-40 rounded border border-gray-300 px-2 py-1 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              value={colorFilter}
+              onChange={(event) => setColorFilter(event.target.value)}
+            >
+              <option value="">All colors</option>
+              {colorOptions.map((option) => (
+                <option key={option} value={option}>
+                  {formatFilterLabel(option)}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="flex flex-1 flex-col min-w-[200px]">
+            <label htmlFor="inventory-search" className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+              Search
+            </label>
+            <input
+              id="inventory-search"
+              type="search"
+              value={searchTerm}
+              onChange={(event) => setSearchTerm(event.target.value)}
+              placeholder="Search by size or color"
+              className="mt-1 w-full rounded border border-gray-300 px-3 py-1.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            />
+          </div>
+          <label className="flex items-center gap-2 text-sm text-gray-700">
+            <input
+              type="checkbox"
+              className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+              checked={lowStockOnly}
+              onChange={(event) => setLowStockOnly(event.target.checked)}
+            />
+            Low stock only
+          </label>
+          <button
+            type="button"
+            className="ml-auto rounded border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 transition hover:border-gray-400 hover:bg-gray-50"
+            onClick={handleClearFilters}
+            disabled={!hasActiveFilters}
+          >
+            Clear filters
+          </button>
+        </div>
+        <div className="mt-3 text-sm text-gray-600">
+          {hasActiveFilters ? (
+            <span>
+              Showing {filteredCards.length} of {totalCards} classifications.
+              {filteredTotals && (
+                <>
+                  {' '}
+                  Totals: {filteredTotals.qty_tray.toFixed(1)} trays • {filteredTotals.qty_dozen.toFixed(1)} dozens •{' '}
+                  {filteredTotals.qty_pcs.toLocaleString()} pcs
+                  {filteredTotals.stock_value !== null
+                    ? ` • ${currencyFormatter.format(filteredTotals.stock_value)}`
+                    : ''}
+                </>
+              )}
+            </span>
+          ) : (
+            <span>Showing all {totalCards} classifications.</span>
+          )}
+        </div>
+      </div>
       {/* Inventory Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mt-4">
-        {summary?.cards.map((card) => {
-          const perDozenPrice = card.price_per_dozen ?? card.unit_price ?? null;
-          const perTrayPrice = card.price_per_tray ?? null;
-          const latestPriceChange = getLatestPriceChangeTimestamp(card);
-          const isRecentPriceChange =
-            !!latestPriceChange &&
-            Date.now() - latestPriceChange.getTime() <= RECENT_PRICE_CHANGE_WINDOW_MS;
-          const shouldShowPriceDetails =
-            perDozenPrice !== null || perTrayPrice !== null || latestPriceChange !== null;
+        {filteredCards.length === 0 ? (
+          <div className="col-span-full rounded border border-dashed border-gray-300 bg-gray-50 p-8 text-center text-sm text-gray-600">
+            No classifications match the current filters.
+          </div>
+        ) : (
+          filteredCards.map((card) => {
+            const perDozenPrice = card.price_per_dozen ?? card.unit_price ?? null;
+            const perTrayPrice = card.price_per_tray ?? null;
+            const latestPriceChange = getLatestPriceChangeTimestamp(card);
+            const isRecentPriceChange =
+              !!latestPriceChange &&
+              Date.now() - latestPriceChange.getTime() <= RECENT_PRICE_CHANGE_WINDOW_MS;
+            const shouldShowPriceDetails =
+              perDozenPrice !== null || perTrayPrice !== null || latestPriceChange !== null;
 
-          return (
-            <div
-              key={card.classification_id}
-              className={`relative rounded border p-4 shadow transition ${
-                card.is_low
-                  ? 'border-red-400 bg-red-50/40 ring-1 ring-red-300'
-                  : 'border-gray-200 bg-white'
-              }`}
-            >
+            return (
+              <div
+                key={card.classification_id}
+                className={`relative rounded border p-4 shadow transition ${
+                  card.is_low
+                    ? 'border-red-400 bg-red-50/40 ring-1 ring-red-300'
+                    : 'border-gray-200 bg-white'
+                }`}
+              >
               {isRecentPriceChange && (
                 <span className="absolute -right-2 -top-2 rounded-full bg-blue-600 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white shadow">
                   Price updated
@@ -638,7 +887,8 @@ const InventoryManagerPage: React.FC = () => {
               )}
             </div>
           );
-        })}
+        })
+      )}
       </div>
       {/* Add Inventory Form */}
       <div className="mt-6">
