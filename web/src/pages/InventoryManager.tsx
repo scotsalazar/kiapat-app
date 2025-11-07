@@ -186,38 +186,38 @@ const InventoryManagerPage: React.FC = () => {
       case 'open':
         return {
           label: 'Connected',
-          dotClass: 'bg-green-500',
-          textClass: 'text-green-600',
+          dotClass: 'bg-emerald-500',
+          textClass: 'text-emerald-600 dark:text-emerald-400',
         };
       case 'reconnecting':
         return {
           label: 'Reconnecting…',
-          dotClass: 'bg-yellow-500',
-          textClass: 'text-yellow-600',
+          dotClass: 'bg-amber-400',
+          textClass: 'text-amber-600 dark:text-amber-300',
         };
       case 'connecting':
         return {
           label: 'Connecting…',
-          dotClass: 'bg-yellow-500',
-          textClass: 'text-yellow-600',
+          dotClass: 'bg-brand-500',
+          textClass: 'text-brand-600 dark:text-brand-400',
         };
       case 'error':
         return {
           label: 'Connection error',
           dotClass: 'bg-red-500',
-          textClass: 'text-red-600',
+          textClass: 'text-red-600 dark:text-red-400',
         };
       case 'closed':
         return {
           label: 'Disconnected',
-          dotClass: 'bg-gray-400',
-          textClass: 'text-gray-500',
+          dotClass: 'bg-slate-400',
+          textClass: 'text-slate-500 dark:text-slate-400',
         };
       default:
         return {
           label: 'Offline',
-          dotClass: 'bg-gray-400',
-          textClass: 'text-gray-500',
+          dotClass: 'bg-slate-400',
+          textClass: 'text-slate-500 dark:text-slate-400',
         };
     }
   }, [streamStatus]);
@@ -393,7 +393,7 @@ const InventoryManagerPage: React.FC = () => {
   };
 
   return (
-    <div className="p-4 md:p-6">
+    <div className="p-4 text-slate-900 transition-colors md:p-6 dark:text-slate-100">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="text-2xl font-bold">Kiapat Inventory</h1>
         <div className="flex flex-col items-start text-sm sm:items-end">
@@ -401,56 +401,58 @@ const InventoryManagerPage: React.FC = () => {
             <span className={`h-2 w-2 rounded-full ${streamStatusMeta.dotClass}`} />
             <span>{streamStatusMeta.label}</span>
           </div>
-          <div className="text-xs text-gray-500">
+          <div className="text-xs text-slate-500 dark:text-slate-400">
             {summary
               ? `Last update ${new Date(summary.timestamp).toLocaleString()}`
               : 'Awaiting inventory data'}
           </div>
           {streamError && (
-            <div className="mt-1 text-xs text-red-600">{streamError}</div>
+            <div className="mt-1 text-xs text-red-600 dark:text-red-400">{streamError}</div>
           )}
         </div>
       </div>
-      {successMessage && <p className="text-green-600 mt-2">{successMessage}</p>}
-      {formError && <p className="text-red-600 mt-2">{formError}</p>}
+      {successMessage && (
+        <p className="mt-2 text-sm font-medium text-emerald-600 dark:text-emerald-400">{successMessage}</p>
+      )}
+      {formError && (
+        <p className="mt-2 text-sm font-medium text-red-600 dark:text-red-400">{formError}</p>
+      )}
       {summary && (
         <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          <div className="rounded-lg border border-gray-200 bg-white p-4 shadow">
-            <h2 className="text-sm font-medium text-gray-500">Total stock</h2>
-            <p className="mt-2 text-2xl font-bold">
-              {summary.totals.qty_pcs.toLocaleString()} pcs
-            </p>
-            <p className="text-sm text-gray-500">
+          <div className="rounded-xl border border-slate-200 bg-white/90 p-4 shadow-sm backdrop-blur transition-colors dark:border-slate-700 dark:bg-slate-900/80">
+            <h2 className="text-sm font-semibold text-slate-600 dark:text-slate-300">Total stock</h2>
+            <p className="mt-2 text-2xl font-bold">{summary.totals.qty_pcs.toLocaleString()} pcs</p>
+            <p className="text-sm text-slate-500 dark:text-slate-400">
               {summary.totals.qty_tray.toFixed(1)} trays • {summary.totals.qty_dozen.toFixed(1)} dozens
             </p>
-            <p className="mt-2 text-xs uppercase tracking-wide text-gray-500">
+            <p className="mt-2 text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
               Low stock classifications: {lowStockCount}
             </p>
           </div>
-          <div className="rounded-lg border border-gray-200 bg-white p-4 shadow">
-            <h2 className="text-sm font-medium text-gray-500">Stock value</h2>
+          <div className="rounded-xl border border-slate-200 bg-white/90 p-4 shadow-sm backdrop-blur transition-colors dark:border-slate-700 dark:bg-slate-900/80">
+            <h2 className="text-sm font-semibold text-slate-600 dark:text-slate-300">Stock value</h2>
             <p className="mt-2 text-2xl font-bold">
               {summary.totals.stock_value !== null
                 ? currencyFormatter.format(summary.totals.stock_value)
                 : '—'}
             </p>
-            <p className="text-sm text-gray-500">Based on current price per dozen.</p>
+            <p className="text-sm text-slate-500 dark:text-slate-400">Based on current price per dozen.</p>
           </div>
-          <div className="rounded-lg border border-gray-200 bg-white p-4 shadow">
-            <h2 className="text-sm font-medium text-gray-500">Recent sales</h2>
+          <div className="rounded-xl border border-slate-200 bg-white/90 p-4 shadow-sm backdrop-blur transition-colors dark:border-slate-700 dark:bg-slate-900/80">
+            <h2 className="text-sm font-semibold text-slate-600 dark:text-slate-300">Recent sales</h2>
             {recentSalesEntry ? (
               <>
                 <p className="mt-2 text-2xl font-bold">
                   {currencyFormatter.format(recentSalesEntry.total_amount)}
                 </p>
-                <p className="text-sm text-gray-500">
+                <p className="text-sm text-slate-500 dark:text-slate-400">
                   {new Date(recentSalesEntry.date).toLocaleDateString()} •{' '}
                   {recentSalesEntry.eggs_sold_pcs.toLocaleString()} pcs sold •{' '}
                   {recentSalesEntry.invoice_count} invoices
                 </p>
               </>
             ) : (
-              <p className="mt-2 text-sm text-gray-500">
+              <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
                 No sales recorded in the last 7 days.
               </p>
             )}
@@ -458,14 +460,14 @@ const InventoryManagerPage: React.FC = () => {
         </div>
       )}
       {/* Inventory Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mt-4">
+      <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3">
         {summary?.cards.map((card) => (
           <div
             key={card.classification_id}
-            className={`rounded border p-4 shadow transition ${
+            className={`rounded-xl border p-4 shadow-sm transition-colors ${
               card.is_low
-                ? 'border-red-400 bg-red-50/40 ring-1 ring-red-300'
-                : 'border-gray-200 bg-white'
+                ? 'border-red-400/70 bg-red-50/70 dark:border-red-400/60 dark:bg-red-900/30'
+                : 'border-slate-200 bg-white/90 dark:border-slate-700 dark:bg-slate-900/80'
             }`}
           >
             <div className="flex items-start justify-between gap-3">
@@ -483,26 +485,34 @@ const InventoryManagerPage: React.FC = () => {
                       {card.color.slice(1).toLowerCase()}
                     </h3>
                     {card.is_low && (
-                      <span className="inline-flex items-center rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-700">
+                      <span className="inline-flex items-center rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-700 dark:bg-red-900/50 dark:text-red-200">
                         Low stock
                       </span>
                     )}
                   </div>
-                  <p className="text-sm text-gray-600">
+                  <p className="text-sm text-slate-600 dark:text-slate-300">
                     {card.qty_tray.toFixed(1)} trays • {card.qty_dozen.toFixed(1)} dozens
                   </p>
-                  <p className={`text-sm ${card.is_low ? 'font-semibold text-red-600' : 'text-gray-700'}`}>
+                  <p
+                    className={`text-sm ${
+                      card.is_low
+                        ? 'font-semibold text-red-600 dark:text-red-400'
+                        : 'text-slate-700 dark:text-slate-200'
+                    }`}
+                  >
                     {card.qty_pcs.toLocaleString()} pcs
                   </p>
                   {card.unit_price !== null && (
-                    <p className="text-sm text-gray-800 mt-1">
+                    <p className="mt-1 text-sm text-slate-700 dark:text-slate-200">
                       {currencyFormatter.format(card.unit_price)} per dozen
                     </p>
                   )}
                   {card.stock_value !== null && (
-                    <p className="text-sm text-gray-600">Stock value: {currencyFormatter.format(card.stock_value)}</p>
+                    <p className="text-sm text-slate-600 dark:text-slate-300">
+                      Stock value: {currencyFormatter.format(card.stock_value)}
+                    </p>
                   )}
-                  <p className="mt-2 text-xs uppercase tracking-wide text-gray-500">
+                  <p className="mt-2 text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">
                     Threshold: {card.threshold_pcs !== null ? `${card.threshold_pcs.toLocaleString()} pcs` : 'Not set'}
                   </p>
                 </div>
@@ -510,21 +520,24 @@ const InventoryManagerPage: React.FC = () => {
             </div>
             {user?.role === 'admin' && (
               <div className="mt-3 flex flex-wrap items-center gap-2">
-                <label className="text-xs font-medium uppercase tracking-wide text-gray-500" htmlFor={`threshold-${card.classification_id}`}>
+                <label
+                  className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400"
+                  htmlFor={`threshold-${card.classification_id}`}
+                >
                   Update threshold
                 </label>
                 <input
                   id={`threshold-${card.classification_id}`}
                   type="number"
                   min={0}
-                  className="w-24 rounded border px-2 py-1 text-sm"
+                  className="w-24 rounded border border-slate-300 bg-white px-2 py-1 text-sm text-slate-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 focus:ring-offset-white dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:focus:border-brand-400 dark:focus:ring-brand-400 dark:focus:ring-offset-slate-900"
                   value={thresholdEdits[card.classification_id] ?? ''}
                   onChange={(e) => handleThresholdInputChange(card.classification_id, e.target.value)}
                 />
                 <button
                   type="button"
                   onClick={() => handleSaveThreshold(card.classification_id)}
-                  className="rounded bg-indigo-600 px-3 py-1 text-sm font-medium text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:bg-indigo-300"
+                  className="rounded bg-brand-600 px-3 py-1 text-sm font-medium text-white transition-colors hover:bg-brand-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-white disabled:cursor-not-allowed disabled:bg-brand-300 dark:focus-visible:ring-offset-slate-900"
                   disabled={Boolean(thresholdSaving[card.classification_id])}
                 >
                   {thresholdSaving[card.classification_id] ? 'Saving…' : 'Save'}
@@ -536,10 +549,10 @@ const InventoryManagerPage: React.FC = () => {
       </div>
       {/* Add Inventory Form */}
       <div className="mt-6">
-        <h2 className="text-xl font-semibold mb-2">Add Inventory</h2>
-        <form className="flex flex-col sm:flex-row items-center gap-2" onSubmit={handleAdd}>
+        <h2 className="mb-2 text-xl font-semibold">Add Inventory</h2>
+        <form className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-end" onSubmit={handleAdd}>
           <select
-            className="border rounded px-3 py-2"
+            className="rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 focus:ring-offset-white dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:focus:border-brand-400 dark:focus:ring-brand-400 dark:focus:ring-offset-slate-900"
             value={selectedCls}
             onChange={(e) => setSelectedCls(Number(e.target.value))}
             required
@@ -555,7 +568,7 @@ const InventoryManagerPage: React.FC = () => {
           </select>
           <input
             type="number"
-            className="border rounded px-3 py-2"
+            className="rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 focus:ring-offset-white dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:focus:border-brand-400 dark:focus:ring-brand-400 dark:focus:ring-offset-slate-900"
             min={1}
             value={qty}
             onChange={(e) => setQty(parseInt(e.target.value, 10))}
@@ -563,7 +576,7 @@ const InventoryManagerPage: React.FC = () => {
             required
           />
           <select
-            className="border rounded px-3 py-2"
+            className="rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 focus:ring-offset-white dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:focus:border-brand-400 dark:focus:ring-brand-400 dark:focus:ring-offset-slate-900"
             value={unit}
             onChange={(e) => setUnit(e.target.value)}
           >
@@ -573,7 +586,7 @@ const InventoryManagerPage: React.FC = () => {
           </select>
           <button
             type="submit"
-            className="bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700"
+            className="rounded bg-brand-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-brand-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-slate-900"
           >
             Add Draft
           </button>
@@ -581,77 +594,93 @@ const InventoryManagerPage: React.FC = () => {
       </div>
       {user?.role === 'admin' && (
         <div className="mt-6">
-          <h2 className="text-xl font-semibold mb-2">Pending override approvals</h2>
+          <h2 className="mb-2 text-xl font-semibold">Pending override approvals</h2>
           {pendingOverrides.length === 0 ? (
-            <p className="text-sm text-gray-600">No override requests awaiting review.</p>
+            <p className="text-sm text-slate-600 dark:text-slate-300">No override requests awaiting review.</p>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
+            <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white/70 shadow-sm dark:border-slate-700 dark:bg-slate-900/50">
+              <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-700">
+                <thead className="bg-slate-100/70 dark:bg-slate-900/60">
                   <tr>
-                    <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Invoice</th>
-                    <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Customer</th>
-                    <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Requested</th>
-                    <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Available</th>
-                    <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Driver</th>
-                    <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Submitted</th>
-                    <th className="px-3 py-2 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Actions</th>
+                    <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-300">
+                      Invoice
+                    </th>
+                    <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-300">
+                      Customer
+                    </th>
+                    <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-300">
+                      Requested
+                    </th>
+                    <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-300">
+                      Available
+                    </th>
+                    <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-300">
+                      Driver
+                    </th>
+                    <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-300">
+                      Submitted
+                    </th>
+                    <th className="px-3 py-2 text-right text-xs font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-300">
+                      Actions
+                    </th>
                   </tr>
                 </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
+                <tbody className="divide-y divide-slate-200 bg-white/90 dark:divide-slate-800 dark:bg-slate-900/60">
                   {pendingOverrides.map((override) => {
                     const invoice = override.invoice;
                     const classification = override.classification;
                     const shortage = override.requested_qty_pcs - override.available_qty_pcs;
                     return (
                       <tr key={override.id}>
-                        <td className="px-3 py-2 text-sm text-gray-700">
+                        <td className="px-3 py-2 text-sm text-slate-700 dark:text-slate-200">
                           #{override.invoice_id}
                           {invoice && (
-                            <div className="text-xs text-gray-500">₱{invoice.total_amount.toFixed(2)}</div>
+                            <div className="text-xs text-slate-500 dark:text-slate-400">₱{invoice.total_amount.toFixed(2)}</div>
                           )}
                         </td>
-                        <td className="px-3 py-2 text-sm text-gray-700">
+                        <td className="px-3 py-2 text-sm text-slate-700 dark:text-slate-200">
                           {invoice?.customer_name || 'Walk-in'}
                           {invoice?.customer_phone && (
-                            <div className="text-xs text-gray-500">{invoice.customer_phone}</div>
+                            <div className="text-xs text-slate-500 dark:text-slate-400">{invoice.customer_phone}</div>
                           )}
                         </td>
-                        <td className="px-3 py-2 text-sm text-gray-700">
+                        <td className="px-3 py-2 text-sm text-slate-700 dark:text-slate-200">
                           {override.requested_qty_pcs} pcs ({override.requested_unit.toLowerCase()})
                           {classification && (
-                            <div className="text-xs text-gray-500">
+                            <div className="text-xs text-slate-500 dark:text-slate-400">
                               {classification.size} / {classification.color}
                             </div>
                           )}
                         </td>
-                        <td className="px-3 py-2 text-sm text-gray-700">
+                        <td className="px-3 py-2 text-sm text-slate-700 dark:text-slate-200">
                           {override.available_qty_pcs} pcs
                           {shortage > 0 && (
-                            <div className="text-xs text-red-500">Short {shortage} pcs</div>
+                            <div className="text-xs text-red-500 dark:text-red-400">Short {shortage} pcs</div>
                           )}
                         </td>
-                        <td className="px-3 py-2 text-sm text-gray-700">
+                        <td className="px-3 py-2 text-sm text-slate-700 dark:text-slate-200">
                           {invoice?.created_by_user?.name || invoice?.created_by_user?.username || `#${invoice?.created_by ?? ''}`}
                         </td>
-                        <td className="px-3 py-2 text-sm text-gray-700">
+                        <td className="px-3 py-2 text-sm text-slate-700 dark:text-slate-200">
                           {new Date(override.created_at).toLocaleString()}
                         </td>
-                        <td className="px-3 py-2 text-sm text-right space-x-2">
-                          <button
-                            type="button"
-                            onClick={() => handleApproveOverride(override.invoice_id)}
-                            className="px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700"
-                          >
-                            Approve
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleRejectOverride(override.invoice_id)}
-                            className="px-3 py-1 bg-red-600 text-white rounded hover:bg-red-700"
-                          >
-                            Reject
-                          </button>
+                        <td className="px-3 py-2 text-sm">
+                          <div className="flex justify-end gap-2">
+                            <button
+                              type="button"
+                              onClick={() => handleApproveOverride(override.invoice_id)}
+                              className="rounded-full bg-emerald-600 px-3 py-1 text-sm font-semibold text-white transition-colors hover:bg-emerald-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-slate-900"
+                            >
+                              Approve
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleRejectOverride(override.invoice_id)}
+                              className="rounded-full bg-red-600 px-3 py-1 text-sm font-semibold text-white transition-colors hover:bg-red-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-slate-900"
+                            >
+                              Reject
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     );
@@ -664,27 +693,27 @@ const InventoryManagerPage: React.FC = () => {
       )}
       {/* Movements List */}
       <div className="mt-6">
-        <h2 className="text-xl font-semibold mb-2">Recent Movements</h2>
-        <ul className="space-y-2">
+        <h2 className="mb-2 text-xl font-semibold">Recent Movements</h2>
+        <ul className="space-y-3">
           {movements.map((m) => (
             <li
               key={m.id}
-              className="bg-white p-3 rounded shadow flex flex-col sm:flex-row sm:items-center sm:justify-between"
+              className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-white/90 p-3 shadow-sm transition-colors sm:flex-row sm:items-center sm:justify-between dark:border-slate-700 dark:bg-slate-900/70"
             >
               <div>
-                <p className="font-semibold">
+                <p className="font-semibold text-slate-800 dark:text-slate-100">
                   {m.type} {m.qty_entered} {m.unit_entered} (cls #{m.classification_id})
                 </p>
-                <p className="text-sm text-gray-600">
+                <p className="text-sm text-slate-600 dark:text-slate-300">
                   Status: {m.status} • {new Date(m.created_at).toLocaleString()}
                 </p>
               </div>
               {user?.role === 'admin' && m.type === 'IN' && (
-                <div className="flex gap-2 mt-2 sm:mt-0">
+                <div className="mt-2 flex gap-2 sm:mt-0">
                   {m.status === 'DRAFT' && (
                     <button
                       onClick={() => handleVerify(m.id)}
-                      className="px-2 py-1 bg-yellow-500 text-white rounded"
+                      className="rounded-full bg-amber-500 px-3 py-1 text-sm font-semibold text-white transition-colors hover:bg-amber-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-slate-900"
                     >
                       Verify
                     </button>
@@ -692,7 +721,7 @@ const InventoryManagerPage: React.FC = () => {
                   {m.status === 'VERIFIED' && (
                     <button
                       onClick={() => handleCommit(m.id)}
-                      className="px-2 py-1 bg-green-600 text-white rounded"
+                      className="rounded-full bg-emerald-600 px-3 py-1 text-sm font-semibold text-white transition-colors hover:bg-emerald-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-slate-900"
                     >
                       Commit
                     </button>

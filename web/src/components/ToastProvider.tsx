@@ -30,9 +30,11 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const toneClasses = useMemo(
     () => ({
-      info: 'bg-slate-800 text-white',
-      success: 'bg-green-600 text-white',
-      error: 'bg-red-600 text-white',
+      info: 'border border-slate-200 bg-white/90 text-slate-900 shadow dark:border-slate-700 dark:bg-slate-800/90 dark:text-slate-100',
+      success:
+        'border border-emerald-200 bg-emerald-50 text-emerald-900 shadow dark:border-emerald-700 dark:bg-emerald-900/70 dark:text-emerald-100',
+      error:
+        'border border-red-200 bg-red-50 text-red-900 shadow dark:border-red-700 dark:bg-red-900/70 dark:text-red-100',
     }),
     [],
   );
@@ -42,11 +44,11 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   return (
     <ToastContext.Provider value={contextValue}>
       {children}
-      <div className="fixed top-4 right-4 z-50 space-y-2">
+      <div className="fixed top-4 right-4 z-50 space-y-3">
         {toasts.map((toast) => (
           <div
             key={toast.id}
-            className={`min-w-[220px] rounded px-4 py-2 shadow-lg ${toneClasses[toast.tone]}`}
+            className={`min-w-[240px] rounded-lg px-4 py-3 transition-colors ${toneClasses[toast.tone]}`}
             role="status"
           >
             {toast.message}

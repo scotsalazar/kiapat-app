@@ -66,12 +66,12 @@ const SignaturePad: React.FC<SignaturePadProps> = ({ onChange }) => {
         ref={canvasRef}
         width={300}
         height={150}
-        className="border border-gray-300 bg-white"
+        className="rounded border border-slate-300 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900"
       ></canvas>
       <button
         type="button"
         onClick={clear}
-        className="mt-2 px-2 py-1 text-sm bg-gray-200 rounded"
+        className="mt-2 rounded bg-slate-200 px-3 py-1 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:bg-slate-700 dark:text-slate-100 dark:hover:bg-slate-600 dark:focus-visible:ring-offset-slate-900"
       >
         Clear
       </button>

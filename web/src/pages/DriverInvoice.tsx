@@ -66,6 +66,8 @@ const DriverInvoicePage: React.FC = () => {
 
   const authHeader = useMemo(() => (token ? { Authorization: `Bearer ${token}` } : {}), [token]);
   const { showToast } = useToast();
+  const fieldStyles =
+    'rounded border border-slate-300 bg-white text-slate-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 focus:ring-offset-white dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:focus:border-brand-400 dark:focus:ring-brand-400 dark:focus:ring-offset-slate-900';
 
   const classificationMap = useMemo(() => {
     const map = new Map<number, Classification>();
@@ -109,38 +111,38 @@ const DriverInvoicePage: React.FC = () => {
       case 'open':
         return {
           label: 'Connected',
-          dotClass: 'bg-green-500',
-          textClass: 'text-green-600',
+          dotClass: 'bg-emerald-500',
+          textClass: 'text-emerald-600 dark:text-emerald-400',
         };
       case 'reconnecting':
         return {
           label: 'Reconnecting…',
-          dotClass: 'bg-yellow-500',
-          textClass: 'text-yellow-600',
+          dotClass: 'bg-amber-400',
+          textClass: 'text-amber-600 dark:text-amber-300',
         };
       case 'connecting':
         return {
           label: 'Connecting…',
-          dotClass: 'bg-yellow-500',
-          textClass: 'text-yellow-600',
+          dotClass: 'bg-brand-500',
+          textClass: 'text-brand-600 dark:text-brand-400',
         };
       case 'error':
         return {
           label: 'Connection error',
           dotClass: 'bg-red-500',
-          textClass: 'text-red-600',
+          textClass: 'text-red-600 dark:text-red-400',
         };
       case 'closed':
         return {
           label: 'Disconnected',
-          dotClass: 'bg-gray-400',
-          textClass: 'text-gray-500',
+          dotClass: 'bg-slate-400',
+          textClass: 'text-slate-500 dark:text-slate-400',
         };
       default:
         return {
           label: 'Offline',
-          dotClass: 'bg-gray-400',
-          textClass: 'text-gray-500',
+          dotClass: 'bg-slate-400',
+          textClass: 'text-slate-500 dark:text-slate-400',
         };
     }
   }, [streamStatus]);
@@ -242,7 +244,7 @@ const DriverInvoicePage: React.FC = () => {
   const total = items.reduce((sum, item) => sum + (item.line_total || 0), 0);
 
   return (
-    <div className="p-4 md:p-6">
+    <div className="p-4 text-slate-900 transition-colors md:p-6 dark:text-slate-100">
       <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="text-2xl font-bold">Generate Sales Invoice</h1>
         <div className="flex flex-col items-start text-sm sm:items-end">
@@ -251,18 +253,18 @@ const DriverInvoicePage: React.FC = () => {
             <span>{streamStatusMeta.label}</span>
           </div>
           {streamError && (
-            <div className="mt-1 text-xs text-red-600">{streamError}</div>
+            <div className="mt-1 text-xs text-red-600 dark:text-red-400">{streamError}</div>
           )}
         </div>
       </div>
       {message && (
         <p
-          className={`mb-2 ${
+          className={`mb-3 text-sm font-medium ${
             messageTone === 'error'
-              ? 'text-red-600'
+              ? 'text-red-600 dark:text-red-400'
               : messageTone === 'warning'
-              ? 'text-yellow-700'
-              : 'text-green-600'
+              ? 'text-amber-600 dark:text-amber-300'
+              : 'text-emerald-600 dark:text-emerald-400'
           }`}
         >
           {message}
@@ -270,12 +272,12 @@ const DriverInvoicePage: React.FC = () => {
       )}
       {invoiceId && (
         <div
-          className={`border p-2 rounded mb-4 ${
+          className={`mb-4 rounded-lg border p-3 text-sm font-medium ${
             invoiceStatus === 'PENDING_OVERRIDE'
-              ? 'bg-yellow-50 border-yellow-400 text-yellow-800'
+              ? 'border-amber-400 bg-amber-50 text-amber-800 dark:border-amber-500 dark:bg-amber-900/40 dark:text-amber-200'
               : invoiceStatus === 'REJECTED'
-              ? 'bg-red-50 border-red-400 text-red-700'
-              : 'bg-green-50 border-green-400 text-green-700'
+              ? 'border-red-400 bg-red-50 text-red-700 dark:border-red-500 dark:bg-red-900/40 dark:text-red-200'
+              : 'border-emerald-400 bg-emerald-50 text-emerald-700 dark:border-emerald-500 dark:bg-emerald-900/40 dark:text-emerald-200'
           }`}
         >
           Invoice #{invoiceId}{' '}
@@ -287,17 +289,16 @@ const DriverInvoicePage: React.FC = () => {
         </div>
       )}
       {overrides.length > 0 && (
-        <div className="mb-4 border border-yellow-300 bg-yellow-50 text-yellow-900 rounded p-3">
-          <h2 className="font-semibold mb-2">Requested override details</h2>
-          <ul className="list-disc pl-5 space-y-1 text-sm">
+        <div className="mb-4 rounded-lg border border-amber-400 bg-amber-50 p-4 text-amber-800 dark:border-amber-500 dark:bg-amber-900/30 dark:text-amber-100">
+          <h2 className="mb-2 text-lg font-semibold">Requested override details</h2>
+          <ul className="list-disc space-y-1 pl-5 text-sm">
             {overrides.map((override) => {
               const cls = classificationMap.get(override.classification_id);
               const shortage = override.requested_qty_pcs - override.available_qty_pcs;
               return (
                 <li key={override.id}>
-                  {cls ? `${cls.size} / ${cls.color}` : `Classification #${override.classification_id}`}:
-                  {' '}requested {override.requested_qty_pcs} pcs ({override.requested_unit.toLowerCase()})
-                  , available {override.available_qty_pcs} pcs
+                  {cls ? `${cls.size} / ${cls.color}` : `Classification #${override.classification_id}`}:{' '}
+                  requested {override.requested_qty_pcs} pcs ({override.requested_unit.toLowerCase()}), available {override.available_qty_pcs} pcs
                   {shortage > 0 && ` (short ${shortage} pcs)`}
                 </li>
               );
@@ -305,107 +306,112 @@ const DriverInvoicePage: React.FC = () => {
           </ul>
         </div>
       )}
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div className="flex flex-col md:flex-row gap-4">
+      <form onSubmit={handleSubmit} className="space-y-5">
+        <div className="flex flex-col gap-3 md:flex-row">
           <input
             type="text"
             placeholder="Customer name"
             value={customerName}
             onChange={(e) => setCustomerName(e.target.value)}
-            className="border rounded px-3 py-2 flex-1"
+            className={`${fieldStyles} flex-1 px-3 py-2 text-sm`}
           />
           <input
             type="text"
             placeholder="Customer phone"
             value={customerPhone}
             onChange={(e) => setCustomerPhone(e.target.value)}
-            className="border rounded px-3 py-2 flex-1"
+            className={`${fieldStyles} flex-1 px-3 py-2 text-sm`}
           />
         </div>
         {/* Line Items */}
         <div>
-          <h2 className="text-xl font-semibold mb-2">Items</h2>
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead>
-              <tr>
-                <th className="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Classification</th>
-                <th className="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Quantity</th>
-                <th className="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Unit</th>
-                <th className="px-2 py-1 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Price</th>
-                <th className="px-2 py-1 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
-              </tr>
-            </thead>
-            <tbody>
-              {items.map((item, idx) => (
-                <tr key={item.id} className="bg-white"> 
-                  <td className="px-2 py-1">
-                    <select
-                      className="border rounded px-2 py-1"
-                      value={item.classification_id}
-                      onChange={(e) => updateItem(idx, { classification_id: Number(e.target.value) })}
-                      required
-                    >
-                      <option value="" disabled>
-                        Select
-                      </option>
-                      {classifications.map((c) => (
-                        <option key={c.id} value={c.id}>
-                          {c.size} / {c.color}
-                        </option>
-                      ))}
-                    </select>
-                  </td>
-                  <td className="px-2 py-1">
-                    <input
-                      type="number"
-                      min={1}
-                      className="border rounded px-2 py-1 w-20"
-                      value={item.qty}
-                      onChange={(e) => updateItem(idx, { qty: parseInt(e.target.value, 10) })}
-                      required
-                    />
-                  </td>
-                  <td className="px-2 py-1">
-                    <select
-                      className="border rounded px-2 py-1"
-                      value={item.unit}
-                      onChange={(e) => updateItem(idx, { unit: e.target.value })}
-                    >
-                      {units.map((u) => (
-                        <option key={u} value={u}>
-                          {u.charAt(0)}{u.slice(1).toLowerCase()}
-                        </option>
-                      ))}
-                    </select>
-                  </td>
-                  <td className="px-2 py-1 text-right">
-                    {item.unit_price ? `₱${item.unit_price.toFixed(2)}` : '-'}
-                  </td>
-                    <td className="px-2 py-1 text-right">
-                      {item.line_total ? `₱${item.line_total.toFixed(2)}` : '-'}
-                    </td>
+          <h2 className="mb-2 text-xl font-semibold">Items</h2>
+          <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white/90 shadow-sm dark:border-slate-700 dark:bg-slate-900/70">
+            <table className="min-w-full divide-y divide-slate-200 text-sm dark:divide-slate-700">
+              <thead className="text-left text-xs font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-300">
+                <tr>
+                  <th className="px-3 py-2">Classification</th>
+                  <th className="px-3 py-2">Quantity</th>
+                  <th className="px-3 py-2">Unit</th>
+                  <th className="px-3 py-2 text-right">Price</th>
+                  <th className="px-3 py-2 text-right">Total</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                {items.map((item, idx) => (
+                  <tr key={item.id} className="bg-white/60 dark:bg-slate-900/50">
+                    <td className="px-3 py-2">
+                      <select
+                        className={`${fieldStyles} w-full px-2 py-1 text-sm`}
+                        value={item.classification_id}
+                        onChange={(e) => updateItem(idx, { classification_id: Number(e.target.value) })}
+                        required
+                      >
+                        <option value="" disabled>
+                          Select
+                        </option>
+                        {classifications.map((c) => (
+                          <option key={c.id} value={c.id}>
+                            {c.size} / {c.color}
+                          </option>
+                        ))}
+                      </select>
+                    </td>
+                    <td className="px-3 py-2">
+                      <input
+                        type="number"
+                        min={1}
+                        className={`${fieldStyles} w-24 px-2 py-1 text-sm`}
+                        value={item.qty}
+                        onChange={(e) => updateItem(idx, { qty: parseInt(e.target.value, 10) })}
+                        required
+                      />
+                    </td>
+                    <td className="px-3 py-2">
+                      <select
+                        className={`${fieldStyles} w-full px-2 py-1 text-sm`}
+                        value={item.unit}
+                        onChange={(e) => updateItem(idx, { unit: e.target.value })}
+                      >
+                        {units.map((u) => (
+                          <option key={u} value={u}>
+                            {u.charAt(0)}{u.slice(1).toLowerCase()}
+                          </option>
+                        ))}
+                      </select>
+                    </td>
+                    <td className="px-3 py-2 text-right text-slate-700 dark:text-slate-200">
+                      {item.unit_price ? `₱${item.unit_price.toFixed(2)}` : '—'}
+                    </td>
+                    <td className="px-3 py-2 text-right text-slate-700 dark:text-slate-200">
+                      {item.line_total ? `₱${item.line_total.toFixed(2)}` : '—'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
           <button
             type="button"
             onClick={addItem}
-            className="mt-2 px-3 py-1 bg-indigo-600 text-white rounded"
+            className="mt-3 rounded-full bg-brand-600 px-3 py-1.5 text-sm font-semibold text-white transition-colors hover:bg-brand-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-slate-900"
           >
             Add Item
           </button>
         </div>
         {/* Total */}
-        <div className="text-right text-lg font-semibold">Total: ₱{total.toFixed(2)}</div>
+        <div className="text-right text-lg font-semibold text-slate-800 dark:text-slate-100">
+          Total: ₱{total.toFixed(2)}
+        </div>
         {/* Signature */}
         <div>
-          <h2 className="text-xl font-semibold mb-1">Signature</h2>
+          <h2 className="mb-1 text-xl font-semibold">Signature</h2>
           <SignaturePad onChange={setSignatureDataUrl} />
         </div>
         <button
           type="submit"
-          className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
+          className="rounded-full bg-brand-600 px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-brand-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-white disabled:cursor-not-allowed dark:focus-visible:ring-offset-slate-900"
+          disabled={items.length === 0}
         >
           Submit Invoice
         </button>

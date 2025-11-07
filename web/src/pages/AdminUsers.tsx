@@ -51,6 +51,11 @@ const AdminUsersPage: React.FC = () => {
   const authHeader = useMemo(() => (token ? { Authorization: `Bearer ${token}` } : {}), [token]);
   const { showToast } = useToast();
 
+  const inputStyles =
+    'mt-1 rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 focus:ring-offset-white dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:focus:border-brand-400 dark:focus:ring-brand-400 dark:focus:ring-offset-slate-900';
+  const secondaryButtonStyles =
+    'rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:border-brand-500 hover:text-brand-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:hover:border-brand-400 dark:hover:text-brand-300 dark:focus-visible:ring-offset-slate-900';
+
   const loadUsers = async () => {
     if (!token) return;
     setLoading(true);
@@ -164,64 +169,56 @@ const AdminUsersPage: React.FC = () => {
   };
 
   return (
-    <div className="p-4 md:p-6 space-y-6">
+    <div className="space-y-6 p-4 text-slate-900 transition-colors md:p-6 dark:text-slate-100">
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <h1 className="text-2xl font-bold">User Administration</h1>
         <div className="flex gap-2">
-          <button
-            type="button"
-            className="px-4 py-2 rounded bg-gray-200 hover:bg-gray-300"
-            onClick={() => navigate('/inventory')}
-          >
+          <button type="button" className={secondaryButtonStyles} onClick={() => navigate('/inventory')}>
             Inventory
           </button>
-          <button
-            type="button"
-            className="px-4 py-2 rounded bg-gray-200 hover:bg-gray-300"
-            onClick={() => navigate('/')}
-          >
+          <button type="button" className={secondaryButtonStyles} onClick={() => navigate('/')}>
             Home
           </button>
         </div>
       </div>
 
-      {statusMessage && <div className="text-green-600">{statusMessage}</div>}
-      {loadError && <div className="text-red-600">{loadError}</div>}
+      {statusMessage && <div className="text-sm font-medium text-emerald-600 dark:text-emerald-400">{statusMessage}</div>}
+      {loadError && <div className="text-sm font-medium text-red-600 dark:text-red-400">{loadError}</div>}
 
-      <section className="bg-white shadow rounded p-4">
-        <h2 className="text-xl font-semibold mb-3">Create user</h2>
-        <form className="grid gap-3 md:grid-cols-2" onSubmit={handleCreateSubmit}>
+      <section className="rounded-xl border border-slate-200 bg-white/90 p-4 shadow-sm backdrop-blur dark:border-slate-700 dark:bg-slate-900/80">
+        <h2 className="mb-3 text-xl font-semibold">Create user</h2>
+        <form className="grid gap-4 md:grid-cols-2" onSubmit={handleCreateSubmit}>
           <div className="flex flex-col">
-            <label className="text-sm font-medium">Name</label>
+            <label className="text-sm font-semibold text-slate-700 dark:text-slate-200">Name</label>
             <input
-              className="border rounded px-3 py-2"
+              className={inputStyles}
               value={createForm.name}
               onChange={(e) => setCreateForm({ ...createForm, name: e.target.value })}
               required
             />
           </div>
           <div className="flex flex-col">
-            <label className="text-sm font-medium">Username</label>
+            <label className="text-sm font-semibold text-slate-700 dark:text-slate-200">Username</label>
             <input
-              className="border rounded px-3 py-2"
+              className={inputStyles}
               value={createForm.username}
               onChange={(e) => setCreateForm({ ...createForm, username: e.target.value })}
               required
             />
           </div>
           <div className="flex flex-col">
-            <label className="text-sm font-medium">Email</label>
+            <label className="text-sm font-semibold text-slate-700 dark:text-slate-200">Email</label>
             <input
               type="email"
-              className="border rounded px-3 py-2"
+              className={inputStyles}
               value={createForm.email}
               onChange={(e) => setCreateForm({ ...createForm, email: e.target.value })}
             />
           </div>
           <div className="flex flex-col">
-            <label className="text-sm font-medium">Role</label>
+            <label className="text-sm font-semibold text-slate-700 dark:text-slate-200">Role</label>
             <select
-              className="border rounded px-3 py-2"
+              className={inputStyles}
               value={createForm.role}
               onChange={(e) => setCreateForm({ ...createForm, role: e.target.value as 'admin' | 'driver' })}
             >
@@ -230,40 +227,54 @@ const AdminUsersPage: React.FC = () => {
             </select>
           </div>
           <div className="flex flex-col md:col-span-2">
-            <label className="text-sm font-medium">Password</label>
+            <label className="text-sm font-semibold text-slate-700 dark:text-slate-200">Password</label>
             <input
               type="password"
-              className="border rounded px-3 py-2"
+              className={inputStyles}
               value={createForm.password}
               onChange={(e) => setCreateForm({ ...createForm, password: e.target.value })}
               required
             />
-            <p className="text-xs text-gray-500 mt-1">Passwords must include upper, lower and numeric characters.</p>
+            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+              Passwords must include upper, lower and numeric characters.
+            </p>
           </div>
-          {createError && <div className="text-red-600 md:col-span-2">{createError}</div>}
-          {createSuccess && <div className="text-green-600 md:col-span-2">{createSuccess}</div>}
+          {createError && (
+            <div className="text-sm font-medium text-red-600 md:col-span-2 dark:text-red-400">{createError}</div>
+          )}
+          {createSuccess && (
+            <div className="text-sm font-medium text-emerald-600 md:col-span-2 dark:text-emerald-400">{createSuccess}</div>
+          )}
           <div className="md:col-span-2">
-            <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
+            <button
+              type="submit"
+              className="rounded-full bg-brand-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-brand-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-slate-900"
+            >
               Create user
             </button>
           </div>
         </form>
       </section>
 
-      <section className="bg-white shadow rounded p-4">
-        <div className="flex items-center justify-between mb-3">
+      <section className="rounded-xl border border-slate-200 bg-white/90 p-4 shadow-sm backdrop-blur dark:border-slate-700 dark:bg-slate-900/80">
+        <div className="mb-3 flex items-center justify-between gap-3">
           <h2 className="text-xl font-semibold">Existing users</h2>
-          <button type="button" className="text-sm text-blue-600" onClick={loadUsers} disabled={loading}>
+          <button
+            type="button"
+            className="text-sm font-semibold text-brand-600 transition-colors hover:text-brand-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-white disabled:cursor-not-allowed disabled:text-slate-400 dark:focus-visible:ring-offset-slate-900"
+            onClick={loadUsers}
+            disabled={loading}
+          >
             Refresh
           </button>
         </div>
         {loading ? (
-          <div>Loading users…</div>
+          <div className="text-sm text-slate-500 dark:text-slate-400">Loading users…</div>
         ) : (
           <div className="overflow-x-auto">
             <table className="min-w-full text-sm">
-              <thead>
-                <tr className="text-left border-b">
+              <thead className="border-b border-slate-200 text-left text-xs font-semibold uppercase tracking-wide text-slate-600 dark:border-slate-700 dark:text-slate-300">
+                <tr>
                   <th className="py-2 pr-4">Name</th>
                   <th className="py-2 pr-4">Username</th>
                   <th className="py-2 pr-4">Email</th>
@@ -272,32 +283,34 @@ const AdminUsersPage: React.FC = () => {
                   <th className="py-2">Actions</th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
                 {users.map((user) => (
-                  <tr key={user.id} className="border-b">
-                    <td className="py-2 pr-4">{user.name}</td>
-                    <td className="py-2 pr-4">{user.username}</td>
-                    <td className="py-2 pr-4">{user.email || '—'}</td>
-                    <td className="py-2 pr-4 capitalize">{user.role}</td>
-                    <td className="py-2 pr-4">{new Date(user.created_at).toLocaleString()}</td>
-                    <td className="py-2 flex gap-2 flex-wrap">
+                  <tr key={user.id} className="bg-white/70 transition-colors dark:bg-slate-900/40">
+                    <td className="py-2 pr-4 font-medium text-slate-800 dark:text-slate-100">{user.name}</td>
+                    <td className="py-2 pr-4 text-slate-700 dark:text-slate-200">{user.username}</td>
+                    <td className="py-2 pr-4 text-slate-700 dark:text-slate-200">{user.email || '—'}</td>
+                    <td className="py-2 pr-4 capitalize text-slate-700 dark:text-slate-200">{user.role}</td>
+                    <td className="py-2 pr-4 text-slate-500 dark:text-slate-300">
+                      {new Date(user.created_at).toLocaleString()}
+                    </td>
+                    <td className="flex flex-wrap gap-3 py-2">
                       <button
                         type="button"
-                        className="text-blue-600 hover:underline"
+                        className="text-sm font-semibold text-brand-600 transition-colors hover:text-brand-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-slate-900"
                         onClick={() => startEdit(user)}
                       >
                         Edit
                       </button>
                       <button
                         type="button"
-                        className="text-amber-600 hover:underline"
+                        className="text-sm font-semibold text-amber-600 transition-colors hover:text-amber-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-slate-900"
                         onClick={() => handleResetPassword(user)}
                       >
                         Reset password
                       </button>
                       <button
                         type="button"
-                        className="text-red-600 hover:underline"
+                        className="text-sm font-semibold text-red-600 transition-colors hover:text-red-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-slate-900"
                         onClick={() => handleDelete(user)}
                       >
                         Delete
@@ -312,31 +325,31 @@ const AdminUsersPage: React.FC = () => {
       </section>
 
       {editingUser && (
-        <section className="bg-white shadow rounded p-4">
-          <h2 className="text-xl font-semibold mb-3">Edit {editingUser.username}</h2>
-          <form className="grid gap-3 md:grid-cols-2" onSubmit={handleEditSubmit}>
+        <section className="rounded-xl border border-slate-200 bg-white/90 p-4 shadow-sm backdrop-blur dark:border-slate-700 dark:bg-slate-900/80">
+          <h2 className="mb-3 text-xl font-semibold">Edit {editingUser.username}</h2>
+          <form className="grid gap-4 md:grid-cols-2" onSubmit={handleEditSubmit}>
             <div className="flex flex-col">
-              <label className="text-sm font-medium">Name</label>
+              <label className="text-sm font-semibold text-slate-700 dark:text-slate-200">Name</label>
               <input
-                className="border rounded px-3 py-2"
+                className={inputStyles}
                 value={editForm.name}
                 onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
                 required
               />
             </div>
             <div className="flex flex-col">
-              <label className="text-sm font-medium">Email</label>
+              <label className="text-sm font-semibold text-slate-700 dark:text-slate-200">Email</label>
               <input
                 type="email"
-                className="border rounded px-3 py-2"
+                className={inputStyles}
                 value={editForm.email}
                 onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
               />
             </div>
             <div className="flex flex-col">
-              <label className="text-sm font-medium">Role</label>
+              <label className="text-sm font-semibold text-slate-700 dark:text-slate-200">Role</label>
               <select
-                className="border rounded px-3 py-2"
+                className={inputStyles}
                 value={editForm.role}
                 onChange={(e) => setEditForm({ ...editForm, role: e.target.value as 'admin' | 'driver' })}
               >
@@ -344,16 +357,17 @@ const AdminUsersPage: React.FC = () => {
                 <option value="admin">Admin</option>
               </select>
             </div>
-            {editError && <div className="text-red-600 md:col-span-2">{editError}</div>}
-            <div className="flex gap-2 md:col-span-2">
-              <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
+            {editError && (
+              <div className="text-sm font-medium text-red-600 md:col-span-2 dark:text-red-400">{editError}</div>
+            )}
+            <div className="flex flex-wrap gap-2 md:col-span-2">
+              <button
+                type="submit"
+                className="rounded-full bg-brand-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-brand-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-slate-900"
+              >
                 Save changes
               </button>
-              <button
-                type="button"
-                className="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300"
-                onClick={() => setEditingUser(null)}
-              >
+              <button type="button" className={secondaryButtonStyles} onClick={() => setEditingUser(null)}>
                 Cancel
               </button>
             </div>
