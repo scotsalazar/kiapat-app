@@ -173,20 +173,20 @@ const AdminUsersPage: React.FC = () => {
   };
 
   return (
-    <div className="p-4 md:p-6 space-y-6">
+    <div className="space-y-6">
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-        <h1 className="text-2xl font-bold">{t('adminUsers.title')}</h1>
+        <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">{t('adminUsers.title')}</h1>
         <div className="flex gap-2">
           <button
             type="button"
-            className="px-4 py-2 rounded bg-gray-200 hover:bg-gray-300"
+            className="rounded px-4 py-2 transition-colors bg-slate-200 text-slate-800 hover:bg-slate-300 dark:bg-slate-700 dark:text-slate-100 dark:hover:bg-slate-600"
             onClick={() => navigate('/inventory')}
           >
             {t('adminUsers.navigation.inventory')}
           </button>
           <button
             type="button"
-            className="px-4 py-2 rounded bg-gray-200 hover:bg-gray-300"
+            className="rounded px-4 py-2 transition-colors bg-slate-200 text-slate-800 hover:bg-slate-300 dark:bg-slate-700 dark:text-slate-100 dark:hover:bg-slate-600"
             onClick={() => navigate('/')}
           >
             {t('adminUsers.navigation.home')}
@@ -194,43 +194,43 @@ const AdminUsersPage: React.FC = () => {
         </div>
       </div>
 
-      {statusMessage && <div className="text-green-600">{statusMessage}</div>}
-      {loadError && <div className="text-red-600">{loadError}</div>}
+      {statusMessage && <div className="text-green-600 dark:text-green-400">{statusMessage}</div>}
+      {loadError && <div className="text-red-600 dark:text-red-400">{loadError}</div>}
 
-      <section className="bg-white shadow rounded p-4">
-        <h2 className="text-xl font-semibold mb-3">{t('adminUsers.create.title')}</h2>
+      <section className="rounded border border-slate-200 bg-white p-4 shadow-sm transition-colors dark:border-slate-700 dark:bg-slate-900 dark:shadow-slate-900/40">
+        <h2 className="mb-3 text-xl font-semibold text-slate-900 dark:text-slate-100">{t('adminUsers.create.title')}</h2>
         <form className="grid gap-3 md:grid-cols-2" onSubmit={handleCreateSubmit}>
           <div className="flex flex-col">
-            <label className="text-sm font-medium">{t('adminUsers.create.name')}</label>
+            <label className="text-sm font-medium text-slate-700 dark:text-slate-300">{t('adminUsers.create.name')}</label>
             <input
-              className="border rounded px-3 py-2"
+              className="rounded border border-slate-300 px-3 py-2 text-slate-900 transition-colors focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
               value={createForm.name}
               onChange={(e) => setCreateForm({ ...createForm, name: e.target.value })}
               required
             />
           </div>
           <div className="flex flex-col">
-            <label className="text-sm font-medium">{t('adminUsers.create.username')}</label>
+            <label className="text-sm font-medium text-slate-700 dark:text-slate-300">{t('adminUsers.create.username')}</label>
             <input
-              className="border rounded px-3 py-2"
+              className="rounded border border-slate-300 px-3 py-2 text-slate-900 transition-colors focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
               value={createForm.username}
               onChange={(e) => setCreateForm({ ...createForm, username: e.target.value })}
               required
             />
           </div>
           <div className="flex flex-col">
-            <label className="text-sm font-medium">{t('adminUsers.create.email')}</label>
+            <label className="text-sm font-medium text-slate-700 dark:text-slate-300">{t('adminUsers.create.email')}</label>
             <input
               type="email"
-              className="border rounded px-3 py-2"
+              className="rounded border border-slate-300 px-3 py-2 text-slate-900 transition-colors focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
               value={createForm.email}
               onChange={(e) => setCreateForm({ ...createForm, email: e.target.value })}
             />
           </div>
           <div className="flex flex-col">
-            <label className="text-sm font-medium">{t('adminUsers.create.role')}</label>
+            <label className="text-sm font-medium text-slate-700 dark:text-slate-300">{t('adminUsers.create.role')}</label>
             <select
-              className="border rounded px-3 py-2"
+              className="rounded border border-slate-300 px-3 py-2 text-slate-900 transition-colors focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
               value={createForm.role}
               onChange={(e) => setCreateForm({ ...createForm, role: e.target.value as 'admin' | 'driver' })}
             >
@@ -239,74 +239,74 @@ const AdminUsersPage: React.FC = () => {
             </select>
           </div>
           <div className="flex flex-col md:col-span-2">
-            <label className="text-sm font-medium">{t('adminUsers.create.password')}</label>
+            <label className="text-sm font-medium text-slate-700 dark:text-slate-300">{t('adminUsers.create.password')}</label>
             <input
               type="password"
-              className="border rounded px-3 py-2"
+              className="rounded border border-slate-300 px-3 py-2 text-slate-900 transition-colors focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
               value={createForm.password}
               onChange={(e) => setCreateForm({ ...createForm, password: e.target.value })}
               required
             />
-            <p className="text-xs text-gray-500 mt-1">{t('adminUsers.create.passwordHelp')}</p>
+            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{t('adminUsers.create.passwordHelp')}</p>
           </div>
-          {createError && <div className="text-red-600 md:col-span-2">{createError}</div>}
-          {createSuccess && <div className="text-green-600 md:col-span-2">{createSuccess}</div>}
+          {createError && <div className="md:col-span-2 text-red-600 dark:text-red-400">{createError}</div>}
+          {createSuccess && <div className="md:col-span-2 text-green-600 dark:text-green-400">{createSuccess}</div>}
           <div className="md:col-span-2">
-            <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
+            <button type="submit" className="rounded bg-blue-600 px-4 py-2 text-white transition hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-slate-100 dark:focus:ring-offset-slate-900">
               {t('adminUsers.create.submit')}
             </button>
           </div>
         </form>
       </section>
 
-      <section className="bg-white shadow rounded p-4">
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-xl font-semibold">{t('adminUsers.existing.title')}</h2>
-          <button type="button" className="text-sm text-blue-600" onClick={loadUsers} disabled={loading}>
+      <section className="rounded border border-slate-200 bg-white p-4 shadow-sm transition-colors dark:border-slate-700 dark:bg-slate-900 dark:shadow-slate-900/40">
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="text-xl font-semibold text-slate-900 dark:text-slate-100">{t('adminUsers.existing.title')}</h2>
+          <button type="button" className="text-sm text-blue-600 transition hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300" onClick={loadUsers} disabled={loading}>
             {t('adminUsers.existing.refresh')}
           </button>
         </div>
         {loading ? (
-          <div>{t('adminUsers.existing.loading')}</div>
+          <div className="text-slate-600 dark:text-slate-300">{t('adminUsers.existing.loading')}</div>
         ) : (
           <div className="overflow-x-auto">
             <table className="min-w-full text-sm">
               <thead>
-                <tr className="text-left border-b">
-                  <th className="py-2 pr-4">{t('adminUsers.existing.table.name')}</th>
-                  <th className="py-2 pr-4">{t('adminUsers.existing.table.username')}</th>
-                  <th className="py-2 pr-4">{t('adminUsers.existing.table.email')}</th>
-                  <th className="py-2 pr-4">{t('adminUsers.existing.table.role')}</th>
-                  <th className="py-2 pr-4">{t('adminUsers.existing.table.created')}</th>
-                  <th className="py-2">{t('adminUsers.existing.table.actions')}</th>
+                <tr className="border-b border-slate-200 text-left text-slate-600 dark:border-slate-700 dark:text-slate-300">
+                  <th className="py-2 pr-4 font-medium">{t('adminUsers.existing.table.name')}</th>
+                  <th className="py-2 pr-4 font-medium">{t('adminUsers.existing.table.username')}</th>
+                  <th className="py-2 pr-4 font-medium">{t('adminUsers.existing.table.email')}</th>
+                  <th className="py-2 pr-4 font-medium">{t('adminUsers.existing.table.role')}</th>
+                  <th className="py-2 pr-4 font-medium">{t('adminUsers.existing.table.created')}</th>
+                  <th className="py-2 font-medium">{t('adminUsers.existing.table.actions')}</th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
                 {users.map((user) => (
-                  <tr key={user.id} className="border-b">
-                    <td className="py-2 pr-4">{user.name}</td>
-                    <td className="py-2 pr-4">{user.username}</td>
-                    <td className="py-2 pr-4">{user.email || t('common.notAvailable')}</td>
-                    <td className="py-2 pr-4 capitalize">{user.role}</td>
-                    <td className="py-2 pr-4">{formatDateTime(user.created_at)}</td>
-                    <td className="py-2 flex gap-2 flex-wrap">
+                  <tr key={user.id} className="bg-white transition-colors dark:bg-slate-900">
+                    <td className="py-2 pr-4 text-slate-900 dark:text-slate-100">{user.name}</td>
+                    <td className="py-2 pr-4 text-slate-900 dark:text-slate-100">{user.username}</td>
+                    <td className="py-2 pr-4 text-slate-900 dark:text-slate-100">{user.email || t('common.notAvailable')}</td>
+                    <td className="py-2 pr-4 capitalize text-slate-900 dark:text-slate-100">{user.role}</td>
+                    <td className="py-2 pr-4 text-slate-900 dark:text-slate-100">{formatDateTime(user.created_at)}</td>
+                    <td className="flex flex-wrap gap-2 py-2">
                       <button
                         type="button"
-                        className="text-blue-600 hover:underline"
+                        className="text-blue-600 transition hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
                         onClick={() => startEdit(user)}
                       >
                         {t('adminUsers.existing.edit')}
                       </button>
                       <button
                         type="button"
-                        className="text-amber-600 hover:underline"
+                        className="text-amber-600 transition hover:text-amber-500 dark:text-amber-400 dark:hover:text-amber-300"
                         onClick={() => handleResetPassword(user)}
                       >
                         {t('adminUsers.existing.resetPassword')}
                       </button>
                       <button
                         type="button"
-                        className="text-red-600 hover:underline"
+                        className="text-red-600 transition hover:text-red-500 dark:text-red-400 dark:hover:text-red-300"
                         onClick={() => handleDelete(user)}
                       >
                         {t('adminUsers.existing.delete')}
@@ -321,33 +321,33 @@ const AdminUsersPage: React.FC = () => {
       </section>
 
       {editingUser && (
-        <section className="bg-white shadow rounded p-4">
-          <h2 className="text-xl font-semibold mb-3">
+        <section className="rounded border border-slate-200 bg-white p-4 shadow-sm transition-colors dark:border-slate-700 dark:bg-slate-900 dark:shadow-slate-900/40">
+          <h2 className="mb-3 text-xl font-semibold text-slate-900 dark:text-slate-100">
             {t('adminUsers.edit.title', { username: editingUser.username })}
           </h2>
           <form className="grid gap-3 md:grid-cols-2" onSubmit={handleEditSubmit}>
             <div className="flex flex-col">
-              <label className="text-sm font-medium">{t('adminUsers.edit.name')}</label>
+              <label className="text-sm font-medium text-slate-700 dark:text-slate-300">{t('adminUsers.edit.name')}</label>
               <input
-                className="border rounded px-3 py-2"
+                className="rounded border border-slate-300 px-3 py-2 text-slate-900 transition-colors focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
                 value={editForm.name}
                 onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
                 required
               />
             </div>
             <div className="flex flex-col">
-              <label className="text-sm font-medium">{t('adminUsers.edit.email')}</label>
+              <label className="text-sm font-medium text-slate-700 dark:text-slate-300">{t('adminUsers.edit.email')}</label>
               <input
                 type="email"
-                className="border rounded px-3 py-2"
+                className="rounded border border-slate-300 px-3 py-2 text-slate-900 transition-colors focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
                 value={editForm.email}
                 onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
               />
             </div>
             <div className="flex flex-col">
-              <label className="text-sm font-medium">{t('adminUsers.edit.role')}</label>
+              <label className="text-sm font-medium text-slate-700 dark:text-slate-300">{t('adminUsers.edit.role')}</label>
               <select
-                className="border rounded px-3 py-2"
+                className="rounded border border-slate-300 px-3 py-2 text-slate-900 transition-colors focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
                 value={editForm.role}
                 onChange={(e) => setEditForm({ ...editForm, role: e.target.value as 'admin' | 'driver' })}
               >
@@ -355,14 +355,14 @@ const AdminUsersPage: React.FC = () => {
                 <option value="admin">{t('adminUsers.create.admin')}</option>
               </select>
             </div>
-            {editError && <div className="text-red-600 md:col-span-2">{editError}</div>}
-            <div className="flex gap-2 md:col-span-2">
-              <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
+            {editError && <div className="md:col-span-2 text-red-600 dark:text-red-400">{editError}</div>}
+            <div className="md:col-span-2 flex gap-2">
+              <button type="submit" className="rounded bg-blue-600 px-4 py-2 text-white transition hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-slate-100 dark:focus:ring-offset-slate-900">
                 {t('adminUsers.edit.save')}
               </button>
               <button
                 type="button"
-                className="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300"
+                className="rounded bg-slate-200 px-4 py-2 transition hover:bg-slate-300 dark:bg-slate-700 dark:text-slate-100 dark:hover:bg-slate-600"
                 onClick={() => setEditingUser(null)}
               >
                 {t('adminUsers.edit.cancel')}

@@ -74,21 +74,21 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-60 px-4 py-6">
-      <div className="relative max-h-full w-full max-w-4xl overflow-y-auto rounded-lg bg-white shadow-xl">
-        <div className="flex items-center justify-between border-b px-6 py-4">
-          <h2 className="text-xl font-semibold">{t('invoicePreview.title')}</h2>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/70 px-4 py-6">
+      <div className="relative max-h-full w-full max-w-4xl overflow-y-auto rounded-xl bg-white text-slate-900 shadow-xl transition-colors dark:bg-slate-950 dark:text-slate-100 dark:shadow-slate-950/60">
+        <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4 dark:border-slate-800">
+          <h2 className="text-xl font-semibold text-slate-900 dark:text-slate-100">{t('invoicePreview.title')}</h2>
           <button
             type="button"
             onClick={onClose}
-            className="rounded border border-transparent px-3 py-1 text-sm text-gray-600 hover:bg-gray-100"
+            className="rounded border border-slate-200 px-3 py-1 text-sm font-medium text-slate-600 transition hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:ring-offset-white dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-900/60 dark:focus:ring-offset-slate-950"
           >
             {t('invoicePreview.close')}
           </button>
         </div>
         <div className="space-y-6 px-6 py-4">
           {validationWarnings.length > 0 && (
-            <div className="rounded border border-yellow-300 bg-yellow-50 p-3 text-sm text-yellow-900">
+            <div className="rounded border border-yellow-300 bg-yellow-50 p-3 text-sm text-yellow-900 transition-colors dark:border-yellow-500 dark:bg-yellow-900/30 dark:text-yellow-100">
               <h3 className="font-semibold">{t('invoicePreview.reviewHeading')}</h3>
               <ul className="mt-2 list-disc space-y-1 pl-5">
                 {validationWarnings.map((warning) => (
@@ -98,33 +98,33 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
             </div>
           )}
           <div>
-            <h3 className="text-lg font-semibold">{t('invoicePreview.lineItemsHeading')}</h3>
+            <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">{t('invoicePreview.lineItemsHeading')}</h3>
             <div className="mt-3 overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200 text-sm">
-                <thead className="bg-gray-50">
+              <table className="min-w-full divide-y divide-slate-200 overflow-hidden rounded-lg border border-slate-200 text-sm dark:divide-slate-700 dark:border-slate-800">
+                <thead className="bg-slate-100 text-slate-600 dark:bg-slate-900 dark:text-slate-300">
                   <tr>
-                    <th className="px-3 py-2 text-left font-medium text-gray-500">{t('invoicePreview.table.classification')}</th>
-                    <th className="px-3 py-2 text-left font-medium text-gray-500">{t('invoicePreview.table.quantity')}</th>
-                    <th className="px-3 py-2 text-left font-medium text-gray-500">{t('invoicePreview.table.unit')}</th>
-                    <th className="px-3 py-2 text-right font-medium text-gray-500">{t('invoicePreview.table.unitPrice')}</th>
-                    <th className="px-3 py-2 text-right font-medium text-gray-500">{t('invoicePreview.table.lineTotal')}</th>
-                    <th className="px-3 py-2 text-right font-medium text-gray-500">{t('invoicePreview.table.actions')}</th>
+                    <th className="px-3 py-2 text-left font-semibold">{t('invoicePreview.table.classification')}</th>
+                    <th className="px-3 py-2 text-left font-semibold">{t('invoicePreview.table.quantity')}</th>
+                    <th className="px-3 py-2 text-left font-semibold">{t('invoicePreview.table.unit')}</th>
+                    <th className="px-3 py-2 text-right font-semibold">{t('invoicePreview.table.unitPrice')}</th>
+                    <th className="px-3 py-2 text-right font-semibold">{t('invoicePreview.table.lineTotal')}</th>
+                    <th className="px-3 py-2 text-right font-semibold">{t('invoicePreview.table.actions')}</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-200">
+                <tbody className="divide-y divide-slate-200 bg-white dark:divide-slate-700 dark:bg-slate-950">
                   {lineItems.length === 0 && (
                     <tr>
-                      <td colSpan={6} className="px-3 py-4 text-center text-gray-500">
+                      <td colSpan={6} className="px-3 py-4 text-center text-slate-500 dark:text-slate-400">
                         {t('invoicePreview.noItems')}
                       </td>
                     </tr>
                   )}
                   {lineItems.map((item) => (
-                    <tr key={item.id} className="bg-white">
+                    <tr key={item.id} className="bg-white text-slate-900 transition-colors dark:bg-slate-950 dark:text-slate-100">
                       <td className="px-3 py-2">
                         {editingItemId === item.id ? (
                           <select
-                            className="w-full rounded border px-2 py-1"
+                            className="w-full rounded border border-slate-300 px-2 py-1 text-sm text-slate-900 transition-colors focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
                             value={item.classification_id}
                             onChange={(e) =>
                               onUpdateItem(item.id, {
@@ -145,9 +145,11 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
                           </select>
                         ) : (
                           <div>
-                            <div>{item.classificationLabel || t('invoicePreview.unclassified')}</div>
+                            <div className="font-medium text-slate-900 dark:text-slate-100">
+                              {item.classificationLabel || t('invoicePreview.unclassified')}
+                            </div>
                             {!item.hasRealTimePrice && (
-                              <div className="text-xs text-yellow-600">
+                              <div className="text-xs text-yellow-600 dark:text-yellow-300">
                                 {t('invoicePreview.priceUnavailable')}
                               </div>
                             )}
@@ -159,7 +161,7 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
                           <input
                             type="number"
                             min={1}
-                            className="w-24 rounded border px-2 py-1"
+                            className="w-24 rounded border border-slate-300 px-2 py-1 text-sm text-slate-900 transition-colors focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
                             value={item.qty}
                             onChange={(e) =>
                               onUpdateItem(item.id, {
@@ -174,7 +176,7 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
                       <td className="px-3 py-2">
                         {editingItemId === item.id ? (
                           <select
-                            className="w-28 rounded border px-2 py-1"
+                            className="w-28 rounded border border-slate-300 px-2 py-1 text-sm text-slate-900 transition-colors focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
                             value={item.unit}
                             onChange={(e) =>
                               onUpdateItem(item.id, {
@@ -190,13 +192,13 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
                           item.unit
                         )}
                       </td>
-                      <td className="px-3 py-2 text-right">
+                      <td className="px-3 py-2 text-right font-medium text-slate-900 dark:text-slate-100">
                         {item.unitPrice ? `₱${item.unitPrice.toFixed(2)}` : '-'}
                       </td>
-                      <td className="px-3 py-2 text-right">
+                      <td className="px-3 py-2 text-right font-semibold text-slate-900 dark:text-slate-100">
                         {item.lineTotal ? `₱${item.lineTotal.toFixed(2)}` : '-'}
                       </td>
-                      <td className="px-3 py-2 text-right text-sm">
+                      <td className="px-3 py-2 text-right text-sm text-slate-700 dark:text-slate-200">
                         <div className="flex justify-end gap-2">
                           <button
                             type="button"
@@ -205,7 +207,7 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
                                 current === item.id ? null : item.id,
                               )
                             }
-                            className="rounded border border-indigo-200 px-2 py-1 text-indigo-600 hover:bg-indigo-50"
+                            className="rounded border border-indigo-200 px-2 py-1 text-indigo-600 transition hover:bg-indigo-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:ring-offset-white dark:border-indigo-500/40 dark:text-indigo-300 dark:hover:bg-indigo-500/20 dark:focus:ring-offset-slate-950"
                           >
                             {editingItemId === item.id
                               ? t('invoicePreview.done')
@@ -214,7 +216,7 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
                           <button
                             type="button"
                             onClick={() => onRemoveItem(item.id)}
-                            className="rounded border border-red-200 px-2 py-1 text-red-600 hover:bg-red-50"
+                            className="rounded border border-red-200 px-2 py-1 text-red-600 transition hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 focus:ring-offset-white dark:border-red-500/40 dark:text-red-300 dark:hover:bg-red-500/10 dark:focus:ring-offset-slate-950"
                           >
                             {t('invoicePreview.remove')}
                           </button>
@@ -229,48 +231,48 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
 
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-3">
-              <h3 className="text-lg font-semibold">{t('invoicePreview.signatureHeading')}</h3>
+              <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">{t('invoicePreview.signatureHeading')}</h3>
               {signatureDataUrl ? (
                 <img
                   src={signatureDataUrl}
                   alt={t('invoicePreview.signatureAlt')}
-                  className="h-40 w-full max-w-sm rounded border object-contain"
+                  className="h-40 w-full max-w-sm rounded border border-slate-200 object-contain dark:border-slate-700"
                 />
               ) : (
-                <div className="rounded border border-dashed border-gray-300 p-6 text-center text-sm text-gray-500">
+                <div className="rounded border border-dashed border-slate-300 p-6 text-center text-sm text-slate-500 dark:border-slate-700 dark:text-slate-400">
                   {t('invoicePreview.noSignature')}
                 </div>
               )}
             </div>
-            <div className="space-y-2 rounded border bg-gray-50 p-4">
-              <h3 className="text-lg font-semibold">{t('invoicePreview.summaryHeading')}</h3>
-              <div className="flex justify-between text-sm text-gray-600">
+            <div className="space-y-2 rounded border border-slate-200 bg-slate-100 p-4 transition-colors dark:border-slate-800 dark:bg-slate-900/70">
+              <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">{t('invoicePreview.summaryHeading')}</h3>
+              <div className="flex justify-between text-sm text-slate-600 dark:text-slate-300">
                 <span>{t('invoicePreview.subtotal')}</span>
                 <span>₱{subtotal.toFixed(2)}</span>
               </div>
-              <div className="flex justify-between text-sm text-gray-600">
+              <div className="flex justify-between text-sm text-slate-600 dark:text-slate-300">
                 <span>{t('invoicePreview.taxes', { rate: (TAX_RATE * 100).toFixed(0) })}</span>
                 <span>₱{taxes.toFixed(2)}</span>
               </div>
-              <div className="flex justify-between text-base font-semibold text-gray-900">
+              <div className="flex justify-between text-base font-semibold text-slate-900 dark:text-slate-100">
                 <span>{t('invoicePreview.total')}</span>
                 <span>₱{total.toFixed(2)}</span>
               </div>
             </div>
           </div>
         </div>
-        <div className="flex items-center justify-end gap-3 border-t bg-gray-50 px-6 py-4">
+        <div className="flex items-center justify-end gap-3 border-t border-slate-200 bg-slate-100 px-6 py-4 dark:border-slate-800 dark:bg-slate-900/80">
           <button
             type="button"
             onClick={onClose}
-            className="rounded border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-white"
+            className="rounded border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:ring-offset-white dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800 dark:focus:ring-offset-slate-950"
           >
             {t('invoicePreview.cancel')}
           </button>
           <button
             type="button"
             onClick={onConfirm}
-            className="rounded bg-green-600 px-4 py-2 text-sm font-semibold text-white hover:bg-green-700 disabled:cursor-not-allowed disabled:bg-green-300"
+            className="rounded bg-green-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 focus:ring-offset-white disabled:cursor-not-allowed disabled:bg-green-300 dark:focus:ring-offset-slate-950"
             disabled={
               validationWarnings.length > 0 || lineItems.length === 0 || isSubmitting
             }

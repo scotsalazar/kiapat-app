@@ -1,5 +1,6 @@
 import React, { useRef, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useTheme } from '../hooks/useTheme';
 
 interface SignaturePadProps {
   onChange?: (dataUrl: string) => void;
@@ -9,6 +10,7 @@ const SignaturePad: React.FC<SignaturePadProps> = ({ onChange }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const drawing = useRef(false);
   const { t } = useTranslation();
+  const { theme } = useTheme();
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -17,7 +19,6 @@ const SignaturePad: React.FC<SignaturePadProps> = ({ onChange }) => {
     if (!ctx) return;
     ctx.lineWidth = 2;
     ctx.lineCap = 'round';
-    ctx.strokeStyle = '#111827'; // gray-900
 
     const handlePointerDown = (e: PointerEvent) => {
       drawing.current = true;
@@ -50,6 +51,14 @@ const SignaturePad: React.FC<SignaturePadProps> = ({ onChange }) => {
     };
   }, [onChange]);
 
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    ctx.strokeStyle = theme === 'dark' ? '#e2e8f0' : '#111827';
+  }, [theme]);
+
   const clear = () => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -63,17 +72,17 @@ const SignaturePad: React.FC<SignaturePadProps> = ({ onChange }) => {
 
   // Expose clear method via data attribute (optional). Caller can access ref.
   return (
-    <div>
+    <div className="space-y-2">
       <canvas
         ref={canvasRef}
         width={300}
         height={150}
-        className="border border-gray-300 bg-white"
+        className="w-full max-w-full rounded border border-slate-300 bg-white transition-colors dark:border-slate-600 dark:bg-slate-800"
       ></canvas>
       <button
         type="button"
         onClick={clear}
-        className="mt-2 px-2 py-1 text-sm bg-gray-200 rounded"
+        className="rounded bg-slate-200 px-2 py-1 text-sm font-medium text-slate-800 transition hover:bg-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:ring-offset-slate-100 dark:bg-slate-700 dark:text-slate-100 dark:hover:bg-slate-600 dark:focus:ring-offset-slate-900"
       >
         {t('signaturePad.clear')}
       </button>
