@@ -211,6 +211,80 @@ def test_inventory_threshold_configuration(client):
     assert card["is_low"] is False
 
 
+def test_inventory_summary_filters(client):
+    seed_db(client)
+    admin_token = login(client, "admin", "admin123")
+
+    resp = client.get(
+        "/api/inventory/summary",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert resp.status_code == 200
+    summary = resp.json()
+    assert summary["cards"], "Expected seeded inventory to include classifications"
+    first_card = summary["cards"][0]
+
+    resp = client.get(
+        "/api/inventory/summary",
+        params={"size": first_card["size"]},
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert resp.status_code == 200
+    size_filtered = resp.json()["cards"]
+    assert size_filtered
+    assert all(card["size"] == first_card["size"] for card in size_filtered)
+
+    resp = client.get(
+        "/api/inventory/summary",
+        params={"color": first_card["color"]},
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert resp.status_code == 200
+    color_filtered = resp.json()["cards"]
+    assert color_filtered
+    assert all(card["color"] == first_card["color"] for card in color_filtered)
+
+    # mark the first card as low stock and ensure low_stock filter returns only low stock items
+    threshold_value = max(first_card["qty_pcs"], 0) + 10
+    client.put(
+        "/api/inventory/thresholds",
+        json={
+            "thresholds": [
+                {
+                    "classification_id": first_card["classification_id"],
+                    "threshold_pcs": threshold_value,
+                }
+            ]
+        },
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+
+    resp = client.get(
+        "/api/inventory/summary",
+        params={"low_stock": "true"},
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert resp.status_code == 200
+    low_filtered = resp.json()["cards"]
+    assert low_filtered
+    assert all(card["is_low"] for card in low_filtered)
+    assert any(card["classification_id"] == first_card["classification_id"] for card in low_filtered)
+
+    search_term = first_card["size"].lower()
+    resp = client.get(
+        "/api/inventory/summary",
+        params={"search": search_term},
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert resp.status_code == 200
+    search_filtered = resp.json()["cards"]
+    assert search_filtered
+    assert all(
+        search_term in f"{card['size']} {card['color']}".lower()
+        for card in search_filtered
+    )
+
+
 def test_invoice_override_flow(client):
     seed_db(client)
     admin_token = login(client, "admin", "admin123")
