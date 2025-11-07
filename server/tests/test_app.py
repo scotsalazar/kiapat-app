@@ -211,6 +211,60 @@ def test_inventory_threshold_configuration(client):
     assert card["is_low"] is False
 
 
+def test_inventory_summary_filters(client):
+    seed_db(client)
+    admin_token = login(client, "admin", "admin123")
+
+    resp = client.get(
+        "/api/catalog/classifications",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert resp.status_code == 200
+    classifications = resp.json()
+    first_cls = classifications[0]
+    second_cls = classifications[1]
+
+    resp = client.put(
+        "/api/inventory/thresholds",
+        json={
+            "thresholds": [
+                {"classification_id": first_cls["id"], "threshold_pcs": 10},
+            ]
+        },
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert resp.status_code == 200
+
+    resp = client.get(
+        "/api/inventory/summary",
+        headers={"Authorization": f"Bearer {admin_token}"},
+        params={"size": first_cls["size"]},
+    )
+    assert resp.status_code == 200
+    summary = resp.json()
+    assert all(card["size"] == first_cls["size"] for card in summary["cards"])
+
+    resp = client.get(
+        "/api/inventory/summary",
+        headers={"Authorization": f"Bearer {admin_token}"},
+        params={"color": second_cls["color"]},
+    )
+    assert resp.status_code == 200
+    summary = resp.json()
+    assert all(card["color"] == second_cls["color"] for card in summary["cards"])
+
+    resp = client.get(
+        "/api/inventory/summary",
+        headers={"Authorization": f"Bearer {admin_token}"},
+        params={"search": str(first_cls["id"]), "low_stock": True},
+    )
+    assert resp.status_code == 200
+    summary = resp.json()
+    assert summary["cards"], "Expected at least one card when filtering by known classification"
+    assert all(card["classification_id"] == first_cls["id"] for card in summary["cards"])
+    assert all(card["is_low"] is True for card in summary["cards"])
+
+
 def test_invoice_override_flow(client):
     seed_db(client)
     admin_token = login(client, "admin", "admin123")

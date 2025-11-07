@@ -115,8 +115,21 @@ def reset_user_password(db: Session, user_id: int, new_password: str) -> models.
     return user
 
 
-def list_classifications(db: Session) -> List[models.Classification]:
-    return db.query(models.Classification).filter(models.Classification.is_active == True).all()
+def list_classifications(
+    db: Session,
+    *,
+    include_inactive: bool = False,
+    size: Optional[models.SizeEnum] = None,
+    color: Optional[models.ColorEnum] = None,
+) -> List[models.Classification]:
+    query = db.query(models.Classification)
+    if not include_inactive:
+        query = query.filter(models.Classification.is_active == True)
+    if size is not None:
+        query = query.filter(models.Classification.size == size)
+    if color is not None:
+        query = query.filter(models.Classification.color == color)
+    return query.all()
 
 
 def _ensure_unique_classification(
@@ -335,7 +348,14 @@ def delete_price(db: Session, price_id: int) -> None:
     db.commit()
 
 
-def get_inventory_summary(db: Session) -> schemas.InventorySummary:
+def get_inventory_summary(
+    db: Session,
+    *,
+    size: Optional[models.SizeEnum] = None,
+    color: Optional[models.ColorEnum] = None,
+    search: Optional[str] = None,
+    low_stock: bool = False,
+) -> schemas.InventorySummary:
     """
     Compute the current inventory summary.  This sums the current
     inventory balances and returns quantities in trays, dozens and
@@ -344,14 +364,12 @@ def get_inventory_summary(db: Session) -> schemas.InventorySummary:
     """
     timestamp = datetime.utcnow()
     cards: List[schemas.InventoryCard] = []
-    classifications = list_classifications(db)
+    classifications = list_classifications(db, size=size, color=color)
     thresholds = {
         threshold.classification_id: threshold.threshold_pcs
         for threshold in db.query(models.InventoryThreshold).all()
     }
-    total_qty_pcs = 0
-    total_stock_value = 0.0
-    has_stock_value = False
+    search_value = search.strip().lower() if search else None
     for c in classifications:
         balance = c.inventory_balance
         qty_pcs = balance.qty_pcs if balance else 0
@@ -363,29 +381,35 @@ def get_inventory_summary(db: Session) -> schemas.InventorySummary:
         stock_value = None
         if unit_price is not None:
             stock_value = qty_dozen * unit_price
-            total_stock_value += stock_value
-            has_stock_value = True
-        total_qty_pcs += qty_pcs
         threshold_pcs = thresholds.get(c.id)
-        cards.append(
-            schemas.InventoryCard(
-                classification_id=c.id,
-                size=c.size,
-                color=c.color,
-                qty_tray=qty_tray,
-                qty_dozen=qty_dozen,
-                qty_pcs=qty_pcs,
-                unit_price=unit_price,
-                stock_value=stock_value,
-                threshold_pcs=threshold_pcs,
-                is_low=threshold_pcs is not None and qty_pcs <= threshold_pcs,
-            )
+        card = schemas.InventoryCard(
+            classification_id=c.id,
+            size=c.size,
+            color=c.color,
+            qty_tray=qty_tray,
+            qty_dozen=qty_dozen,
+            qty_pcs=qty_pcs,
+            unit_price=unit_price,
+            stock_value=stock_value,
+            threshold_pcs=threshold_pcs,
+            is_low=threshold_pcs is not None and qty_pcs <= threshold_pcs,
         )
+        if search_value:
+            label = f"{card.size} {card.color} {card.classification_id}".lower()
+            if search_value not in label:
+                continue
+        if low_stock and not card.is_low:
+            continue
+        cards.append(card)
+    total_qty_pcs = sum(card.qty_pcs for card in cards)
+    total_qty_tray = sum(card.qty_tray for card in cards)
+    total_qty_dozen = sum(card.qty_dozen for card in cards)
+    stock_values = [card.stock_value or 0.0 for card in cards if card.stock_value is not None]
     totals = schemas.InventoryTotals(
-        qty_tray=utils.from_pcs(total_qty_pcs, models.UnitEnum.TRAY),
-        qty_dozen=utils.from_pcs(total_qty_pcs, models.UnitEnum.DOZEN),
+        qty_tray=total_qty_tray,
+        qty_dozen=total_qty_dozen,
         qty_pcs=total_qty_pcs,
-        stock_value=total_stock_value if has_stock_value else None,
+        stock_value=sum(stock_values) if stock_values else None,
     )
     return schemas.InventorySummary(timestamp=timestamp, totals=totals, cards=cards)
 

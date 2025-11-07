@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import axios from 'axios';
+import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { useToast } from '../components/ToastProvider';
 import { parseApiError } from '../utils/apiErrors';
@@ -110,10 +111,18 @@ type InventoryStreamState = {
 
 const InventoryManagerPage: React.FC = () => {
   const { token, user } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [initialSummary, setInitialSummary] =
     useState<InventorySummaryResponse | null>(null);
   const [initialMovements, setInitialMovements] = useState<Movement[]>([]);
   const [classifications, setClassifications] = useState<Classification[]>([]);
+  const [sizeFilter, setSizeFilter] = useState<string>(() => searchParams.get('size') ?? '');
+  const [colorFilter, setColorFilter] = useState<string>(() => searchParams.get('color') ?? '');
+  const [searchQuery, setSearchQuery] = useState<string>(() => searchParams.get('q') ?? '');
+  const [showLowStockOnly, setShowLowStockOnly] = useState<boolean>(() => {
+    const low = searchParams.get('low');
+    return low === '1' || low === 'true';
+  });
   const [selectedCls, setSelectedCls] = useState<number | ''>('');
   const [qty, setQty] = useState<number>(0);
   const [unit, setUnit] = useState<string>('TRAY');
@@ -129,6 +138,23 @@ const InventoryManagerPage: React.FC = () => {
   const currencyFormatter = useMemo(
     () => new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }),
     [],
+  );
+
+  const sizeOptions = useMemo(() => {
+    const sizes = new Set<string>();
+    classifications.forEach((cls) => sizes.add(cls.size));
+    return Array.from(sizes).sort();
+  }, [classifications]);
+
+  const colorOptions = useMemo(() => {
+    const colors = new Set<string>();
+    classifications.forEach((cls) => colors.add(cls.color));
+    return Array.from(colors).sort();
+  }, [classifications]);
+
+  const filtersActive = useMemo(
+    () => Boolean(sizeFilter || colorFilter || searchQuery.trim() || showLowStockOnly),
+    [colorFilter, searchQuery, showLowStockOnly, sizeFilter],
   );
 
   const recentSalesEntry = useMemo(() => {
@@ -173,7 +199,51 @@ const InventoryManagerPage: React.FC = () => {
       merge: mergeInventoryUpdate,
     });
 
-  const summary = inventoryData.summary;
+  const rawSummary = inventoryData.summary;
+  const applyFilters = useCallback(
+    (input: InventorySummaryResponse | null): InventorySummaryResponse | null => {
+      if (!input) {
+        return input;
+      }
+      let cards = [...input.cards];
+      if (sizeFilter) {
+        cards = cards.filter((card) => card.size === sizeFilter);
+      }
+      if (colorFilter) {
+        cards = cards.filter((card) => card.color === colorFilter);
+      }
+      const trimmedSearch = searchQuery.trim().toLowerCase();
+      if (trimmedSearch) {
+        cards = cards.filter((card) => {
+          const label = `${card.size} ${card.color} ${card.classification_id}`.toLowerCase();
+          return label.includes(trimmedSearch);
+        });
+      }
+      if (showLowStockOnly) {
+        cards = cards.filter((card) => card.is_low);
+      }
+      const totalQtyPcs = cards.reduce((sum, card) => sum + card.qty_pcs, 0);
+      const totalQtyTray = cards.reduce((sum, card) => sum + card.qty_tray, 0);
+      const totalQtyDozen = cards.reduce((sum, card) => sum + card.qty_dozen, 0);
+      const hasStockValue = cards.some((card) => card.stock_value !== null);
+      const totalStockValue = hasStockValue
+        ? cards.reduce((sum, card) => sum + (card.stock_value ?? 0), 0)
+        : null;
+      return {
+        ...input,
+        totals: {
+          qty_tray: totalQtyTray,
+          qty_dozen: totalQtyDozen,
+          qty_pcs: totalQtyPcs,
+          stock_value: totalStockValue,
+        },
+        cards,
+      };
+    },
+    [colorFilter, searchQuery, showLowStockOnly, sizeFilter],
+  );
+
+  const summary = useMemo(() => applyFilters(rawSummary), [applyFilters, rawSummary]);
   const movements = inventoryData.movements ?? [];
 
   const lowStockCount = useMemo(
@@ -222,11 +292,55 @@ const InventoryManagerPage: React.FC = () => {
     }
   }, [streamStatus]);
 
+  useEffect(() => {
+    const trimmedSearch = searchQuery.trim();
+    const nextParams = new URLSearchParams();
+    if (sizeFilter) {
+      nextParams.set('size', sizeFilter);
+    }
+    if (colorFilter) {
+      nextParams.set('color', colorFilter);
+    }
+    if (trimmedSearch) {
+      nextParams.set('q', trimmedSearch);
+    }
+    if (showLowStockOnly) {
+      nextParams.set('low', '1');
+    }
+    if (nextParams.toString() !== searchParams.toString()) {
+      setSearchParams(nextParams, { replace: true });
+    }
+  }, [
+    sizeFilter,
+    colorFilter,
+    searchQuery,
+    showLowStockOnly,
+    searchParams,
+    setSearchParams,
+  ]);
+
   const loadData = useCallback(async () => {
     if (!token) return;
     try {
+      const trimmedSearch = searchQuery.trim();
+      const summaryParams: Record<string, string> = {};
+      if (sizeFilter) {
+        summaryParams.size = sizeFilter;
+      }
+      if (colorFilter) {
+        summaryParams.color = colorFilter;
+      }
+      if (trimmedSearch) {
+        summaryParams.search = trimmedSearch;
+      }
+      if (showLowStockOnly) {
+        summaryParams.low_stock = 'true';
+      }
       const [summaryRes, movementsRes, clsRes] = await Promise.all([
-        axios.get<InventorySummaryResponse>('/api/inventory/summary', { headers: authHeader }),
+        axios.get<InventorySummaryResponse>('/api/inventory/summary', {
+          headers: authHeader,
+          params: summaryParams,
+        }),
         axios.get<Movement[]>('/api/inventory/movements?limit=20', { headers: authHeader }),
         axios.get<Classification[]>('/api/catalog/classifications', { headers: authHeader }),
       ]);
@@ -261,21 +375,30 @@ const InventoryManagerPage: React.FC = () => {
       const { message } = parseApiError(err, 'Failed to load inventory data');
       showToast(message, 'error');
     }
-  }, [authHeader, showToast, token, user?.role]);
+  }, [
+    authHeader,
+    colorFilter,
+    searchQuery,
+    showLowStockOnly,
+    sizeFilter,
+    showToast,
+    token,
+    user?.role,
+  ]);
 
   useEffect(() => {
     loadData();
   }, [loadData]);
 
   useEffect(() => {
-    if (!summary) return;
+    if (!rawSummary) return;
     setThresholdEdits(
-      summary.cards.reduce((acc, card) => {
+      rawSummary.cards.reduce((acc, card) => {
         acc[card.classification_id] = card.threshold_pcs ?? '';
         return acc;
       }, {} as Record<number, number | ''>),
     );
-  }, [summary]);
+  }, [rawSummary]);
 
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -457,82 +580,175 @@ const InventoryManagerPage: React.FC = () => {
           </div>
         </div>
       )}
+      <div className="mt-6 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+          <div className="flex flex-col gap-1">
+            <label className="text-xs font-semibold uppercase tracking-wide text-gray-500" htmlFor="filter-size">
+              Size
+            </label>
+            <select
+              id="filter-size"
+              className="rounded border px-3 py-2 text-sm"
+              value={sizeFilter}
+              onChange={(e) => setSizeFilter(e.target.value)}
+            >
+              <option value="">All sizes</option>
+              {sizeOptions.map((size) => (
+                <option key={size} value={size}>
+                  {size.charAt(0)}
+                  {size.slice(1).toLowerCase()}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="flex flex-col gap-1">
+            <label className="text-xs font-semibold uppercase tracking-wide text-gray-500" htmlFor="filter-color">
+              Color
+            </label>
+            <select
+              id="filter-color"
+              className="rounded border px-3 py-2 text-sm"
+              value={colorFilter}
+              onChange={(e) => setColorFilter(e.target.value)}
+            >
+              <option value="">All colors</option>
+              {colorOptions.map((color) => (
+                <option key={color} value={color}>
+                  {color.charAt(0)}
+                  {color.slice(1).toLowerCase()}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="flex flex-col gap-1 sm:min-w-[200px]">
+            <label className="text-xs font-semibold uppercase tracking-wide text-gray-500" htmlFor="filter-search">
+              Search
+            </label>
+            <input
+              id="filter-search"
+              type="search"
+              className="rounded border px-3 py-2 text-sm"
+              placeholder="Search size, color, or ID"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+          </div>
+        </div>
+        <div className="flex items-center gap-3">
+          <label className="flex items-center gap-2 text-sm font-medium text-gray-700" htmlFor="filter-low-stock">
+            <input
+              id="filter-low-stock"
+              type="checkbox"
+              className="h-4 w-4"
+              checked={showLowStockOnly}
+              onChange={(e) => setShowLowStockOnly(e.target.checked)}
+            />
+            Low stock only
+          </label>
+          {filtersActive && (
+            <button
+              type="button"
+              onClick={() => {
+                setSizeFilter('');
+                setColorFilter('');
+                setSearchQuery('');
+                setShowLowStockOnly(false);
+              }}
+              className="text-sm font-medium text-indigo-600 hover:text-indigo-700"
+            >
+              Reset filters
+            </button>
+          )}
+        </div>
+      </div>
       {/* Inventory Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mt-4">
-        {summary?.cards.map((card) => (
-          <div
-            key={card.classification_id}
-            className={`rounded border p-4 shadow transition ${
-              card.is_low
-                ? 'border-red-400 bg-red-50/40 ring-1 ring-red-300'
-                : 'border-gray-200 bg-white'
-            }`}
-          >
-            <div className="flex items-start justify-between gap-3">
-              <div className="flex items-center">
-                <img
-                  src={card.color === 'WHITE' ? '/white-egg.png' : '/brown-egg.png'}
-                  alt="egg"
-                  className="h-12 w-12 mr-3"
-                />
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h3 className="font-semibold">
-                      {card.size.charAt(0)}
-                      {card.size.slice(1).toLowerCase()} / {card.color.charAt(0)}
-                      {card.color.slice(1).toLowerCase()}
-                    </h3>
-                    {card.is_low && (
-                      <span className="inline-flex items-center rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-700">
-                        Low stock
-                      </span>
-                    )}
+        {summary ? (
+          summary.cards.length > 0 ? (
+            summary.cards.map((card) => (
+              <div
+                key={card.classification_id}
+                className={`rounded border p-4 shadow transition ${
+                  card.is_low
+                    ? 'border-red-400 bg-red-50/40 ring-1 ring-red-300'
+                    : 'border-gray-200 bg-white'
+                }`}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-center">
+                    <img
+                      src={card.color === 'WHITE' ? '/white-egg.png' : '/brown-egg.png'}
+                      alt="egg"
+                      className="h-12 w-12 mr-3"
+                    />
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h3 className="font-semibold">
+                          {card.size.charAt(0)}
+                          {card.size.slice(1).toLowerCase()} / {card.color.charAt(0)}
+                          {card.color.slice(1).toLowerCase()}
+                        </h3>
+                        {card.is_low && (
+                          <span className="inline-flex items-center rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-700">
+                            Low stock
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-sm text-gray-600">
+                        {card.qty_tray.toFixed(1)} trays • {card.qty_dozen.toFixed(1)} dozens
+                      </p>
+                      <p className={`text-sm ${card.is_low ? 'font-semibold text-red-600' : 'text-gray-700'}`}>
+                        {card.qty_pcs.toLocaleString()} pcs
+                      </p>
+                      {card.unit_price !== null && (
+                        <p className="text-sm text-gray-800 mt-1">
+                          {currencyFormatter.format(card.unit_price)} per dozen
+                        </p>
+                      )}
+                      {card.stock_value !== null && (
+                        <p className="text-sm text-gray-600">Stock value: {currencyFormatter.format(card.stock_value)}</p>
+                      )}
+                      <p className="mt-2 text-xs uppercase tracking-wide text-gray-500">
+                        Threshold: {card.threshold_pcs !== null ? `${card.threshold_pcs.toLocaleString()} pcs` : 'Not set'}
+                      </p>
+                    </div>
                   </div>
-                  <p className="text-sm text-gray-600">
-                    {card.qty_tray.toFixed(1)} trays • {card.qty_dozen.toFixed(1)} dozens
-                  </p>
-                  <p className={`text-sm ${card.is_low ? 'font-semibold text-red-600' : 'text-gray-700'}`}>
-                    {card.qty_pcs.toLocaleString()} pcs
-                  </p>
-                  {card.unit_price !== null && (
-                    <p className="text-sm text-gray-800 mt-1">
-                      {currencyFormatter.format(card.unit_price)} per dozen
-                    </p>
-                  )}
-                  {card.stock_value !== null && (
-                    <p className="text-sm text-gray-600">Stock value: {currencyFormatter.format(card.stock_value)}</p>
-                  )}
-                  <p className="mt-2 text-xs uppercase tracking-wide text-gray-500">
-                    Threshold: {card.threshold_pcs !== null ? `${card.threshold_pcs.toLocaleString()} pcs` : 'Not set'}
-                  </p>
                 </div>
+                {user?.role === 'admin' && (
+                  <div className="mt-3 flex flex-wrap items-center gap-2">
+                    <label className="text-xs font-medium uppercase tracking-wide text-gray-500" htmlFor={`threshold-${card.classification_id}`}>
+                      Update threshold
+                    </label>
+                    <input
+                      id={`threshold-${card.classification_id}`}
+                      type="number"
+                      min={0}
+                      className="w-24 rounded border px-2 py-1 text-sm"
+                      value={thresholdEdits[card.classification_id] ?? ''}
+                      onChange={(e) => handleThresholdInputChange(card.classification_id, e.target.value)}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => handleSaveThreshold(card.classification_id)}
+                      className="rounded bg-indigo-600 px-3 py-1 text-sm font-medium text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:bg-indigo-300"
+                      disabled={Boolean(thresholdSaving[card.classification_id])}
+                    >
+                      {thresholdSaving[card.classification_id] ? 'Saving…' : 'Save'}
+                    </button>
+                  </div>
+                )}
               </div>
+            ))
+          ) : (
+            <div className="col-span-full rounded border border-dashed border-gray-200 bg-white p-6 text-center text-sm text-gray-600">
+              No inventory classifications match the selected filters.
             </div>
-            {user?.role === 'admin' && (
-              <div className="mt-3 flex flex-wrap items-center gap-2">
-                <label className="text-xs font-medium uppercase tracking-wide text-gray-500" htmlFor={`threshold-${card.classification_id}`}>
-                  Update threshold
-                </label>
-                <input
-                  id={`threshold-${card.classification_id}`}
-                  type="number"
-                  min={0}
-                  className="w-24 rounded border px-2 py-1 text-sm"
-                  value={thresholdEdits[card.classification_id] ?? ''}
-                  onChange={(e) => handleThresholdInputChange(card.classification_id, e.target.value)}
-                />
-                <button
-                  type="button"
-                  onClick={() => handleSaveThreshold(card.classification_id)}
-                  className="rounded bg-indigo-600 px-3 py-1 text-sm font-medium text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:bg-indigo-300"
-                  disabled={Boolean(thresholdSaving[card.classification_id])}
-                >
-                  {thresholdSaving[card.classification_id] ? 'Saving…' : 'Save'}
-                </button>
-              </div>
-            )}
+          )
+        ) : (
+          <div className="col-span-full rounded border border-dashed border-gray-200 bg-white p-6 text-center text-sm text-gray-600">
+            Loading inventory summary…
           </div>
-        ))}
+        )}
       </div>
       {/* Add Inventory Form */}
       <div className="mt-6">
@@ -541,7 +757,10 @@ const InventoryManagerPage: React.FC = () => {
           <select
             className="border rounded px-3 py-2"
             value={selectedCls}
-            onChange={(e) => setSelectedCls(Number(e.target.value))}
+            onChange={(e) => {
+              const value = e.target.value;
+              setSelectedCls(value === '' ? '' : Number(value));
+            }}
             required
           >
             <option value="" disabled>
