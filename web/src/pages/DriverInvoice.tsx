@@ -11,7 +11,17 @@ import InvoicePreviewModal from '../components/InvoicePreviewModal';
 import type { Classification, InvoiceItemForm, Price } from '../types/invoice';
 import { formatDateTime } from '../utils/dateTime';
 
-const units = ['TRAY', 'DOZEN', 'PCS'];
+const units = ['TRAY', 'DOZEN', 'PCS'] as const;
+type UnitType = (typeof units)[number];
+
+const unitIconMap: Record<UnitType, { src: string; labelKey: string }> = {
+  TRAY: { src: '/unit-tray.svg', labelKey: 'common.labels.tray' },
+  DOZEN: { src: '/unit-dozen.svg', labelKey: 'common.labels.dozen' },
+  PCS: { src: '/unit-piece.svg', labelKey: 'common.labels.pcs' },
+};
+
+const isUnitType = (value: string): value is UnitType =>
+  units.includes(value as UnitType);
 const PRICE_RECENT_CHANGE_WINDOW_MS = 1000 * 60 * 60 * 48; // 48 hours
 
 type PriceLookupEntry = {
@@ -536,6 +546,8 @@ const DriverInvoicePage: React.FC = () => {
                   const latestPriceChangeLabel = latestPriceChange
                     ? formatDateTime(latestPriceChange)
                     : '';
+                  const unitIcon = isUnitType(item.unit) ? unitIconMap[item.unit] : null;
+                  const unitIconAlt = unitIcon ? `${t(unitIcon.labelKey)} icon` : '';
                   const classificationInputId = `invoice-item-${item.id}-classification`;
                   const quantityInputId = `invoice-item-${item.id}-quantity`;
                   const unitInputId = `invoice-item-${item.id}-unit`;
@@ -558,27 +570,37 @@ const DriverInvoicePage: React.FC = () => {
                           <span className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
                             {t('driverInvoice.form.classificationHeader')}
                           </span>
-                          <select
-                            id={classificationInputId}
-                            className="w-full rounded border border-slate-300 px-2 py-2 text-sm text-slate-900 transition-colors focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
-                            value={item.classification_id || ''}
-                            onChange={(e) =>
-                              updateItem(item.id, {
-                                classification_id: e.target.value ? Number(e.target.value) : '',
-                              })
-                            }
-                            required
-                            aria-label={lineItemLabel}
-                          >
-                            <option value="" disabled>
-                              {t('driverInvoice.form.classificationPlaceholder')}
-                            </option>
-                            {classifications.map((c) => (
-                              <option key={c.id} value={c.id}>
-                                {c.size} / {c.color}
+                          <div className="flex items-center gap-2">
+                            {unitIcon ? (
+                              <img
+                                src={unitIcon.src}
+                                alt={unitIconAlt}
+                                loading="lazy"
+                                className="h-10 w-10 shrink-0 object-contain sm:h-12 sm:w-12"
+                              />
+                            ) : null}
+                            <select
+                              id={classificationInputId}
+                              className="flex-1 rounded border border-slate-300 px-2 py-2 text-sm text-slate-900 transition-colors focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
+                              value={item.classification_id || ''}
+                              onChange={(e) =>
+                                updateItem(item.id, {
+                                  classification_id: e.target.value ? Number(e.target.value) : '',
+                                })
+                              }
+                              required
+                              aria-label={lineItemLabel}
+                            >
+                              <option value="" disabled>
+                                {t('driverInvoice.form.classificationPlaceholder')}
                               </option>
-                            ))}
-                          </select>
+                              {classifications.map((c) => (
+                                <option key={c.id} value={c.id}>
+                                  {c.size} / {c.color}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
                         </label>
                         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                           <label htmlFor={quantityInputId} className="flex flex-col gap-1">
@@ -752,30 +774,42 @@ const DriverInvoicePage: React.FC = () => {
                     const latestPriceChangeLabel = latestPriceChange
                       ? formatDateTime(latestPriceChange)
                       : '';
+                    const unitIcon = isUnitType(item.unit) ? unitIconMap[item.unit] : null;
+                    const unitIconAlt = unitIcon ? `${t(unitIcon.labelKey)} icon` : '';
 
                     return (
                       <tr key={item.id} className="align-top text-slate-900 dark:text-slate-100">
                         <td className="px-3 py-2 align-top">
-                          <select
-                            className="w-full rounded border border-slate-300 px-2 py-1 text-sm text-slate-900 transition-colors focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
-                            value={item.classification_id || ''}
-                            onChange={(e) =>
-                              updateItem(item.id, {
-                                classification_id: e.target.value ? Number(e.target.value) : '',
-                              })
-                            }
-                            required
-                            aria-label={lineItemLabel}
-                          >
-                            <option value="" disabled>
-                              {t('driverInvoice.form.classificationPlaceholder')}
-                            </option>
-                            {classifications.map((c) => (
-                              <option key={c.id} value={c.id}>
-                                {c.size} / {c.color}
+                          <div className="flex items-center gap-2">
+                            {unitIcon ? (
+                              <img
+                                src={unitIcon.src}
+                                alt={unitIconAlt}
+                                loading="lazy"
+                                className="h-9 w-9 shrink-0 object-contain lg:h-10 lg:w-10"
+                              />
+                            ) : null}
+                            <select
+                              className="flex-1 rounded border border-slate-300 px-2 py-1 text-sm text-slate-900 transition-colors focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
+                              value={item.classification_id || ''}
+                              onChange={(e) =>
+                                updateItem(item.id, {
+                                  classification_id: e.target.value ? Number(e.target.value) : '',
+                                })
+                              }
+                              required
+                              aria-label={lineItemLabel}
+                            >
+                              <option value="" disabled>
+                                {t('driverInvoice.form.classificationPlaceholder')}
                               </option>
-                            ))}
-                          </select>
+                              {classifications.map((c) => (
+                                <option key={c.id} value={c.id}>
+                                  {c.size} / {c.color}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
                         </td>
                         <td className="px-3 py-2 align-top">
                           <input

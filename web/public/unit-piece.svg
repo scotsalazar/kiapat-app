@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="title">
+  <title>Single egg icon</title>
+  <defs>
+    <radialGradient id="yolk" cx="50%" cy="40%" r="50%">
+      <stop offset="0%" stop-color="#ffd46b" />
+      <stop offset="100%" stop-color="#f3a93b" />
+    </radialGradient>
+  </defs>
+  <path d="M32 8c9 0 18 13 18 26s-8.06 22-18 22S14 47 14 34 23 8 32 8z" fill="#fff8ea" stroke="#c7a86d" stroke-width="4" />
+  <circle cx="33" cy="31" r="7" fill="url(#yolk)" />
+</svg>
