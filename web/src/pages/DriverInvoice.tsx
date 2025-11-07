@@ -5,28 +5,8 @@ import SignaturePad from '../components/SignaturePad';
 import { useToast } from '../components/ToastProvider';
 import { parseApiError } from '../utils/apiErrors';
 import useInventoryStream, { InventoryUpdateMessage } from '../hooks/useInventoryStream';
-
-interface Classification {
-  id: number;
-  size: string;
-  color: string;
-}
-interface Price {
-  id: number;
-  classification_id: number;
-  unit: string;
-  price_per_unit: number;
-  effective_from: string;
-  effective_to: string | null;
-}
-interface InvoiceItemForm {
-  id: number;
-  classification_id: number | '';
-  qty: number;
-  unit: string;
-  unit_price?: number;
-  line_total?: number;
-}
+import InvoicePreviewModal from '../components/InvoicePreviewModal';
+import type { Classification, InvoiceItemForm, Price } from '../types/invoice';
 
 const units = ['TRAY', 'DOZEN', 'PCS'];
 
@@ -63,6 +43,8 @@ const DriverInvoicePage: React.FC = () => {
   const [invoiceId, setInvoiceId] = useState<number | null>(null);
   const [invoiceStatus, setInvoiceStatus] = useState<string>('');
   const [overrides, setOverrides] = useState<InvoiceOverride[]>([]);
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const authHeader = useMemo(() => (token ? { Authorization: `Bearer ${token}` } : {}), [token]);
   const { showToast } = useToast();
@@ -156,42 +138,94 @@ const DriverInvoicePage: React.FC = () => {
     });
   }, [authHeader, token]);
 
-  const addItem = () => {
-    setItems([
-      ...items,
-      { id: Date.now(), classification_id: '', qty: 1, unit: 'DOZEN' },
-    ]);
-  };
-
-  const updateItem = (index: number, updates: Partial<InvoiceItemForm>) => {
-    const newItems = [...items];
-    newItems[index] = { ...newItems[index], ...updates };
-    // compute price and line total if classification and unit and qty set
-    const clsId = newItems[index].classification_id;
-    const unit = newItems[index].unit;
-    const qty = newItems[index].qty;
-    if (clsId && unit) {
-      const price = prices.find(
-        (p) => p.classification_id === clsId && p.unit === unit,
-      );
-      if (price) {
-        newItems[index].unit_price = price.price_per_unit;
-        newItems[index].line_total = price.price_per_unit * qty;
+  const applyPricing = useCallback(
+    (item: InvoiceItemForm): InvoiceItemForm => {
+      if (!item.classification_id || !item.unit || !item.qty || item.qty <= 0) {
+        return { ...item, unit_price: undefined, line_total: undefined };
       }
-    }
-    setItems(newItems);
+      const price = prices.find(
+        (p) =>
+          p.classification_id === item.classification_id &&
+          p.unit.toLowerCase() === item.unit.toLowerCase(),
+      );
+      if (!price) {
+        return { ...item, unit_price: undefined, line_total: undefined };
+      }
+      const unitPrice = price.price_per_unit;
+      return {
+        ...item,
+        unit_price: unitPrice,
+        line_total: unitPrice * item.qty,
+      };
+    },
+    [prices],
+  );
+
+  const addItem = useCallback(() => {
+    setItems((prev) => [
+      ...prev,
+      applyPricing({ id: Date.now(), classification_id: '', qty: 1, unit: 'DOZEN' }),
+    ]);
+  }, [applyPricing]);
+
+  const updateItem = useCallback(
+    (id: number, updates: Partial<InvoiceItemForm>) => {
+      setItems((prev) =>
+        prev.map((item) => {
+          if (item.id !== id) {
+            return item;
+          }
+          const nextItem = applyPricing({ ...item, ...updates });
+          return nextItem;
+        }),
+      );
+    },
+    [applyPricing],
+  );
+
+  const removeItem = useCallback((id: number) => {
+    setItems((prev) => prev.filter((item) => item.id !== id));
+  }, []);
+
+  useEffect(() => {
+    setItems((prev) => {
+      let changed = false;
+      const nextItems = prev.map((item) => {
+        const updated = applyPricing(item);
+        if (
+          updated.unit_price !== item.unit_price ||
+          updated.line_total !== item.line_total
+        ) {
+          changed = true;
+        }
+        return updated;
+      });
+      return changed ? nextItems : prev;
+    });
+  }, [applyPricing]);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsPreviewOpen(true);
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    // compile items
+  const handleConfirmPreview = async () => {
+    if (previewWarnings.length > 0) {
+      showToast('Resolve the highlighted issues before submitting.', 'error');
+      return;
+    }
     const payloadItems = items
-      .filter((item) => item.classification_id)
+      .filter((item) => item.classification_id && item.qty > 0 && item.unit)
       .map((item) => ({
-        classification_id: item.classification_id,
+        classification_id: item.classification_id as number,
         qty: item.qty,
         unit: item.unit,
       }));
+    if (payloadItems.length === 0) {
+      showToast('Add at least one valid line item to submit the invoice.', 'error');
+      return;
+    }
+    setIsSubmitting(true);
     try {
       const res = await axios.post(
         '/api/sales/invoices',
@@ -223,11 +257,11 @@ const DriverInvoicePage: React.FC = () => {
         setMessageTone('success');
         showToast(successMessage, 'success');
       }
-      // clear form
       setItems([]);
       setCustomerName('');
       setCustomerPhone('');
       setSignatureDataUrl('');
+      setIsPreviewOpen(false);
     } catch (err) {
       const { message: errorMessage } = parseApiError(err, 'Error creating invoice');
       setMessage(errorMessage);
@@ -236,10 +270,54 @@ const DriverInvoicePage: React.FC = () => {
       setInvoiceStatus('');
       setOverrides([]);
       setInvoiceId(null);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
-  const total = items.reduce((sum, item) => sum + (item.line_total || 0), 0);
+  const total = useMemo(
+    () => items.reduce((sum, item) => sum + (item.line_total || 0), 0),
+    [items],
+  );
+
+  const previewWarnings = useMemo(() => {
+    const warnings: string[] = [];
+    if (!signatureDataUrl) {
+      warnings.push('Signature is required before submitting the invoice.');
+    }
+    if (items.length === 0) {
+      warnings.push('Add at least one line item to continue.');
+    }
+    items.forEach((item, index) => {
+      const classification =
+        item.classification_id && classificationMap.get(item.classification_id);
+      const itemLabel = classification
+        ? `${classification.size} / ${classification.color}`
+        : `Line item ${index + 1}`;
+      if (!item.classification_id) {
+        warnings.push(`Line item ${index + 1} is missing a classification.`);
+      }
+      if (!item.qty || item.qty <= 0) {
+        warnings.push(`${itemLabel} must have a quantity greater than zero.`);
+      }
+      if (!item.unit) {
+        warnings.push(`${itemLabel} must include a unit.`);
+      }
+      if (item.classification_id && item.unit) {
+        const priceMatch = prices.find(
+          (p) =>
+            p.classification_id === item.classification_id &&
+            p.unit.toLowerCase() === item.unit.toLowerCase(),
+        );
+        if (!priceMatch) {
+          warnings.push(
+            `No price available for ${itemLabel} in ${item.unit.toLowerCase()} units.`,
+          );
+        }
+      }
+    });
+    return warnings;
+  }, [classificationMap, items, prices, signatureDataUrl]);
 
   return (
     <div className="p-4 md:p-6">
@@ -333,16 +411,23 @@ const DriverInvoicePage: React.FC = () => {
                 <th className="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Unit</th>
                 <th className="px-2 py-1 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Price</th>
                 <th className="px-2 py-1 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
+                <th className="px-2 py-1 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
               </tr>
             </thead>
             <tbody>
-              {items.map((item, idx) => (
-                <tr key={item.id} className="bg-white"> 
+              {items.map((item) => (
+                <tr key={item.id} className="bg-white">
                   <td className="px-2 py-1">
                     <select
                       className="border rounded px-2 py-1"
-                      value={item.classification_id}
-                      onChange={(e) => updateItem(idx, { classification_id: Number(e.target.value) })}
+                      value={item.classification_id || ''}
+                      onChange={(e) =>
+                        updateItem(item.id, {
+                          classification_id: e.target.value
+                            ? Number(e.target.value)
+                            : '',
+                        })
+                      }
                       required
                     >
                       <option value="" disabled>
@@ -361,7 +446,11 @@ const DriverInvoicePage: React.FC = () => {
                       min={1}
                       className="border rounded px-2 py-1 w-20"
                       value={item.qty}
-                      onChange={(e) => updateItem(idx, { qty: parseInt(e.target.value, 10) })}
+                      onChange={(e) =>
+                        updateItem(item.id, {
+                          qty: Number(e.target.value) > 0 ? Number(e.target.value) : 0,
+                        })
+                      }
                       required
                     />
                   </td>
@@ -369,7 +458,7 @@ const DriverInvoicePage: React.FC = () => {
                     <select
                       className="border rounded px-2 py-1"
                       value={item.unit}
-                      onChange={(e) => updateItem(idx, { unit: e.target.value })}
+                      onChange={(e) => updateItem(item.id, { unit: e.target.value })}
                     >
                       {units.map((u) => (
                         <option key={u} value={u}>
@@ -381,9 +470,18 @@ const DriverInvoicePage: React.FC = () => {
                   <td className="px-2 py-1 text-right">
                     {item.unit_price ? `₱${item.unit_price.toFixed(2)}` : '-'}
                   </td>
-                    <td className="px-2 py-1 text-right">
-                      {item.line_total ? `₱${item.line_total.toFixed(2)}` : '-'}
-                    </td>
+                  <td className="px-2 py-1 text-right">
+                    {item.line_total ? `₱${item.line_total.toFixed(2)}` : '-'}
+                  </td>
+                  <td className="px-2 py-1 text-right">
+                    <button
+                      type="button"
+                      onClick={() => removeItem(item.id)}
+                      className="text-xs text-red-600 hover:underline"
+                    >
+                      Remove
+                    </button>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -407,9 +505,22 @@ const DriverInvoicePage: React.FC = () => {
           type="submit"
           className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
         >
-          Submit Invoice
+          Preview Invoice
         </button>
       </form>
+      <InvoicePreviewModal
+        isOpen={isPreviewOpen}
+        items={items}
+        classifications={classifications}
+        prices={prices}
+        signatureDataUrl={signatureDataUrl}
+        validationWarnings={previewWarnings}
+        isSubmitting={isSubmitting}
+        onClose={() => setIsPreviewOpen(false)}
+        onConfirm={handleConfirmPreview}
+        onUpdateItem={updateItem}
+        onRemoveItem={removeItem}
+      />
     </div>
   );
 };
