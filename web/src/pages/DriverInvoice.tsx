@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../hooks/useAuth';
 import SignaturePad from '../components/SignaturePad';
 import { useToast } from '../components/ToastProvider';
@@ -8,6 +9,7 @@ import { parseApiError } from '../utils/apiErrors';
 import useInventoryStream, { InventoryUpdateMessage } from '../hooks/useInventoryStream';
 import InvoicePreviewModal from '../components/InvoicePreviewModal';
 import type { Classification, InvoiceItemForm, Price } from '../types/invoice';
+import { formatDateTime } from '../utils/dateTime';
 
 const units = ['TRAY', 'DOZEN', 'PCS'];
 const PRICE_RECENT_CHANGE_WINDOW_MS = 1000 * 60 * 60 * 48; // 48 hours
@@ -61,6 +63,7 @@ type DriverInventoryStreamState = {
 const DriverInvoicePage: React.FC = () => {
   const { token } = useAuth();
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const [classifications, setClassifications] = useState<Classification[]>([]);
   const [initialPrices, setInitialPrices] = useState<Price[]>([]);
   const [items, setItems] = useState<InvoiceItemForm[]>([]);
@@ -85,8 +88,10 @@ const DriverInvoicePage: React.FC = () => {
 
   const formatCurrencyValue = useCallback(
     (value: number | null | undefined) =>
-      value !== null && value !== undefined ? currencyFormatter.format(value) : '—',
-    [currencyFormatter],
+      value !== null && value !== undefined
+        ? currencyFormatter.format(value)
+        : t('common.notAvailable'),
+    [currencyFormatter, t],
   );
 
   const classificationMap = useMemo(() => {
@@ -143,42 +148,42 @@ const DriverInvoicePage: React.FC = () => {
     switch (streamStatus) {
       case 'open':
         return {
-          label: 'Connected',
+          label: t('common.status.connected'),
           dotClass: 'bg-green-500',
           textClass: 'text-green-600',
         };
       case 'reconnecting':
         return {
-          label: 'Reconnecting…',
+          label: t('common.status.reconnecting'),
           dotClass: 'bg-yellow-500',
           textClass: 'text-yellow-600',
         };
       case 'connecting':
         return {
-          label: 'Connecting…',
+          label: t('common.status.connecting'),
           dotClass: 'bg-yellow-500',
           textClass: 'text-yellow-600',
         };
       case 'error':
         return {
-          label: 'Connection error',
+          label: t('common.status.error'),
           dotClass: 'bg-red-500',
           textClass: 'text-red-600',
         };
       case 'closed':
         return {
-          label: 'Disconnected',
+          label: t('common.status.disconnected'),
           dotClass: 'bg-gray-400',
           textClass: 'text-gray-500',
         };
       default:
         return {
-          label: 'Offline',
+          label: t('common.status.offline'),
           dotClass: 'bg-gray-400',
           textClass: 'text-gray-500',
         };
     }
-  }, [streamStatus]);
+  }, [streamStatus, t]);
 
   useEffect(() => {
     if (!token) return;
@@ -264,7 +269,7 @@ const DriverInvoicePage: React.FC = () => {
 
   const handleConfirmPreview = async () => {
     if (previewWarnings.length > 0) {
-      showToast('Resolve the highlighted issues before submitting.', 'error');
+      showToast(t('driverInvoice.messages.resolveIssues'), 'error');
       return;
     }
     const payloadItems = items
@@ -275,7 +280,7 @@ const DriverInvoicePage: React.FC = () => {
         unit: item.unit,
       }));
     if (payloadItems.length === 0) {
-      showToast('Add at least one valid line item to submit the invoice.', 'error');
+      showToast(t('driverInvoice.messages.addItem'), 'error');
       return;
     }
     setIsSubmitting(true);
@@ -295,17 +300,17 @@ const DriverInvoicePage: React.FC = () => {
       setInvoiceStatus(data.status);
       setOverrides(data.overrides || []);
       if (data.status === 'PENDING_OVERRIDE') {
-        const pendingMessage = 'Invoice submitted. Awaiting admin approval due to low stock.';
+        const pendingMessage = t('driverInvoice.messages.pendingSubmission');
         setMessage(pendingMessage);
         setMessageTone('warning');
         showToast(pendingMessage, 'info');
       } else if (data.status === 'REJECTED') {
-        const rejectedMessage = 'Invoice requires attention. Please contact an administrator.';
+        const rejectedMessage = t('driverInvoice.messages.rejectedSubmission');
         setMessage(rejectedMessage);
         setMessageTone('error');
         showToast(rejectedMessage, 'error');
       } else {
-        const successMessage = 'Invoice created';
+        const successMessage = t('driverInvoice.messages.successSubmission');
         setMessage(successMessage);
         setMessageTone('success');
         showToast(successMessage, 'success');
@@ -316,7 +321,7 @@ const DriverInvoicePage: React.FC = () => {
       setSignatureDataUrl('');
       setIsPreviewOpen(false);
     } catch (err) {
-      const { message: errorMessage } = parseApiError(err, 'Error creating invoice');
+      const { message: errorMessage } = parseApiError(err, t('driverInvoice.messages.errorSubmission'));
       setMessage(errorMessage);
       setMessageTone('error');
       showToast(errorMessage, 'error');
@@ -336,25 +341,26 @@ const DriverInvoicePage: React.FC = () => {
   const previewWarnings = useMemo(() => {
     const warnings: string[] = [];
     if (!signatureDataUrl) {
-      warnings.push('Signature is required before submitting the invoice.');
+      warnings.push(t('driverInvoice.messages.signatureRequired'));
     }
     if (items.length === 0) {
-      warnings.push('Add at least one line item to continue.');
+      warnings.push(t('driverInvoice.messages.addLineItemWarning'));
     }
     items.forEach((item, index) => {
       const classification =
         item.classification_id && classificationMap.get(item.classification_id);
+      const baseLabel = t('driverInvoice.messages.lineItemLabel', { index: index + 1 });
       const itemLabel = classification
         ? `${classification.size} / ${classification.color}`
-        : `Line item ${index + 1}`;
+        : baseLabel;
       if (!item.classification_id) {
-        warnings.push(`Line item ${index + 1} is missing a classification.`);
+        warnings.push(t('driverInvoice.messages.missingClassification', { item: baseLabel }));
       }
       if (!item.qty || item.qty <= 0) {
-        warnings.push(`${itemLabel} must have a quantity greater than zero.`);
+        warnings.push(t('driverInvoice.messages.quantityRequired', { item: itemLabel }));
       }
       if (!item.unit) {
-        warnings.push(`${itemLabel} must include a unit.`);
+        warnings.push(t('driverInvoice.messages.unitRequired', { item: itemLabel }));
       }
       if (item.classification_id && item.unit) {
         const priceMatch = prices.find(
@@ -364,25 +370,28 @@ const DriverInvoicePage: React.FC = () => {
         );
         if (!priceMatch) {
           warnings.push(
-            `No price available for ${itemLabel} in ${item.unit.toLowerCase()} units.`,
+            t('driverInvoice.messages.priceUnavailable', {
+              item: itemLabel,
+              unit: item.unit.toLowerCase(),
+            }),
           );
         }
       }
     });
     return warnings;
-  }, [classificationMap, items, prices, signatureDataUrl]);
+  }, [classificationMap, items, prices, signatureDataUrl, t]);
 
   return (
     <div className="p-4 md:p-6">
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
-          <h1 className="text-2xl font-bold">Generate Sales Invoice</h1>
+          <h1 className="text-2xl font-bold">{t('driverInvoice.title')}</h1>
           <button
             type="button"
             onClick={() => navigate('/invoices/history')}
             className="rounded bg-blue-600 px-3 py-1.5 text-sm font-medium text-white shadow hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1"
           >
-            View invoice history
+            {t('common.actions.viewInvoiceHistory')}
           </button>
         </div>
         <div className="flex flex-col items-start text-sm sm:items-end">
@@ -420,25 +429,37 @@ const DriverInvoicePage: React.FC = () => {
         >
           Invoice #{invoiceId}{' '}
           {invoiceStatus === 'PENDING_OVERRIDE'
-            ? 'pending approval'
+            ? t('driverInvoice.statusBadge.pending')
             : invoiceStatus === 'REJECTED'
-            ? 'requires admin follow-up'
-            : 'created'}
+            ? t('driverInvoice.statusBadge.rejected')
+            : t('driverInvoice.statusBadge.created')}
         </div>
       )}
       {overrides.length > 0 && (
         <div className="mb-4 border border-yellow-300 bg-yellow-50 text-yellow-900 rounded p-3">
-          <h2 className="font-semibold mb-2">Requested override details</h2>
+          <h2 className="font-semibold mb-2">{t('driverInvoice.overrides.title')}</h2>
           <ul className="list-disc pl-5 space-y-1 text-sm">
             {overrides.map((override) => {
               const cls = classificationMap.get(override.classification_id);
               const shortage = override.requested_qty_pcs - override.available_qty_pcs;
+              const classificationLabel = cls
+                ? `${cls.size} / ${cls.color}`
+                : t('driverInvoice.overrides.classificationFallback', {
+                    id: override.classification_id,
+                  });
+              const shortageText =
+                shortage > 0
+                  ? t('driverInvoice.overrides.shortage', { value: shortage })
+                  : '';
               return (
                 <li key={override.id}>
-                  {cls ? `${cls.size} / ${cls.color}` : `Classification #${override.classification_id}`}:
-                  {' '}requested {override.requested_qty_pcs} pcs ({override.requested_unit.toLowerCase()})
-                  , available {override.available_qty_pcs} pcs
-                  {shortage > 0 && ` (short ${shortage} pcs)`}
+                  {t('driverInvoice.overrides.entry', {
+                    classification: classificationLabel,
+                    requested: override.requested_qty_pcs,
+                    unit: override.requested_unit.toLowerCase(),
+                    available: override.available_qty_pcs,
+                    shortage: shortageText,
+                  })}
                 </li>
               );
             })}
@@ -447,37 +468,57 @@ const DriverInvoicePage: React.FC = () => {
       )}
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="flex flex-col md:flex-row gap-4">
-          <input
-            type="text"
-            placeholder="Customer name"
-            value={customerName}
-            onChange={(e) => setCustomerName(e.target.value)}
-            className="border rounded px-3 py-2 flex-1"
-          />
-          <input
-            type="text"
-            placeholder="Customer phone"
-            value={customerPhone}
-            onChange={(e) => setCustomerPhone(e.target.value)}
-            className="border rounded px-3 py-2 flex-1"
-          />
+          <label className="flex flex-col text-sm flex-1">
+            <span className="font-medium text-gray-700">{t('common.labels.customerName')}</span>
+            <input
+              id="invoice-customer-name"
+              type="text"
+              placeholder={t('driverInvoice.form.customerNamePlaceholder')}
+              value={customerName}
+              onChange={(e) => setCustomerName(e.target.value)}
+              className="border rounded px-3 py-2"
+            />
+          </label>
+          <label className="flex flex-col text-sm flex-1">
+            <span className="font-medium text-gray-700">{t('common.labels.customerPhone')}</span>
+            <input
+              id="invoice-customer-phone"
+              type="text"
+              placeholder={t('driverInvoice.form.customerPhonePlaceholder')}
+              value={customerPhone}
+              onChange={(e) => setCustomerPhone(e.target.value)}
+              className="border rounded px-3 py-2"
+            />
+          </label>
         </div>
         {/* Line Items */}
         <div>
-          <h2 className="text-xl font-semibold mb-2">Items</h2>
+          <h2 className="text-xl font-semibold mb-2">{t('driverInvoice.form.itemsTitle')}</h2>
           <table className="min-w-full divide-y divide-gray-200">
             <thead>
               <tr>
-                <th className="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Classification</th>
-                <th className="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Quantity</th>
-                <th className="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Unit</th>
-                <th className="px-2 py-1 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Price</th>
-                <th className="px-2 py-1 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
-                <th className="px-2 py-1 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                <th className="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  {t('driverInvoice.form.classificationHeader')}
+                </th>
+                <th className="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  {t('driverInvoice.form.quantityHeader')}
+                </th>
+                <th className="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  {t('driverInvoice.form.unitHeader')}
+                </th>
+                <th className="px-2 py-1 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  {t('driverInvoice.form.priceHeader')}
+                </th>
+                <th className="px-2 py-1 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  {t('driverInvoice.form.totalHeader')}
+                </th>
+                <th className="px-2 py-1 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  {t('driverInvoice.form.actionsHeader')}
+                </th>
               </tr>
             </thead>
             <tbody>
-              {items.map((item) => {
+              {items.map((item, index) => {
                 const classificationId =
                   typeof item.classification_id === 'number' ? item.classification_id : null;
                 const priceEntry =
@@ -497,11 +538,24 @@ const DriverInvoicePage: React.FC = () => {
                   Date.now() - latestPriceChange.getTime() <= PRICE_RECENT_CHANGE_WINDOW_MS;
                 const unitSelectTitle =
                   classificationId && priceEntry
-                    ? [
-                        `Per tray: ${formatCurrencyValue(trayPrice)}`,
-                        `Per dozen: ${formatCurrencyValue(dozenPrice)}`,
-                      ].join(' | ')
-                    : 'Select a classification to view tray/dozen pricing';
+                    ? t('driverInvoice.form.unitTooltipWithPrices', {
+                        tray: formatCurrencyValue(trayPrice),
+                        dozen: formatCurrencyValue(dozenPrice),
+                      })
+                    : t('driverInvoice.form.unitTooltipWithoutClassification');
+                const lineItemLabel = t('driverInvoice.aria.classification', {
+                  index: index + 1,
+                });
+
+                const quantityAriaLabel = t('driverInvoice.aria.quantity', {
+                  index: index + 1,
+                });
+                const unitAriaLabel = t('driverInvoice.aria.unit', {
+                  index: index + 1,
+                });
+                const latestPriceChangeLabel = latestPriceChange
+                  ? formatDateTime(latestPriceChange)
+                  : '';
 
                 return (
                   <tr key={item.id} className="bg-white align-top">
@@ -517,9 +571,10 @@ const DriverInvoicePage: React.FC = () => {
                           })
                         }
                         required
+                        aria-label={lineItemLabel}
                       >
                         <option value="" disabled>
-                          Select
+                          {t('driverInvoice.form.classificationPlaceholder')}
                         </option>
                         {classifications.map((c) => (
                           <option key={c.id} value={c.id}>
@@ -540,6 +595,7 @@ const DriverInvoicePage: React.FC = () => {
                           })
                         }
                         required
+                        aria-label={quantityAriaLabel}
                       />
                     </td>
                     <td className="px-2 py-1 align-top">
@@ -549,28 +605,35 @@ const DriverInvoicePage: React.FC = () => {
                           value={item.unit}
                           onChange={(e) => updateItem(item.id, { unit: e.target.value })}
                           title={unitSelectTitle}
+                          aria-label={unitAriaLabel}
                         >
                           {units.map((u) => (
                             <option key={u} value={u}>
-                              {u.charAt(0)}{u.slice(1).toLowerCase()}
+                              {t(
+                                u === 'TRAY'
+                                  ? 'common.labels.tray'
+                                  : u === 'DOZEN'
+                                  ? 'common.labels.dozen'
+                                  : 'common.labels.pcs',
+                              )}
                             </option>
                           ))}
                         </select>
                         {!classificationId && (
                           <div className="mt-1 text-[11px] text-gray-400">
-                            Select a classification to view pricing.
+                            {t('driverInvoice.form.unitTooltipWithoutClassification')}
                           </div>
                         )}
                         {classificationId && priceEntry && (
                           <div className="mt-1 space-y-1 text-[11px] leading-tight text-gray-500">
                             <div className="flex items-center justify-between gap-2">
-                              <span>Tray</span>
+                              <span>{t('common.labels.tray')}</span>
                               <span className="font-medium text-gray-700">
                                 {formatCurrencyValue(trayPrice)}
                               </span>
                             </div>
                             <div className="flex items-center justify-between gap-2">
-                              <span>Dozen</span>
+                              <span>{t('common.labels.dozen')}</span>
                               <span className="font-medium text-gray-700">
                                 {formatCurrencyValue(dozenPrice)}
                               </span>
@@ -581,14 +644,18 @@ const DriverInvoicePage: React.FC = () => {
                                   isRecentPriceChange ? 'text-blue-600' : 'text-gray-400'
                                 }
                               >
-                                Updated {latestPriceChange.toLocaleString()}
+                                {latestPriceChangeLabel
+                                  ? t('inventory.pricing.updated', {
+                                      value: latestPriceChangeLabel,
+                                    })
+                                  : null}
                               </div>
                             )}
                           </div>
                         )}
                         {classificationId && !priceEntry && (
                           <div className="mt-1 text-[11px] text-red-600">
-                            Tray/dozen pricing unavailable.
+                            {t('driverInvoice.form.pricingUnavailable')}
                           </div>
                         )}
                       </div>
@@ -605,7 +672,7 @@ const DriverInvoicePage: React.FC = () => {
                         onClick={() => removeItem(item.id)}
                         className="text-xs text-red-600 hover:underline"
                       >
-                        Remove
+                        {t('common.actions.remove')}
                       </button>
                     </td>
                   </tr>
@@ -618,23 +685,23 @@ const DriverInvoicePage: React.FC = () => {
             onClick={addItem}
             className="mt-2 px-3 py-1 bg-indigo-600 text-white rounded"
           >
-            Add Item
+            {t('common.actions.addItem')}
           </button>
         </div>
         {/* Total */}
         <div className="text-right text-lg font-semibold">
-          Total: {formatCurrencyValue(total)}
+          {t('driverInvoice.form.totalLabel')} {formatCurrencyValue(total)}
         </div>
         {/* Signature */}
         <div>
-          <h2 className="text-xl font-semibold mb-1">Signature</h2>
+          <h2 className="text-xl font-semibold mb-1">{t('common.labels.signature')}</h2>
           <SignaturePad onChange={setSignatureDataUrl} />
         </div>
         <button
           type="submit"
           className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
         >
-          Preview Invoice
+          {t('common.actions.previewInvoice')}
         </button>
       </form>
       <InvoicePreviewModal

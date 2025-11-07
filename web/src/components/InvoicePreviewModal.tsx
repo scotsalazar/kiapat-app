@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import type { Classification, InvoiceItemForm, Price } from '../types/invoice';
 
 const TAX_RATE = 0.12;
@@ -31,6 +32,7 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
   onRemoveItem,
 }) => {
   const [editingItemId, setEditingItemId] = useState<number | null>(null);
+  const { t } = useTranslation();
 
   useEffect(() => {
     if (!isOpen) {
@@ -75,19 +77,19 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-60 px-4 py-6">
       <div className="relative max-h-full w-full max-w-4xl overflow-y-auto rounded-lg bg-white shadow-xl">
         <div className="flex items-center justify-between border-b px-6 py-4">
-          <h2 className="text-xl font-semibold">Invoice Preview</h2>
+          <h2 className="text-xl font-semibold">{t('invoicePreview.title')}</h2>
           <button
             type="button"
             onClick={onClose}
             className="rounded border border-transparent px-3 py-1 text-sm text-gray-600 hover:bg-gray-100"
           >
-            Close
+            {t('invoicePreview.close')}
           </button>
         </div>
         <div className="space-y-6 px-6 py-4">
           {validationWarnings.length > 0 && (
             <div className="rounded border border-yellow-300 bg-yellow-50 p-3 text-sm text-yellow-900">
-              <h3 className="font-semibold">Please review before submitting:</h3>
+              <h3 className="font-semibold">{t('invoicePreview.reviewHeading')}</h3>
               <ul className="mt-2 list-disc space-y-1 pl-5">
                 {validationWarnings.map((warning) => (
                   <li key={warning}>{warning}</li>
@@ -96,24 +98,24 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
             </div>
           )}
           <div>
-            <h3 className="text-lg font-semibold">Line Items</h3>
+            <h3 className="text-lg font-semibold">{t('invoicePreview.lineItemsHeading')}</h3>
             <div className="mt-3 overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200 text-sm">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th className="px-3 py-2 text-left font-medium text-gray-500">Classification</th>
-                    <th className="px-3 py-2 text-left font-medium text-gray-500">Quantity</th>
-                    <th className="px-3 py-2 text-left font-medium text-gray-500">Unit</th>
-                    <th className="px-3 py-2 text-right font-medium text-gray-500">Unit Price</th>
-                    <th className="px-3 py-2 text-right font-medium text-gray-500">Line Total</th>
-                    <th className="px-3 py-2 text-right font-medium text-gray-500">Actions</th>
+                    <th className="px-3 py-2 text-left font-medium text-gray-500">{t('invoicePreview.table.classification')}</th>
+                    <th className="px-3 py-2 text-left font-medium text-gray-500">{t('invoicePreview.table.quantity')}</th>
+                    <th className="px-3 py-2 text-left font-medium text-gray-500">{t('invoicePreview.table.unit')}</th>
+                    <th className="px-3 py-2 text-right font-medium text-gray-500">{t('invoicePreview.table.unitPrice')}</th>
+                    <th className="px-3 py-2 text-right font-medium text-gray-500">{t('invoicePreview.table.lineTotal')}</th>
+                    <th className="px-3 py-2 text-right font-medium text-gray-500">{t('invoicePreview.table.actions')}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
                   {lineItems.length === 0 && (
                     <tr>
                       <td colSpan={6} className="px-3 py-4 text-center text-gray-500">
-                        No items added.
+                        {t('invoicePreview.noItems')}
                       </td>
                     </tr>
                   )}
@@ -133,7 +135,7 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
                             }
                           >
                             <option value="" disabled>
-                              Select
+                              {t('invoicePreview.selectPlaceholder')}
                             </option>
                             {classifications.map((classification) => (
                               <option key={classification.id} value={classification.id}>
@@ -143,10 +145,10 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
                           </select>
                         ) : (
                           <div>
-                            <div>{item.classificationLabel}</div>
+                            <div>{item.classificationLabel || t('invoicePreview.unclassified')}</div>
                             {!item.hasRealTimePrice && (
                               <div className="text-xs text-yellow-600">
-                                Price unavailable for selected unit.
+                                {t('invoicePreview.priceUnavailable')}
                               </div>
                             )}
                           </div>
@@ -180,9 +182,9 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
                               })
                             }
                           >
-                            <option value="TRAY">Tray</option>
-                            <option value="DOZEN">Dozen</option>
-                            <option value="PCS">Pcs</option>
+                            <option value="TRAY">{t('common.labels.tray')}</option>
+                            <option value="DOZEN">{t('common.labels.dozen')}</option>
+                            <option value="PCS">{t('common.labels.pcs')}</option>
                           </select>
                         ) : (
                           item.unit
@@ -205,14 +207,16 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
                             }
                             className="rounded border border-indigo-200 px-2 py-1 text-indigo-600 hover:bg-indigo-50"
                           >
-                            {editingItemId === item.id ? 'Done' : 'Edit'}
+                            {editingItemId === item.id
+                              ? t('invoicePreview.done')
+                              : t('invoicePreview.edit')}
                           </button>
                           <button
                             type="button"
                             onClick={() => onRemoveItem(item.id)}
                             className="rounded border border-red-200 px-2 py-1 text-red-600 hover:bg-red-50"
                           >
-                            Remove
+                            {t('invoicePreview.remove')}
                           </button>
                         </div>
                       </td>
@@ -225,31 +229,31 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
 
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-3">
-              <h3 className="text-lg font-semibold">Signature</h3>
+              <h3 className="text-lg font-semibold">{t('invoicePreview.signatureHeading')}</h3>
               {signatureDataUrl ? (
                 <img
                   src={signatureDataUrl}
-                  alt="Driver signature"
+                  alt={t('invoicePreview.signatureAlt')}
                   className="h-40 w-full max-w-sm rounded border object-contain"
                 />
               ) : (
                 <div className="rounded border border-dashed border-gray-300 p-6 text-center text-sm text-gray-500">
-                  No signature captured yet.
+                  {t('invoicePreview.noSignature')}
                 </div>
               )}
             </div>
             <div className="space-y-2 rounded border bg-gray-50 p-4">
-              <h3 className="text-lg font-semibold">Summary</h3>
+              <h3 className="text-lg font-semibold">{t('invoicePreview.summaryHeading')}</h3>
               <div className="flex justify-between text-sm text-gray-600">
-                <span>Subtotal</span>
+                <span>{t('invoicePreview.subtotal')}</span>
                 <span>₱{subtotal.toFixed(2)}</span>
               </div>
               <div className="flex justify-between text-sm text-gray-600">
-                <span>Taxes ({(TAX_RATE * 100).toFixed(0)}%)</span>
+                <span>{t('invoicePreview.taxes', { rate: (TAX_RATE * 100).toFixed(0) })}</span>
                 <span>₱{taxes.toFixed(2)}</span>
               </div>
               <div className="flex justify-between text-base font-semibold text-gray-900">
-                <span>Total</span>
+                <span>{t('invoicePreview.total')}</span>
                 <span>₱{total.toFixed(2)}</span>
               </div>
             </div>
@@ -261,7 +265,7 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
             onClick={onClose}
             className="rounded border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-white"
           >
-            Cancel
+            {t('invoicePreview.cancel')}
           </button>
           <button
             type="button"
@@ -271,7 +275,9 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
               validationWarnings.length > 0 || lineItems.length === 0 || isSubmitting
             }
           >
-            {isSubmitting ? 'Submitting…' : 'Confirm & Submit'}
+            {isSubmitting
+              ? t('invoicePreview.submitting')
+              : t('invoicePreview.confirmSubmit')}
           </button>
         </div>
       </div>

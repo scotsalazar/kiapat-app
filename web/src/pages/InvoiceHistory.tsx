@@ -1,8 +1,10 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import axios from 'axios';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../hooks/useAuth';
 import { useToast } from '../components/ToastProvider';
 import { parseApiError } from '../utils/apiErrors';
+import { formatDateTime } from '../utils/dateTime';
 
 interface InvoiceItem {
   id: number;
@@ -58,6 +60,7 @@ const INVOICE_STATUSES = ['COMPLETED', 'PENDING_OVERRIDE', 'REJECTED'];
 const InvoiceHistoryPage: React.FC = () => {
   const { token, user } = useAuth();
   const { showToast } = useToast();
+  const { t } = useTranslation();
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [total, setTotal] = useState<number>(0);
   const [page, setPage] = useState<number>(1);
@@ -110,7 +113,7 @@ const InvoiceHistoryPage: React.FC = () => {
       setInvoices(res.data.items);
       setTotal(res.data.total);
     } catch (err) {
-      const { message } = parseApiError(err, 'Failed to load invoices');
+      const { message } = parseApiError(err, t('invoiceHistory.errors.load'));
       setError(message);
       showToast(message, 'error');
     } finally {
@@ -150,15 +153,13 @@ const InvoiceHistoryPage: React.FC = () => {
   return (
     <div className="p-4 md:p-6 space-y-4">
       <div className="flex flex-col gap-2">
-        <h1 className="text-2xl font-bold">Invoice History</h1>
-        <p className="text-sm text-gray-600">
-          Use the filters below to refine invoice results by date range, customer, driver, and status.
-        </p>
+        <h1 className="text-2xl font-bold">{t('invoiceHistory.title')}</h1>
+        <p className="text-sm text-gray-600">{t('invoiceHistory.description')}</p>
       </div>
       <div className="bg-white rounded shadow p-4 space-y-4">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           <label className="flex flex-col text-sm">
-            <span className="font-medium text-gray-700">Start date</span>
+            <span className="font-medium text-gray-700">{t('invoiceHistory.filters.startDate')}</span>
             <input
               type="date"
               value={startDate}
@@ -167,7 +168,7 @@ const InvoiceHistoryPage: React.FC = () => {
             />
           </label>
           <label className="flex flex-col text-sm">
-            <span className="font-medium text-gray-700">End date</span>
+            <span className="font-medium text-gray-700">{t('invoiceHistory.filters.endDate')}</span>
             <input
               type="date"
               value={endDate}
@@ -176,35 +177,35 @@ const InvoiceHistoryPage: React.FC = () => {
             />
           </label>
           <label className="flex flex-col text-sm">
-            <span className="font-medium text-gray-700">Customer</span>
+            <span className="font-medium text-gray-700">{t('invoiceHistory.filters.customer')}</span>
             <input
               type="text"
               value={customer}
               onChange={(e) => resetPageAnd(setCustomer)(e.target.value)}
-              placeholder="Search name or phone"
+              placeholder={t('invoiceHistory.filters.customerPlaceholder')}
               className="border rounded px-3 py-2"
             />
           </label>
           {user?.role === 'admin' && (
             <label className="flex flex-col text-sm">
-              <span className="font-medium text-gray-700">Driver</span>
+              <span className="font-medium text-gray-700">{t('invoiceHistory.filters.driver')}</span>
               <input
                 type="text"
                 value={driver}
                 onChange={(e) => resetPageAnd(setDriver)(e.target.value)}
-                placeholder="Name or username"
+                placeholder={t('invoiceHistory.filters.driverPlaceholder')}
                 className="border rounded px-3 py-2"
               />
             </label>
           )}
           <label className="flex flex-col text-sm">
-            <span className="font-medium text-gray-700">Status</span>
+            <span className="font-medium text-gray-700">{t('invoiceHistory.filters.status')}</span>
             <select
               value={status}
               onChange={(e) => resetPageAnd(setStatus)(e.target.value)}
               className="border rounded px-3 py-2"
             >
-              <option value="">All statuses</option>
+              <option value="">{t('invoiceHistory.filters.allStatuses')}</option>
               {MOVEMENT_STATUSES.map((s) => (
                 <option key={s} value={s}>
                   {s.charAt(0)}{s.slice(1).toLowerCase()}
@@ -213,13 +214,13 @@ const InvoiceHistoryPage: React.FC = () => {
             </select>
           </label>
           <label className="flex flex-col text-sm">
-            <span className="font-medium text-gray-700">Invoice status</span>
+            <span className="font-medium text-gray-700">{t('invoiceHistory.filters.invoiceStatus')}</span>
             <select
               value={invoiceStatus}
               onChange={(e) => resetPageAnd(setInvoiceStatus)(e.target.value)}
               className="border rounded px-3 py-2"
             >
-              <option value="">All invoice statuses</option>
+              <option value="">{t('invoiceHistory.filters.allInvoiceStatuses')}</option>
               {INVOICE_STATUSES.map((s) => (
                 <option key={s} value={s}>
                   {s.charAt(0)}{s.slice(1).toLowerCase()}
@@ -228,7 +229,7 @@ const InvoiceHistoryPage: React.FC = () => {
             </select>
           </label>
           <label className="flex flex-col text-sm">
-            <span className="font-medium text-gray-700">Page size</span>
+            <span className="font-medium text-gray-700">{t('invoiceHistory.filters.pageSize')}</span>
             <select
               value={pageSize}
               onChange={(e) => {
@@ -239,7 +240,7 @@ const InvoiceHistoryPage: React.FC = () => {
             >
               {[10, 20, 50].map((size) => (
                 <option key={size} value={size}>
-                  {size} per page
+                  {t('invoiceHistory.filters.perPage', { count: size })}
                 </option>
               ))}
             </select>
@@ -247,7 +248,12 @@ const InvoiceHistoryPage: React.FC = () => {
         </div>
         <div className="flex items-center justify-between text-sm text-gray-600">
           <span>
-            Showing page {page} of {pageCount} • {total} total invoice{total === 1 ? '' : 's'}
+            {t('invoiceHistory.pagination.summary', {
+              page,
+              pageCount,
+              total,
+              plural: total === 1 ? '' : 's',
+            })}
           </span>
           <div className="space-x-2">
             <button
@@ -256,7 +262,7 @@ const InvoiceHistoryPage: React.FC = () => {
               disabled={page === 1 || loading}
               className="px-3 py-1 border rounded disabled:opacity-50"
             >
-              Previous
+              {t('invoiceHistory.pagination.previous')}
             </button>
             <button
               type="button"
@@ -264,7 +270,7 @@ const InvoiceHistoryPage: React.FC = () => {
               disabled={page === pageCount || loading}
               className="px-3 py-1 border rounded disabled:opacity-50"
             >
-              Next
+              {t('invoiceHistory.pagination.next')}
             </button>
           </div>
         </div>
@@ -275,26 +281,40 @@ const InvoiceHistoryPage: React.FC = () => {
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-4 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Invoice #</th>
-                <th className="px-4 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Created</th>
-                <th className="px-4 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Customer</th>
-                <th className="px-4 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Driver</th>
-                <th className="px-4 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
-                <th className="px-4 py-2 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Total</th>
-                <th className="px-4 py-2 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Items</th>
+                <th className="px-4 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                  {t('invoiceHistory.table.invoice')}
+                </th>
+                <th className="px-4 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                  {t('invoiceHistory.table.created')}
+                </th>
+                <th className="px-4 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                  {t('invoiceHistory.table.customer')}
+                </th>
+                <th className="px-4 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                  {t('invoiceHistory.table.driver')}
+                </th>
+                <th className="px-4 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                  {t('invoiceHistory.table.status')}
+                </th>
+                <th className="px-4 py-2 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                  {t('invoiceHistory.table.total')}
+                </th>
+                <th className="px-4 py-2 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                  {t('invoiceHistory.table.items')}
+                </th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {loading ? (
                 <tr>
                   <td colSpan={7} className="px-4 py-8 text-center text-sm text-gray-500">
-                    Loading invoices...
+                    {t('invoiceHistory.loading')}
                   </td>
                 </tr>
               ) : invoices.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="px-4 py-8 text-center text-sm text-gray-500">
-                    No invoices found for the selected filters.
+                    {t('invoiceHistory.empty')}
                   </td>
                 </tr>
               ) : (
@@ -302,10 +322,10 @@ const InvoiceHistoryPage: React.FC = () => {
                   <tr key={invoice.id}>
                     <td className="px-4 py-2 text-sm text-gray-900">#{invoice.id}</td>
                     <td className="px-4 py-2 text-sm text-gray-700">
-                      {new Date(invoice.created_at).toLocaleString()}
+                      {formatDateTime(invoice.created_at)}
                     </td>
                     <td className="px-4 py-2 text-sm text-gray-700">
-                      {invoice.customer_name || 'Walk-in'}
+                      {invoice.customer_name || t('common.messages.walkIn')}
                       {invoice.customer_phone && (
                         <div className="text-xs text-gray-500">{invoice.customer_phone}</div>
                       )}
@@ -325,15 +345,18 @@ const InvoiceHistoryPage: React.FC = () => {
                       </span>
                       {invoice.overrides.length > 0 && (
                         <div className="text-xs text-gray-500 mt-1">
-                          {invoice.overrides.length} override{invoice.overrides.length === 1 ? '' : 's'}
-                        </div>
-                      )}
-                    </td>
-                    <td className="px-4 py-2 text-sm text-gray-900 text-right">₱{invoice.total_amount.toFixed(2)}</td>
-                    <td className="px-4 py-2 text-sm text-gray-700 text-right">{invoice.items.length}</td>
-                  </tr>
-                ))
-              )}
+                      {t('invoiceHistory.table.overrides', {
+                        count: invoice.overrides.length,
+                        plural: invoice.overrides.length === 1 ? '' : 's',
+                      })}
+                      </div>
+                    )}
+                  </td>
+                  <td className="px-4 py-2 text-sm text-gray-900 text-right">₱{invoice.total_amount.toFixed(2)}</td>
+                  <td className="px-4 py-2 text-sm text-gray-700 text-right">{invoice.items.length}</td>
+                </tr>
+              ))
+            )}
             </tbody>
           </table>
         </div>
