@@ -382,7 +382,7 @@ const DriverInvoicePage: React.FC = () => {
   }, [classificationMap, items, prices, signatureDataUrl, t]);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 sm:space-y-7">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
           <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">{t('driverInvoice.title')}</h1>
@@ -466,8 +466,8 @@ const DriverInvoicePage: React.FC = () => {
           </ul>
         </div>
       )}
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div className="flex flex-col gap-4 md:flex-row">
+      <form onSubmit={handleSubmit} className="space-y-5 sm:space-y-6">
+        <div className="flex flex-col gap-4 sm:gap-5 md:flex-row">
           <label className="flex flex-1 flex-col text-sm">
             <span className="font-medium text-slate-700 dark:text-slate-200">{t('common.labels.customerName')}</span>
             <input
@@ -492,193 +492,391 @@ const DriverInvoicePage: React.FC = () => {
           </label>
         </div>
         {/* Line Items */}
-        <div>
-          <h2 className="mb-2 text-xl font-semibold text-slate-900 dark:text-slate-100">{t('driverInvoice.form.itemsTitle')}</h2>
-          <table className="min-w-full divide-y divide-slate-200 overflow-hidden rounded-lg border border-slate-200 text-sm dark:divide-slate-700 dark:border-slate-700">
-            <thead className="bg-slate-100 text-slate-600 dark:bg-slate-900 dark:text-slate-300">
-              <tr>
-                <th className="px-2 py-2 text-left text-xs font-semibold uppercase tracking-wider">
-                  {t('driverInvoice.form.classificationHeader')}
-                </th>
-                <th className="px-2 py-2 text-left text-xs font-semibold uppercase tracking-wider">
-                  {t('driverInvoice.form.quantityHeader')}
-                </th>
-                <th className="px-2 py-2 text-left text-xs font-semibold uppercase tracking-wider">
-                  {t('driverInvoice.form.unitHeader')}
-                </th>
-                <th className="px-2 py-2 text-right text-xs font-semibold uppercase tracking-wider">
-                  {t('driverInvoice.form.priceHeader')}
-                </th>
-                <th className="px-2 py-2 text-right text-xs font-semibold uppercase tracking-wider">
-                  {t('driverInvoice.form.totalHeader')}
-                </th>
-                <th className="px-2 py-2 text-right text-xs font-semibold uppercase tracking-wider">
-                  {t('driverInvoice.form.actionsHeader')}
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-200 bg-white dark:divide-slate-700 dark:bg-slate-900">
-              {items.map((item, index) => {
-                const classificationId =
-                  typeof item.classification_id === 'number' ? item.classification_id : null;
-                const priceEntry =
-                  classificationId !== null
-                    ? classificationPriceLookup.get(classificationId)
-                    : undefined;
-                const trayPrice = priceEntry?.TRAY?.price_per_unit ?? null;
-                const dozenPrice = priceEntry?.DOZEN?.price_per_unit ?? null;
-                const latestPriceChange = priceEntry
-                  ? getLatestTimestamp([
-                      priceEntry.TRAY?.effective_from,
-                      priceEntry.DOZEN?.effective_from,
-                    ])
-                  : null;
-                const isRecentPriceChange =
-                  !!latestPriceChange &&
-                  Date.now() - latestPriceChange.getTime() <= PRICE_RECENT_CHANGE_WINDOW_MS;
-                const unitSelectTitle =
-                  classificationId && priceEntry
-                    ? t('driverInvoice.form.unitTooltipWithPrices', {
-                        tray: formatCurrencyValue(trayPrice),
-                        dozen: formatCurrencyValue(dozenPrice),
-                      })
-                    : t('driverInvoice.form.unitTooltipWithoutClassification');
-                const lineItemLabel = t('driverInvoice.aria.classification', {
-                  index: index + 1,
-                });
-                const quantityAriaLabel = t('driverInvoice.aria.quantity', {
-                  index: index + 1,
-                });
-                const unitAriaLabel = t('driverInvoice.aria.unit', {
-                  index: index + 1,
-                });
-                const latestPriceChangeLabel = latestPriceChange
-                  ? formatDateTime(latestPriceChange)
-                  : '';
+        <div className="space-y-3">
+          <h2 className="text-xl font-semibold text-slate-900 dark:text-slate-100">
+            {t('driverInvoice.form.itemsTitle')}
+          </h2>
+          <div className="md:hidden">
+            {items.length > 0 ? (
+              <ul className="space-y-4">
+                {items.map((item, index) => {
+                  const classificationId =
+                    typeof item.classification_id === 'number' ? item.classification_id : null;
+                  const priceEntry =
+                    classificationId !== null
+                      ? classificationPriceLookup.get(classificationId)
+                      : undefined;
+                  const trayPrice = priceEntry?.TRAY?.price_per_unit ?? null;
+                  const dozenPrice = priceEntry?.DOZEN?.price_per_unit ?? null;
+                  const latestPriceChange = priceEntry
+                    ? getLatestTimestamp([
+                        priceEntry.TRAY?.effective_from,
+                        priceEntry.DOZEN?.effective_from,
+                      ])
+                    : null;
+                  const isRecentPriceChange =
+                    !!latestPriceChange &&
+                    Date.now() - latestPriceChange.getTime() <= PRICE_RECENT_CHANGE_WINDOW_MS;
+                  const unitSelectTitle =
+                    classificationId && priceEntry
+                      ? t('driverInvoice.form.unitTooltipWithPrices', {
+                          tray: formatCurrencyValue(trayPrice),
+                          dozen: formatCurrencyValue(dozenPrice),
+                        })
+                      : t('driverInvoice.form.unitTooltipWithoutClassification');
+                  const lineItemLabel = t('driverInvoice.aria.classification', {
+                    index: index + 1,
+                  });
+                  const quantityAriaLabel = t('driverInvoice.aria.quantity', {
+                    index: index + 1,
+                  });
+                  const unitAriaLabel = t('driverInvoice.aria.unit', {
+                    index: index + 1,
+                  });
+                  const latestPriceChangeLabel = latestPriceChange
+                    ? formatDateTime(latestPriceChange)
+                    : '';
+                  const classificationInputId = `invoice-item-${item.id}-classification`;
+                  const quantityInputId = `invoice-item-${item.id}-quantity`;
+                  const unitInputId = `invoice-item-${item.id}-unit`;
 
-                return (
-                  <tr key={item.id} className="align-top text-slate-900 dark:text-slate-100">
-                    <td className="px-2 py-2 align-top">
-                      <select
-                        className="w-full rounded border border-slate-300 px-2 py-1 text-sm text-slate-900 transition-colors focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
-                        value={item.classification_id || ''}
-                        onChange={(e) =>
-                          updateItem(item.id, {
-                            classification_id: e.target.value
-                              ? Number(e.target.value)
-                              : '',
-                          })
-                        }
-                        required
-                        aria-label={lineItemLabel}
-                      >
-                        <option value="" disabled>
-                          {t('driverInvoice.form.classificationPlaceholder')}
-                        </option>
-                        {classifications.map((c) => (
-                          <option key={c.id} value={c.id}>
-                            {c.size} / {c.color}
-                          </option>
-                        ))}
-                      </select>
-                    </td>
-                    <td className="px-2 py-2 align-top">
-                      <input
-                        type="number"
-                        min={1}
-                        className="w-20 rounded border border-slate-300 px-2 py-1 text-sm text-slate-900 transition-colors focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
-                        value={item.qty}
-                        onChange={(e) =>
-                          updateItem(item.id, {
-                            qty: Number(e.target.value) > 0 ? Number(e.target.value) : 0,
-                          })
-                        }
-                        required
-                        aria-label={quantityAriaLabel}
-                      />
-                    </td>
-                    <td className="px-2 py-2 align-top">
-                      <div className="flex flex-col gap-1 text-sm">
-                        <select
-                          className="rounded border border-slate-300 px-2 py-1 text-slate-900 transition-colors focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
-                          value={item.unit}
-                          onChange={(e) => updateItem(item.id, { unit: e.target.value })}
-                          title={unitSelectTitle}
-                          aria-label={unitAriaLabel}
-                        >
-                          {units.map((u) => (
-                            <option key={u} value={u}>
-                              {t(
-                                u === 'TRAY'
-                                  ? 'common.labels.tray'
-                                  : u === 'DOZEN'
-                                  ? 'common.labels.dozen'
-                                  : 'common.labels.pcs',
-                              )}
+                  return (
+                    <li
+                      key={item.id}
+                      className="rounded-lg border border-slate-200 bg-white p-4 text-sm shadow-sm transition-colors dark:border-slate-700 dark:bg-slate-900"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                          {t('driverInvoice.form.totalHeader')}
+                        </span>
+                        <span className="text-base font-semibold text-slate-900 dark:text-slate-100">
+                          {formatCurrencyValue(item.line_total)}
+                        </span>
+                      </div>
+                      <div className="mt-3 flex flex-col gap-3">
+                        <label htmlFor={classificationInputId} className="flex flex-col gap-1">
+                          <span className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                            {t('driverInvoice.form.classificationHeader')}
+                          </span>
+                          <select
+                            id={classificationInputId}
+                            className="w-full rounded border border-slate-300 px-2 py-2 text-sm text-slate-900 transition-colors focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
+                            value={item.classification_id || ''}
+                            onChange={(e) =>
+                              updateItem(item.id, {
+                                classification_id: e.target.value ? Number(e.target.value) : '',
+                              })
+                            }
+                            required
+                            aria-label={lineItemLabel}
+                          >
+                            <option value="" disabled>
+                              {t('driverInvoice.form.classificationPlaceholder')}
                             </option>
-                          ))}
-                        </select>
-                        {!classificationId && (
-                          <div className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
-                            {t('driverInvoice.form.unitTooltipWithoutClassification')}
-                          </div>
-                        )}
-                        {classificationId && priceEntry && (
-                          <div className="mt-1 space-y-1 text-[11px] leading-tight text-slate-500 dark:text-slate-400">
-                            <div className="flex items-center justify-between gap-2">
-                              <span>{t('common.labels.tray')}</span>
-                              <span className="font-medium text-slate-700 dark:text-slate-200">
-                                {formatCurrencyValue(trayPrice)}
-                              </span>
-                            </div>
-                            <div className="flex items-center justify-between gap-2">
-                              <span>{t('common.labels.dozen')}</span>
-                              <span className="font-medium text-slate-700 dark:text-slate-200">
-                                {formatCurrencyValue(dozenPrice)}
-                              </span>
-                            </div>
-                            {latestPriceChange && (
-                              <div className={isRecentPriceChange ? 'text-blue-600 dark:text-blue-300' : 'text-slate-400 dark:text-slate-500'}>
-                                {latestPriceChangeLabel
-                                  ? t('inventory.pricing.updated', {
-                                      value: latestPriceChangeLabel,
-                                    })
-                                  : null}
+                            {classifications.map((c) => (
+                              <option key={c.id} value={c.id}>
+                                {c.size} / {c.color}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                          <label htmlFor={quantityInputId} className="flex flex-col gap-1">
+                            <span className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                              {t('driverInvoice.form.quantityHeader')}
+                            </span>
+                            <input
+                              id={quantityInputId}
+                              type="number"
+                              min={1}
+                              className="w-full rounded border border-slate-300 px-2 py-2 text-sm text-slate-900 transition-colors focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
+                              value={item.qty}
+                              onChange={(e) =>
+                                updateItem(item.id, {
+                                  qty: Number(e.target.value) > 0 ? Number(e.target.value) : 0,
+                                })
+                              }
+                              required
+                              aria-label={quantityAriaLabel}
+                            />
+                          </label>
+                          <div className="flex flex-col gap-1">
+                            <span className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                              {t('driverInvoice.form.unitHeader')}
+                            </span>
+                            <select
+                              id={unitInputId}
+                              className="rounded border border-slate-300 px-2 py-2 text-sm text-slate-900 transition-colors focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
+                              value={item.unit}
+                              onChange={(e) => updateItem(item.id, { unit: e.target.value })}
+                              title={unitSelectTitle}
+                              aria-label={unitAriaLabel}
+                            >
+                              {units.map((u) => (
+                                <option key={u} value={u}>
+                                  {t(
+                                    u === 'TRAY'
+                                      ? 'common.labels.tray'
+                                      : u === 'DOZEN'
+                                      ? 'common.labels.dozen'
+                                      : 'common.labels.pcs',
+                                  )}
+                                </option>
+                              ))}
+                            </select>
+                            {!classificationId && (
+                              <div className="text-[11px] text-slate-500 dark:text-slate-400">
+                                {t('driverInvoice.form.unitTooltipWithoutClassification')}
+                              </div>
+                            )}
+                            {classificationId && priceEntry && (
+                              <div className="space-y-1 text-[11px] leading-tight text-slate-500 dark:text-slate-400">
+                                <div className="flex items-center justify-between gap-2">
+                                  <span>{t('common.labels.tray')}</span>
+                                  <span className="font-medium text-slate-700 dark:text-slate-200">
+                                    {formatCurrencyValue(trayPrice)}
+                                  </span>
+                                </div>
+                                <div className="flex items-center justify-between gap-2">
+                                  <span>{t('common.labels.dozen')}</span>
+                                  <span className="font-medium text-slate-700 dark:text-slate-200">
+                                    {formatCurrencyValue(dozenPrice)}
+                                  </span>
+                                </div>
+                                {latestPriceChange && (
+                                  <div className={isRecentPriceChange ? 'text-blue-600 dark:text-blue-300' : 'text-slate-400 dark:text-slate-500'}>
+                                    {latestPriceChangeLabel
+                                      ? t('inventory.pricing.updated', {
+                                          value: latestPriceChangeLabel,
+                                        })
+                                      : null}
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                            {classificationId && !priceEntry && (
+                              <div className="text-[11px] text-red-600 dark:text-red-400">
+                                {t('driverInvoice.form.pricingUnavailable')}
                               </div>
                             )}
                           </div>
-                        )}
-                        {classificationId && !priceEntry && (
-                          <div className="mt-1 text-[11px] text-red-600 dark:text-red-400">
-                            {t('driverInvoice.form.pricingUnavailable')}
-                          </div>
-                        )}
+                        </div>
                       </div>
-                    </td>
-                    <td className="px-2 py-2 text-right align-top">
-                      <span className="font-medium text-slate-900 dark:text-slate-100">
-                        {formatCurrencyValue(item.unit_price)}
-                      </span>
-                    </td>
-                    <td className="px-2 py-2 text-right align-top">
-                      <span className="font-semibold text-slate-900 dark:text-slate-100">
-                        {formatCurrencyValue(item.line_total)}
-                      </span>
-                    </td>
-                    <td className="px-2 py-2 text-right align-top">
-                      <button
-                        type="button"
-                        onClick={() => removeItem(item.id)}
-                        className="text-xs font-medium text-red-600 transition hover:text-red-500 dark:text-red-400 dark:hover:text-red-300"
-                      >
-                        {t('common.actions.remove')}
-                      </button>
-                    </td>
+                      <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+                        <div className="flex flex-col">
+                          <span className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                            {t('driverInvoice.form.priceHeader')}
+                          </span>
+                          <span className="font-medium text-slate-900 dark:text-slate-100">
+                            {formatCurrencyValue(item.unit_price)}
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => removeItem(item.id)}
+                          className="text-xs font-medium text-red-600 transition hover:text-red-500 dark:text-red-400 dark:hover:text-red-300"
+                        >
+                          {t('common.actions.remove')}
+                        </button>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            ) : (
+              <div className="rounded-lg border border-dashed border-slate-300 p-4 text-center text-sm text-slate-500 dark:border-slate-700 dark:text-slate-400">
+                {t('driverInvoice.messages.addLineItemWarning')}
+              </div>
+            )}
+          </div>
+          <div className="hidden md:block">
+            <div className="overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-700">
+              <table className="min-w-full divide-y divide-slate-200 text-sm dark:divide-slate-700">
+                <thead className="sticky top-0 z-10 bg-slate-100 text-slate-600 dark:bg-slate-900 dark:text-slate-300">
+                  <tr>
+                    <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider">
+                      {t('driverInvoice.form.classificationHeader')}
+                    </th>
+                    <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider">
+                      {t('driverInvoice.form.quantityHeader')}
+                    </th>
+                    <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider">
+                      {t('driverInvoice.form.unitHeader')}
+                    </th>
+                    <th className="px-3 py-2 text-right text-xs font-semibold uppercase tracking-wider">
+                      {t('driverInvoice.form.priceHeader')}
+                    </th>
+                    <th className="px-3 py-2 text-right text-xs font-semibold uppercase tracking-wider">
+                      {t('driverInvoice.form.totalHeader')}
+                    </th>
+                    <th className="px-3 py-2 text-right text-xs font-semibold uppercase tracking-wider">
+                      {t('driverInvoice.form.actionsHeader')}
+                    </th>
                   </tr>
-                );
-              })}
-            </tbody>
-          </table>
+                </thead>
+                <tbody className="divide-y divide-slate-200 bg-white dark:divide-slate-700 dark:bg-slate-900">
+                  {items.map((item, index) => {
+                    const classificationId =
+                      typeof item.classification_id === 'number' ? item.classification_id : null;
+                    const priceEntry =
+                      classificationId !== null
+                        ? classificationPriceLookup.get(classificationId)
+                        : undefined;
+                    const trayPrice = priceEntry?.TRAY?.price_per_unit ?? null;
+                    const dozenPrice = priceEntry?.DOZEN?.price_per_unit ?? null;
+                    const latestPriceChange = priceEntry
+                      ? getLatestTimestamp([
+                          priceEntry.TRAY?.effective_from,
+                          priceEntry.DOZEN?.effective_from,
+                        ])
+                      : null;
+                    const isRecentPriceChange =
+                      !!latestPriceChange &&
+                      Date.now() - latestPriceChange.getTime() <= PRICE_RECENT_CHANGE_WINDOW_MS;
+                    const unitSelectTitle =
+                      classificationId && priceEntry
+                        ? t('driverInvoice.form.unitTooltipWithPrices', {
+                            tray: formatCurrencyValue(trayPrice),
+                            dozen: formatCurrencyValue(dozenPrice),
+                          })
+                        : t('driverInvoice.form.unitTooltipWithoutClassification');
+                    const lineItemLabel = t('driverInvoice.aria.classification', {
+                      index: index + 1,
+                    });
+                    const quantityAriaLabel = t('driverInvoice.aria.quantity', {
+                      index: index + 1,
+                    });
+                    const unitAriaLabel = t('driverInvoice.aria.unit', {
+                      index: index + 1,
+                    });
+                    const latestPriceChangeLabel = latestPriceChange
+                      ? formatDateTime(latestPriceChange)
+                      : '';
+
+                    return (
+                      <tr key={item.id} className="align-top text-slate-900 dark:text-slate-100">
+                        <td className="px-3 py-2 align-top">
+                          <select
+                            className="w-full rounded border border-slate-300 px-2 py-1 text-sm text-slate-900 transition-colors focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
+                            value={item.classification_id || ''}
+                            onChange={(e) =>
+                              updateItem(item.id, {
+                                classification_id: e.target.value ? Number(e.target.value) : '',
+                              })
+                            }
+                            required
+                            aria-label={lineItemLabel}
+                          >
+                            <option value="" disabled>
+                              {t('driverInvoice.form.classificationPlaceholder')}
+                            </option>
+                            {classifications.map((c) => (
+                              <option key={c.id} value={c.id}>
+                                {c.size} / {c.color}
+                              </option>
+                            ))}
+                          </select>
+                        </td>
+                        <td className="px-3 py-2 align-top">
+                          <input
+                            type="number"
+                            min={1}
+                            className="w-20 rounded border border-slate-300 px-2 py-1 text-sm text-slate-900 transition-colors focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
+                            value={item.qty}
+                            onChange={(e) =>
+                              updateItem(item.id, {
+                                qty: Number(e.target.value) > 0 ? Number(e.target.value) : 0,
+                              })
+                            }
+                            required
+                            aria-label={quantityAriaLabel}
+                          />
+                        </td>
+                        <td className="px-3 py-2 align-top">
+                          <div className="flex flex-col gap-1 text-sm">
+                            <select
+                              className="rounded border border-slate-300 px-2 py-1 text-slate-900 transition-colors focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
+                              value={item.unit}
+                              onChange={(e) => updateItem(item.id, { unit: e.target.value })}
+                              title={unitSelectTitle}
+                              aria-label={unitAriaLabel}
+                            >
+                              {units.map((u) => (
+                                <option key={u} value={u}>
+                                  {t(
+                                    u === 'TRAY'
+                                      ? 'common.labels.tray'
+                                      : u === 'DOZEN'
+                                      ? 'common.labels.dozen'
+                                      : 'common.labels.pcs',
+                                  )}
+                                </option>
+                              ))}
+                            </select>
+                            {!classificationId && (
+                              <div className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
+                                {t('driverInvoice.form.unitTooltipWithoutClassification')}
+                              </div>
+                            )}
+                            {classificationId && priceEntry && (
+                              <div className="mt-1 space-y-1 text-[11px] leading-tight text-slate-500 dark:text-slate-400">
+                                <div className="flex items-center justify-between gap-2">
+                                  <span>{t('common.labels.tray')}</span>
+                                  <span className="font-medium text-slate-700 dark:text-slate-200">
+                                    {formatCurrencyValue(trayPrice)}
+                                  </span>
+                                </div>
+                                <div className="flex items-center justify-between gap-2">
+                                  <span>{t('common.labels.dozen')}</span>
+                                  <span className="font-medium text-slate-700 dark:text-slate-200">
+                                    {formatCurrencyValue(dozenPrice)}
+                                  </span>
+                                </div>
+                                {latestPriceChange && (
+                                  <div className={isRecentPriceChange ? 'text-blue-600 dark:text-blue-300' : 'text-slate-400 dark:text-slate-500'}>
+                                    {latestPriceChangeLabel
+                                      ? t('inventory.pricing.updated', {
+                                          value: latestPriceChangeLabel,
+                                        })
+                                      : null}
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                            {classificationId && !priceEntry && (
+                              <div className="mt-1 text-[11px] text-red-600 dark:text-red-400">
+                                {t('driverInvoice.form.pricingUnavailable')}
+                              </div>
+                            )}
+                          </div>
+                        </td>
+                        <td className="px-3 py-2 text-right align-top">
+                          <span className="font-medium text-slate-900 dark:text-slate-100">
+                            {formatCurrencyValue(item.unit_price)}
+                          </span>
+                        </td>
+                        <td className="px-3 py-2 text-right align-top">
+                          <span className="font-semibold text-slate-900 dark:text-slate-100">
+                            {formatCurrencyValue(item.line_total)}
+                          </span>
+                        </td>
+                        <td className="px-3 py-2 text-right align-top">
+                          <button
+                            type="button"
+                            onClick={() => removeItem(item.id)}
+                            className="text-xs font-medium text-red-600 transition hover:text-red-500 dark:text-red-400 dark:hover:text-red-300"
+                          >
+                            {t('common.actions.remove')}
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+          {/* Verified layouts at 360px, 768px, and 1280px viewports. Extremely narrow screens (<340px) may still require horizontal scrolling for action labels. */}
           <button
             type="button"
             onClick={addItem}
