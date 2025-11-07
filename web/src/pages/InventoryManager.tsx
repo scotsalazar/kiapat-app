@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import axios from 'axios';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { useToast } from '../components/ToastProvider';
 import { parseApiError } from '../utils/apiErrors';
@@ -110,6 +111,7 @@ type InventoryStreamState = {
 
 const InventoryManagerPage: React.FC = () => {
   const { token, user } = useAuth();
+  const navigate = useNavigate();
   const [initialSummary, setInitialSummary] =
     useState<InventorySummaryResponse | null>(null);
   const [initialMovements, setInitialMovements] = useState<Movement[]>([]);
@@ -394,8 +396,26 @@ const InventoryManagerPage: React.FC = () => {
 
   return (
     <div className="p-4 md:p-6">
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <h1 className="text-2xl font-bold">Kiapat Inventory</h1>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+          <h1 className="text-2xl font-bold">Kiapat Inventory</h1>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => navigate('/invoices/history')}
+              className="rounded bg-blue-600 px-3 py-1.5 text-sm font-medium text-white shadow hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1"
+            >
+              View invoice history
+            </button>
+            <button
+              type="button"
+              onClick={() => navigate('/admin/users')}
+              className="rounded border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1"
+            >
+              Manage users
+            </button>
+          </div>
+        </div>
         <div className="flex flex-col items-start text-sm sm:items-end">
           <div className={`flex items-center gap-2 ${streamStatusMeta.textClass}`}>
             <span className={`h-2 w-2 rounded-full ${streamStatusMeta.dotClass}`} />

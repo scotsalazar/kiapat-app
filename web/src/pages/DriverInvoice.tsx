@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import axios from 'axios';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import SignaturePad from '../components/SignaturePad';
 import { useToast } from '../components/ToastProvider';
@@ -52,6 +53,7 @@ type DriverInventoryStreamState = {
 
 const DriverInvoicePage: React.FC = () => {
   const { token } = useAuth();
+  const navigate = useNavigate();
   const [classifications, setClassifications] = useState<Classification[]>([]);
   const [initialPrices, setInitialPrices] = useState<Price[]>([]);
   const [items, setItems] = useState<InvoiceItemForm[]>([]);
@@ -243,8 +245,17 @@ const DriverInvoicePage: React.FC = () => {
 
   return (
     <div className="p-4 md:p-6">
-      <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <h1 className="text-2xl font-bold">Generate Sales Invoice</h1>
+      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+          <h1 className="text-2xl font-bold">Generate Sales Invoice</h1>
+          <button
+            type="button"
+            onClick={() => navigate('/invoices/history')}
+            className="rounded bg-blue-600 px-3 py-1.5 text-sm font-medium text-white shadow hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1"
+          >
+            View invoice history
+          </button>
+        </div>
         <div className="flex flex-col items-start text-sm sm:items-end">
           <div className={`flex items-center gap-2 ${streamStatusMeta.textClass}`}>
             <span className={`h-2 w-2 rounded-full ${streamStatusMeta.dotClass}`} />

@@ -83,10 +83,12 @@ const InvoiceHistoryPage: React.FC = () => {
         page_size: pageSize,
       };
       if (startDate) {
-        params.start_date = new Date(`${startDate}T00:00:00`);
+        const start = new Date(`${startDate}T00:00:00`);
+        params.start_date = start.toISOString();
       }
       if (endDate) {
-        params.end_date = new Date(`${endDate}T23:59:59`);
+        const end = new Date(`${endDate}T23:59:59`);
+        params.end_date = end.toISOString();
       }
       if (customer.trim()) {
         params.customer = customer.trim();
@@ -285,13 +287,13 @@ const InvoiceHistoryPage: React.FC = () => {
             <tbody className="bg-white divide-y divide-gray-200">
               {loading ? (
                 <tr>
-                  <td colSpan={6} className="px-4 py-8 text-center text-sm text-gray-500">
+                  <td colSpan={7} className="px-4 py-8 text-center text-sm text-gray-500">
                     Loading invoices...
                   </td>
                 </tr>
               ) : invoices.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-4 py-8 text-center text-sm text-gray-500">
+                  <td colSpan={7} className="px-4 py-8 text-center text-sm text-gray-500">
                     No invoices found for the selected filters.
                   </td>
                 </tr>
