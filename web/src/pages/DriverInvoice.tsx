@@ -1,5 +1,4 @@
 import React, { useEffect, useMemo, useState, useCallback } from 'react';
-import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../hooks/useAuth';
@@ -10,6 +9,7 @@ import useInventoryStream, { InventoryUpdateMessage } from '../hooks/useInventor
 import InvoicePreviewModal from '../components/InvoicePreviewModal';
 import type { Classification, InvoiceItemForm, Price } from '../types/invoice';
 import { formatDateTime } from '../utils/dateTime';
+import apiClient from '../api/axios';
 
 const units = ['TRAY', 'DOZEN', 'PCS'] as const;
 type UnitType = (typeof units)[number];
@@ -88,7 +88,6 @@ const DriverInvoicePage: React.FC = () => {
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const authHeader = useMemo(() => (token ? { Authorization: `Bearer ${token}` } : {}), [token]);
   const { showToast } = useToast();
 
   const currencyFormatter = useMemo(
@@ -198,13 +197,13 @@ const DriverInvoicePage: React.FC = () => {
   useEffect(() => {
     if (!token) return;
     Promise.all([
-      axios.get('/api/catalog/classifications', { headers: authHeader }),
-      axios.get('/api/catalog/prices', { headers: authHeader }),
+      apiClient.get('/api/catalog/classifications'),
+      apiClient.get('/api/catalog/prices'),
     ]).then(([clsRes, priceRes]) => {
       setClassifications(clsRes.data);
       setInitialPrices(priceRes.data);
     });
-  }, [authHeader, token]);
+  }, [token]);
 
   const applyPricing = useCallback(
     (item: InvoiceItemForm): InvoiceItemForm => {
@@ -295,16 +294,12 @@ const DriverInvoicePage: React.FC = () => {
     }
     setIsSubmitting(true);
     try {
-      const res = await axios.post(
-        '/api/sales/invoices',
-        {
-          customer_name: customerName || null,
-          customer_phone: customerPhone || null,
-          items: payloadItems,
-          signature_png_b64: signatureDataUrl,
-        },
-        { headers: authHeader },
-      );
+      const res = await apiClient.post('/api/sales/invoices', {
+        customer_name: customerName || null,
+        customer_phone: customerPhone || null,
+        items: payloadItems,
+        signature_png_b64: signatureDataUrl,
+      });
       const data: InvoiceResponse = res.data;
       setInvoiceId(data.id);
       setInvoiceStatus(data.status);
