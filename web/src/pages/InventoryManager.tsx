@@ -821,15 +821,50 @@ const InventoryManagerPage: React.FC = () => {
             const shouldShowPriceDetails =
               perDozenPrice !== null || perTrayPrice !== null || latestPriceChange !== null;
             const latestPriceChangeLabel = latestPriceChange ? formatDateTime(latestPriceChange) : '';
+            const thresholdForProgress =
+              card.threshold_pcs && card.threshold_pcs > 0
+                ? card.threshold_pcs
+                : Math.max(card.qty_pcs, 1);
+            const progressRatio = Math.min(card.qty_pcs / thresholdForProgress, 1);
+            const stockStatus = (() => {
+              if (card.qty_pcs === 0) {
+                return {
+                  key: 'out-of-stock' as const,
+                  label: 'Out of stock',
+                  badge: '🔴',
+                  badgeClasses:
+                    'inline-flex items-center rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-700 dark:bg-red-900 dark:text-red-200',
+                  containerClasses:
+                    'border-red-500 bg-red-50/40 ring-1 ring-red-300 dark:border-red-500 dark:bg-red-900/30',
+                };
+              }
+              if (card.is_low) {
+                return {
+                  key: 'low-stock' as const,
+                  label: 'Low stock',
+                  badge: '🟠',
+                  badgeClasses:
+                    'inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-700 dark:bg-amber-900 dark:text-amber-200',
+                  containerClasses:
+                    'border-amber-400 bg-amber-50/40 ring-1 ring-amber-300 dark:border-amber-500 dark:bg-amber-900/30',
+                };
+              }
+              return {
+                key: 'sufficient' as const,
+                label: 'Sufficient stock',
+                badge: '🟢',
+                badgeClasses:
+                  'inline-flex items-center rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-700 dark:bg-emerald-900 dark:text-emerald-200',
+                containerClasses: 'border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900',
+              };
+            })();
 
             return (
               <div
                 key={card.classification_id}
                 className={`relative rounded border p-4 shadow-sm transition-colors ${
-                  card.is_low
-                    ? 'border-red-400 bg-red-50/40 ring-1 ring-red-300 dark:border-red-500 dark:bg-red-900/30'
-                    : 'border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900'
-                }`}
+                  stockStatus.containerClasses
+                } ${card.qty_pcs === 0 ? 'opacity-60' : ''}`}
               >
               {isRecentPriceChange && (
                 <span className="absolute -right-2 -top-2 rounded-full bg-blue-600 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white shadow">
@@ -850,21 +885,23 @@ const InventoryManagerPage: React.FC = () => {
                         {card.size.slice(1).toLowerCase()} / {card.color.charAt(0)}
                         {card.color.slice(1).toLowerCase()}
                       </h3>
-                      {card.is_low && (
-                        <span className="inline-flex items-center rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-700 dark:bg-red-900 dark:text-red-200">
-                          Low stock
-                        </span>
+                      <span
+                        className="text-lg"
+                        role="img"
+                        aria-label={stockStatus.label}
+                        title={stockStatus.label}
+                      >
+                        {stockStatus.badge}
+                      </span>
+                      {stockStatus.key !== 'sufficient' && (
+                        <span className={stockStatus.badgeClasses}>{stockStatus.label}</span>
                       )}
                     </div>
                     <p className="text-sm text-slate-600 dark:text-slate-300">
                       {card.qty_tray.toFixed(1)} trays • {card.qty_dozen.toFixed(1)} dozens
                     </p>
                     <p
-                      className={`text-sm ${
-                        card.is_low
-                          ? 'font-semibold text-red-600 dark:text-red-400'
-                          : 'text-slate-700 dark:text-slate-200'
-                      }`}
+                      className="text-sm font-semibold text-emerald-600 dark:text-emerald-300"
                     >
                       {card.qty_pcs.toLocaleString()} pcs
                     </p>
@@ -905,11 +942,21 @@ const InventoryManagerPage: React.FC = () => {
                 </div>
               )}
               {card.stock_value !== null && (
-                <p className="mt-3 text-sm text-slate-600 dark:text-slate-300">
-                  {t('inventory.stockValueLabel', {
-                    value: currencyFormatter.format(card.stock_value),
-                  })}
-                </p>
+                <div className="mt-3 flex items-center gap-3 text-sm text-slate-600 dark:text-slate-300">
+                  <div className="flex-1">
+                    <div className="h-2 w-full rounded-full bg-slate-200 dark:bg-slate-700">
+                      <div
+                        className="h-full rounded-full bg-emerald-500 transition-all"
+                        style={{ width: `${Math.max(0, Math.min(progressRatio, 1)) * 100}%` }}
+                      />
+                    </div>
+                  </div>
+                  <span className="font-medium text-slate-700 dark:text-slate-200">
+                    {t('inventory.stockValueLabel', {
+                      value: currencyFormatter.format(card.stock_value),
+                    })}
+                  </span>
+                </div>
               )}
               <p className="mt-2 text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">
                 {t('inventory.threshold.label')}{' '}
