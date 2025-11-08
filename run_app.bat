@@ -3,6 +3,10 @@ REM All-in-one script to install dependencies and run Kiapat MVP on Windows.
 REM This assumes Python and Node.js are available on your PATH.
 
 cd /d %~dp0
+set "PROJECT_ROOT=%~dp0"
+set "SERVER_DIR=%PROJECT_ROOT%server"
+set "WEB_DIR=%PROJECT_ROOT%web"
+set "VENV_PY=%SERVER_DIR%\venv\Scripts\python.exe"
 echo [Kiapat] Setting up Python virtual environment...
 if not exist server\venv (
     python -m venv server\venv
@@ -25,7 +29,7 @@ if not defined KIAPAT_PORT (
 )
 
 echo [Kiapat] Starting backend on port %KIAPAT_PORT%...
-start "Kiapat API" cmd /k "cd server && uvicorn app.main:app --host 0.0.0.0 --port %KIAPAT_PORT%"
+start "Kiapat API" cmd /k "cd /d \"%SERVER_DIR%\" && \"%VENV_PY%\" -m uvicorn app.main:app --host 0.0.0.0 --port %KIAPAT_PORT%"
 
 echo [Kiapat] Setting up frontend...
 cd web
@@ -36,7 +40,7 @@ if not exist .env (
     echo VITE_API_BASE_URL=http://localhost:%KIAPAT_PORT% > .env
 )
 echo [Kiapat] Starting frontend...
-start "Kiapat Web" cmd /k "npm run dev"
+start "Kiapat Web" cmd /k "cd /d \"%WEB_DIR%\" && npm run dev"
 
 echo [Kiapat] Backend running on http://localhost:%KIAPAT_PORT% and frontend on http://localhost:5173
 echo Use seeded credentials: admin/admin123 (admin) or driver/pass123 (driver)
