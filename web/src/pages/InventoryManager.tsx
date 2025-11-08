@@ -154,6 +154,21 @@ const parseTimestamp = (value?: string | null): Date | null => {
   return Number.isNaN(parsed.getTime()) ? null : parsed;
 };
 
+const QuickEditIcon = (props: React.SVGProps<SVGSVGElement>) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} {...props}>
+    <path
+      d="M16.862 4.487a2.25 2.25 0 0 1 3.182 3.182l-9.75 9.75a4.5 4.5 0 0 1-1.591 1.005l-3.068.878a.75.75 0 0 1-.927-.927l.878-3.068a4.5 4.5 0 0 1 1.005-1.591l9.75-9.75Z"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+    <path
+      d="M18.75 8.25v7.5A2.25 2.25 0 0 1 16.5 18h-9A2.25 2.25 0 0 1 5.25 15.75v-9A2.25 2.25 0 0 1 7.5 4.5h7.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </svg>
+);
+
 const getLatestPriceChangeTimestamp = (card: InventoryCard): Date | null => {
   const timestamps = [
     parseTimestamp(card.price_per_dozen_changed_at),
@@ -187,6 +202,7 @@ const InventoryManagerPage: React.FC = () => {
   const [dailySales, setDailySales] = useState<DailySalesSummary[]>([]);
   const [thresholdEdits, setThresholdEdits] = useState<Record<number, number | ''>>({});
   const [thresholdSaving, setThresholdSaving] = useState<Record<number, boolean>>({});
+  const thresholdInputRefs = useRef<Record<number, HTMLInputElement | null>>({});
   const paramsSnapshotRef = useRef<string>(searchParams.toString());
   const [sizeFilter, setSizeFilter] = useState<string>(() => searchParams.get('size') ?? '');
   const [colorFilter, setColorFilter] = useState<string>(() => searchParams.get('color') ?? '');
@@ -308,6 +324,22 @@ const InventoryManagerPage: React.FC = () => {
 
   const summary = inventoryData.summary;
   const movements = inventoryData.movements ?? [];
+  const latestMovementByClassification = useMemo(() => {
+    const map = new Map<number, Date>();
+    movements.forEach((movement) => {
+      const committedAt = parseTimestamp(movement.committed_at);
+      const createdAt = parseTimestamp(movement.created_at);
+      const relevantTimestamp = committedAt ?? createdAt;
+      if (!relevantTimestamp) {
+        return;
+      }
+      const existing = map.get(movement.classification_id);
+      if (!existing || relevantTimestamp.getTime() > existing.getTime()) {
+        map.set(movement.classification_id, relevantTimestamp);
+      }
+    });
+    return map;
+  }, [movements]);
   const filteredCards = useMemo(() => {
     if (!summary) {
       return [] as InventoryCard[];
@@ -394,6 +426,29 @@ const InventoryManagerPage: React.FC = () => {
     setSearchTerm('');
     setLowStockOnly(false);
   }, []);
+
+  const handleQuickEditPricing = useCallback((classificationId: number) => {
+    window.dispatchEvent(
+      new CustomEvent('inventory:quick-edit-pricing', { detail: { classificationId } }),
+    );
+  }, []);
+
+  const handleQuickEditThreshold = useCallback(
+    (classificationId: number) => {
+      const input = thresholdInputRefs.current[classificationId];
+      if (input) {
+        input.focus();
+        if (typeof input.select === 'function') {
+          input.select();
+        }
+        input.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+      window.dispatchEvent(
+        new CustomEvent('inventory:quick-edit-threshold', { detail: { classificationId } }),
+      );
+    },
+    [],
+  );
 
   const streamStatusMeta = useMemo(() => {
     switch (streamStatus) {
@@ -821,6 +876,19 @@ const InventoryManagerPage: React.FC = () => {
             const shouldShowPriceDetails =
               perDozenPrice !== null || perTrayPrice !== null || latestPriceChange !== null;
             const latestPriceChangeLabel = latestPriceChange ? formatDateTime(latestPriceChange) : '';
+            const latestMovement = latestMovementByClassification.get(card.classification_id) ?? null;
+            const relevantTimestamps = [latestPriceChange, latestMovement].filter(
+              (value): value is Date => Boolean(value),
+            );
+            const latestActivity =
+              relevantTimestamps.length > 0
+                ? new Date(
+                    Math.max(
+                      ...relevantTimestamps.map((timestamp) => timestamp.getTime()),
+                    ),
+                  )
+                : null;
+            const lastUpdatedLabel = latestActivity ? formatDateTime(latestActivity) : '';
             const thresholdForProgress =
               card.threshold_pcs && card.threshold_pcs > 0
                 ? card.threshold_pcs
@@ -916,17 +984,55 @@ const InventoryManagerPage: React.FC = () => {
                       : 'border-slate-200 bg-slate-100 dark:border-slate-700 dark:bg-slate-800/80'
                   }`}
                 >
-                  <div className="flex items-center justify-between gap-3">
-                    <span className="text-slate-600 dark:text-slate-300">{t('common.labels.perTray')}</span>
-                    <span className="font-medium text-slate-800 dark:text-slate-100">
-                      {formatCurrencyValue(perTrayPrice)}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between gap-3">
-                    <span className="text-slate-600 dark:text-slate-300">{t('common.labels.perDozen')}</span>
-                    <span className="font-medium text-slate-800 dark:text-slate-100">
-                      {formatCurrencyValue(perDozenPrice)}
-                    </span>
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between gap-3">
+                      <span
+                        className="cursor-help text-slate-600 dark:text-slate-300"
+                        title={t('inventory.tooltips.perTray')}
+                      >
+                        {t('common.labels.perTray')}
+                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium text-slate-800 dark:text-slate-100">
+                          {formatCurrencyValue(perTrayPrice)}
+                        </span>
+                        {user?.role === 'admin' && (
+                          <button
+                            type="button"
+                            onClick={() => handleQuickEditPricing(card.classification_id)}
+                            className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-slate-300 text-slate-500 transition hover:border-indigo-500 hover:text-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-1 focus:ring-offset-slate-100 dark:border-slate-600 dark:text-slate-300 dark:hover:border-indigo-400 dark:hover:text-indigo-300 dark:focus:ring-offset-slate-900"
+                            title={t('inventory.actions.quickEditPricing')}
+                          >
+                            <QuickEditIcon className="h-4 w-4" />
+                            <span className="sr-only">{t('inventory.actions.quickEditPricing')}</span>
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between gap-3">
+                      <span
+                        className="cursor-help text-slate-600 dark:text-slate-300"
+                        title={t('inventory.tooltips.perDozen')}
+                      >
+                        {t('common.labels.perDozen')}
+                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium text-slate-800 dark:text-slate-100">
+                          {formatCurrencyValue(perDozenPrice)}
+                        </span>
+                        {user?.role === 'admin' && (
+                          <button
+                            type="button"
+                            onClick={() => handleQuickEditPricing(card.classification_id)}
+                            className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-slate-300 text-slate-500 transition hover:border-indigo-500 hover:text-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-1 focus:ring-offset-slate-100 dark:border-slate-600 dark:text-slate-300 dark:hover:border-indigo-400 dark:hover:text-indigo-300 dark:focus:ring-offset-slate-900"
+                            title={t('inventory.actions.quickEditPricing')}
+                          >
+                            <QuickEditIcon className="h-4 w-4" />
+                            <span className="sr-only">{t('inventory.actions.quickEditPricing')}</span>
+                          </button>
+                        )}
+                      </div>
+                    </div>
                   </div>
                   {latestPriceChange && (
                     <div
@@ -958,14 +1064,32 @@ const InventoryManagerPage: React.FC = () => {
                   </span>
                 </div>
               )}
-              <p className="mt-2 text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                {t('inventory.threshold.label')}{' '}
-                {card.threshold_pcs !== null
-                  ? t('inventory.filters.pieces', {
-                      value: card.threshold_pcs.toLocaleString(),
-                    })
-                  : t('inventory.threshold.notSet')}
-              </p>
+              <div className="mt-2 flex items-center justify-between gap-2 text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                <span>
+                  <span
+                    className="cursor-help"
+                    title={t('inventory.tooltips.threshold')}
+                  >
+                    {t('inventory.threshold.label')}
+                  </span>{' '}
+                  {card.threshold_pcs !== null
+                    ? t('inventory.filters.pieces', {
+                        value: card.threshold_pcs.toLocaleString(),
+                      })
+                    : t('inventory.threshold.notSet')}
+                </span>
+                {user?.role === 'admin' && (
+                  <button
+                    type="button"
+                    onClick={() => handleQuickEditThreshold(card.classification_id)}
+                    className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-slate-300 text-slate-500 transition hover:border-indigo-500 hover:text-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-1 focus:ring-offset-slate-100 dark:border-slate-600 dark:text-slate-300 dark:hover:border-indigo-400 dark:hover:text-indigo-300 dark:focus:ring-offset-slate-900"
+                    title={t('inventory.actions.quickEditThreshold')}
+                  >
+                    <QuickEditIcon className="h-4 w-4" />
+                    <span className="sr-only">{t('inventory.actions.quickEditThreshold')}</span>
+                  </button>
+                )}
+              </div>
               {user?.role === 'admin' && (
                 <div className="mt-3 flex flex-wrap items-center gap-2">
                   <label
@@ -981,6 +1105,13 @@ const InventoryManagerPage: React.FC = () => {
                     className="w-24 rounded border border-slate-300 px-2 py-1 text-sm text-slate-900 transition-colors focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
                     value={thresholdEdits[card.classification_id] ?? ''}
                     onChange={(e) => handleThresholdInputChange(card.classification_id, e.target.value)}
+                    ref={(element) => {
+                      if (element) {
+                        thresholdInputRefs.current[card.classification_id] = element;
+                      } else {
+                        delete thresholdInputRefs.current[card.classification_id];
+                      }
+                    }}
                   />
                   <button
                     type="button"
@@ -993,6 +1124,11 @@ const InventoryManagerPage: React.FC = () => {
                       : t('common.actions.save')}
                   </button>
                 </div>
+              )}
+              {lastUpdatedLabel && (
+                <p className="mt-3 text-sm text-slate-400 dark:text-slate-500">
+                  {t('inventory.cards.lastUpdated', { value: lastUpdatedLabel })}
+                </p>
               )}
             </div>
           );

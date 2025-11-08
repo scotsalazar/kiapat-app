@@ -130,6 +130,7 @@ const fil = {
           summary: '{{date}} • {{pcs}} pcs naibenta • {{count}} resibo',
           none: 'Walang benta sa nakalipas na 7 araw.',
         },
+        lastUpdated: 'Huling na-update {{value}}',
       },
       filters: {
         showingFiltered: 'Ipinapakita ang {{count}} sa {{total}} klasipikasyon.',
@@ -143,6 +144,15 @@ const fil = {
       },
       pricing: {
         updated: 'In-update noong {{value}}',
+      },
+      tooltips: {
+        perTray: 'Presyo bawat tray',
+        perDozen: 'Presyo bawat dosena',
+        threshold: 'Babala kapag mababa ang stock',
+      },
+      actions: {
+        quickEditPricing: 'Mabilis na i-edit ang presyo',
+        quickEditThreshold: 'Mabilis na i-edit ang threshold',
       },
       stockValueLabel: 'Halaga ng stock: {{value}}',
       threshold: {

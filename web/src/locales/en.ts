@@ -130,6 +130,7 @@ const en = {
           summary: '{{date}} • {{pcs}} pcs sold • {{count}} invoices',
           none: 'No sales recorded in the last 7 days.',
         },
+        lastUpdated: 'Last updated {{value}}',
       },
       filters: {
         showingFiltered: 'Showing {{count}} of {{total}} classifications.',
@@ -143,6 +144,15 @@ const en = {
       },
       pricing: {
         updated: 'Updated {{value}}',
+      },
+      tooltips: {
+        perTray: 'Price per tray',
+        perDozen: 'Price per dozen',
+        threshold: 'Low-stock alert threshold',
+      },
+      actions: {
+        quickEditPricing: 'Quick edit pricing',
+        quickEditThreshold: 'Quick edit threshold',
       },
       stockValueLabel: 'Stock value: {{value}}',
       threshold: {
