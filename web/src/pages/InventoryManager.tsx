@@ -626,28 +626,32 @@ const InventoryManagerPage: React.FC = () => {
       {successMessage && <p className="mt-2 text-green-600 dark:text-green-400">{successMessage}</p>}
       {formError && <p className="mt-2 text-red-600 dark:text-red-400">{formError}</p>}
       {summary && (
-        <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <>
+          <h2 className="mt-6 text-lg font-medium text-slate-700 dark:text-slate-200">
+            {t('inventory.sections.overview', { defaultValue: 'Overview' })}
+          </h2>
+          <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm transition-colors dark:border-slate-700 dark:bg-slate-900 dark:shadow-slate-900/40">
             <h2 className="text-sm font-medium text-slate-600 dark:text-slate-300">{t('inventory.cards.totalStock.title')}</h2>
-            <p className="mt-2 text-2xl font-bold text-slate-900 dark:text-slate-100">
+            <p className="mt-2 text-xl font-bold text-blue-500 dark:text-blue-300">
               {t('inventory.filters.pieces', { value: summary.totals.qty_pcs.toLocaleString() })}
             </p>
-            <p className="text-sm text-slate-500 dark:text-slate-400">
+            <p className="text-sm text-slate-400 dark:text-slate-500">
               {t('inventory.filters.trays', { value: summary.totals.qty_tray.toFixed(1) })} •{' '}
               {t('inventory.filters.dozens', { value: summary.totals.qty_dozen.toFixed(1) })}
             </p>
-            <p className="mt-2 text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">
+            <p className="mt-2 text-sm uppercase tracking-wide text-slate-400 dark:text-slate-500">
               {t('inventory.cards.totalStock.lowStockCount', { count: lowStockCount })}
             </p>
           </div>
           <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm transition-colors dark:border-slate-700 dark:bg-slate-900 dark:shadow-slate-900/40">
             <h2 className="text-sm font-medium text-slate-600 dark:text-slate-300">{t('inventory.cards.stockValue.title')}</h2>
-            <p className="mt-2 text-2xl font-bold text-slate-900 dark:text-slate-100">
+            <p className="mt-2 text-xl font-bold text-blue-500 dark:text-blue-300">
               {summary.totals.stock_value !== null
                 ? currencyFormatter.format(summary.totals.stock_value)
                 : t('common.notAvailable')}
             </p>
-            <p className="text-sm text-slate-500 dark:text-slate-400">
+            <p className="text-sm text-slate-400 dark:text-slate-500">
               {t('inventory.cards.stockValue.description')}
             </p>
           </div>
@@ -658,7 +662,7 @@ const InventoryManagerPage: React.FC = () => {
                 <p className="mt-2 text-2xl font-bold text-slate-900 dark:text-slate-100">
                   {currencyFormatter.format(recentSalesEntry.total_amount)}
                 </p>
-                <p className="text-sm text-slate-500 dark:text-slate-400">
+                <p className="text-sm text-slate-400 dark:text-slate-500">
                   {t('inventory.cards.recentSales.summary', {
                     date: recentSalesDate || t('common.notAvailable'),
                     pcs: recentSalesEntry.eggs_sold_pcs.toLocaleString(),
@@ -667,10 +671,11 @@ const InventoryManagerPage: React.FC = () => {
                 </p>
               </>
             ) : (
-              <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">{t('inventory.cards.recentSales.none')}</p>
+              <p className="mt-2 text-sm text-slate-400 dark:text-slate-500">{t('inventory.cards.recentSales.none')}</p>
             )}
           </div>
-        </div>
+          </div>
+        </>
       )}
       <div className="mt-6 rounded-lg border border-slate-200 bg-white p-4 shadow-sm transition-colors dark:border-slate-700 dark:bg-slate-900 dark:shadow-slate-900/40">
           <div className="flex flex-wrap items-end gap-4">
