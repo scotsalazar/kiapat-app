@@ -23,10 +23,16 @@ from .database import get_db
 
 
 # Password hashing configuration
-# Use PBKDF2-SHA256 instead of bcrypt to avoid backend issues on some
-# platforms (bcrypt requires a compiled extension and may cause errors
-# like 'module bcrypt has no attribute __about__' on Python 3.13).
-pwd_context = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
+# Use PBKDF2-SHA256 as the default but allow verifying existing bcrypt hashes.
+# PBKDF2 avoids backend issues on some platforms (bcrypt requires a compiled
+# extension and may cause errors like 'module bcrypt has no attribute
+# __about__' on Python 3.13) while the inclusion of bcrypt ensures legacy
+# hashes continue to validate.
+pwd_context = CryptContext(
+    schemes=["pbkdf2_sha256", "bcrypt"],
+    default="pbkdf2_sha256",
+    deprecated="auto",
+)
 
 # OAuth2 password flow will use this endpoint; the token will be returned
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
@@ -86,6 +92,11 @@ def authenticate_user(db: Session, username: str, password: str) -> Optional[mod
         return None
     if not verify_password(password, user.hashed_password):
         return None
+    if pwd_context.needs_update(user.hashed_password):
+        user.hashed_password = get_password_hash(password)
+        db.add(user)
+        db.commit()
+        db.refresh(user)
     return user
 
 
