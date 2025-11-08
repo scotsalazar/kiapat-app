@@ -118,6 +118,33 @@ type InventoryStreamState = {
 };
 
 const RECENT_PRICE_CHANGE_WINDOW_MS = 1000 * 60 * 60 * 48; // 48 hours
+const SIZE_RANK: Record<string, number> = {
+  SMALL: 0,
+  MEDIUM: 1,
+  LARGE: 2,
+};
+
+const COLOR_RANK: Record<string, number> = {
+  WHITE: 0,
+  BROWN: 1,
+};
+
+const getSizeRank = (size: string) => SIZE_RANK[size] ?? Number.POSITIVE_INFINITY;
+const getColorRank = (color: string) => COLOR_RANK[color] ?? Number.POSITIVE_INFINITY;
+
+const compareInventoryCards = (a: InventoryCard, b: InventoryCard) => {
+  const sizeDifference = getSizeRank(a.size) - getSizeRank(b.size);
+  if (sizeDifference !== 0) {
+    return sizeDifference;
+  }
+
+  const colorDifference = getColorRank(a.color) - getColorRank(b.color);
+  if (colorDifference !== 0) {
+    return colorDifference;
+  }
+
+  return a.classification_id - b.classification_id;
+};
 
 const parseTimestamp = (value?: string | null): Date | null => {
   if (!value) {
@@ -290,22 +317,24 @@ const InventoryManagerPage: React.FC = () => {
       .toLowerCase()
       .split(/\s+/)
       .filter(Boolean);
-    return summary.cards.filter((card) => {
-      if (sizeFilter && card.size !== sizeFilter) {
-        return false;
-      }
-      if (colorFilter && card.color !== colorFilter) {
-        return false;
-      }
-      if (lowStockOnly && !card.is_low) {
-        return false;
-      }
-      if (!tokens.length) {
-        return true;
-      }
-      const label = `${card.size} ${card.color}`.toLowerCase();
-      return tokens.every((token) => label.includes(token));
-    });
+    return summary.cards
+      .filter((card) => {
+        if (sizeFilter && card.size !== sizeFilter) {
+          return false;
+        }
+        if (colorFilter && card.color !== colorFilter) {
+          return false;
+        }
+        if (lowStockOnly && !card.is_low) {
+          return false;
+        }
+        if (!tokens.length) {
+          return true;
+        }
+        const label = `${card.size} ${card.color}`.toLowerCase();
+        return tokens.every((token) => label.includes(token));
+      })
+      .sort(compareInventoryCards);
   }, [summary, sizeFilter, colorFilter, lowStockOnly, searchTerm]);
 
   const lowStockCount = useMemo(
