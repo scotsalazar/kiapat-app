@@ -15,8 +15,17 @@ REM Seed environment variables; adjust as necessary
 set SEED_TOKEN=seed-secret
 set CORS_ALLOWED_ORIGINS=http://localhost:5173
 
-echo [Kiapat] Starting backend...
-start "Kiapat API" cmd /k "cd server && uvicorn app.main:app --host 0.0.0.0 --port 8000"
+REM Determine backend port, defaulting to 8000 unless overridden
+if not defined KIAPAT_PORT (
+    if defined PORT (
+        set "KIAPAT_PORT=%PORT%"
+    ) else (
+        set "KIAPAT_PORT=8000"
+    )
+)
+
+echo [Kiapat] Starting backend on port %KIAPAT_PORT%...
+start "Kiapat API" cmd /k "cd server && uvicorn app.main:app --host 0.0.0.0 --port %KIAPAT_PORT%"
 
 echo [Kiapat] Setting up frontend...
 cd web
@@ -24,10 +33,10 @@ if not exist node_modules (
     npm install
 )
 if not exist .env (
-    echo VITE_API_BASE_URL=http://localhost:8000 > .env
+    echo VITE_API_BASE_URL=http://localhost:%KIAPAT_PORT% > .env
 )
 echo [Kiapat] Starting frontend...
 start "Kiapat Web" cmd /k "npm run dev"
 
-echo [Kiapat] Backend running on http://localhost:8000 and frontend on http://localhost:5173
+echo [Kiapat] Backend running on http://localhost:%KIAPAT_PORT% and frontend on http://localhost:5173
 echo Use seeded credentials: admin/admin123 (admin) or driver/pass123 (driver)
