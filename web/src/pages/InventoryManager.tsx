@@ -1,5 +1,4 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import axios from 'axios';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../hooks/useAuth';
@@ -7,6 +6,7 @@ import { useToast } from '../components/ToastProvider';
 import { parseApiError } from '../utils/apiErrors';
 import useInventoryStream, { InventoryUpdateMessage } from '../hooks/useInventoryStream';
 import { formatDate, formatDateTime } from '../utils/dateTime';
+import apiClient from '../api/axios';
 
 interface Classification {
   id: number;
@@ -170,7 +170,6 @@ const InventoryManagerPage: React.FC = () => {
     return ['1', 'true', 'yes'].includes(raw.toLowerCase());
   });
 
-  const authHeader = useMemo(() => (token ? { Authorization: `Bearer ${token}` } : {}), [token]);
   const { showToast } = useToast();
   const currencyFormatter = useMemo(
     () => new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }),
@@ -422,23 +421,19 @@ const InventoryManagerPage: React.FC = () => {
         summaryParams.low_stock = 'true';
       }
       const [summaryRes, movementsRes, clsRes] = await Promise.all([
-        axios.get<InventorySummaryResponse>('/api/inventory/summary', {
-          headers: authHeader,
+        apiClient.get<InventorySummaryResponse>('/api/inventory/summary', {
           params: summaryParams,
         }),
-        axios.get<Movement[]>('/api/inventory/movements?limit=20', { headers: authHeader }),
-        axios.get<Classification[]>('/api/catalog/classifications', { headers: authHeader }),
+        apiClient.get<Movement[]>('/api/inventory/movements?limit=20'),
+        apiClient.get<Classification[]>('/api/catalog/classifications'),
       ]);
       setInitialSummary(summaryRes.data);
       setInitialMovements(movementsRes.data);
       setClassifications(clsRes.data);
       if (user?.role === 'admin') {
         const [overridesRes, salesRes] = await Promise.all([
-          axios.get<PendingOverride[]>('/api/sales/invoices/overrides/pending', {
-            headers: authHeader,
-          }),
-          axios.get<DailySalesSummary[]>('/api/reports/daily-sales', {
-            headers: authHeader,
+          apiClient.get<PendingOverride[]>('/api/sales/invoices/overrides/pending'),
+          apiClient.get<DailySalesSummary[]>('/api/reports/daily-sales', {
             params: (() => {
               const end = new Date();
               const start = new Date(end);
@@ -460,7 +455,7 @@ const InventoryManagerPage: React.FC = () => {
       const { message } = parseApiError(err, t('inventory.errors.load'));
       showToast(message, 'error');
     }
-  }, [authHeader, showToast, token, user?.role, sizeFilter, colorFilter, lowStockOnly, t]);
+  }, [showToast, token, user?.role, sizeFilter, colorFilter, lowStockOnly, t]);
 
   useEffect(() => {
     loadData();
@@ -482,11 +477,11 @@ const InventoryManagerPage: React.FC = () => {
     setFormError('');
     setSuccessMessage('');
     try {
-      await axios.post(
-        '/api/inventory/in/create',
-        { classification_id: selectedCls, qty: qty, unit },
-        { headers: authHeader },
-      );
+      await apiClient.post('/api/inventory/in/create', {
+        classification_id: selectedCls,
+        qty: qty,
+        unit,
+      });
       const draftMessage = t('inventory.messages.draftCreated');
       setSuccessMessage(draftMessage);
       showToast(t('inventory.messages.inventoryDraftCreated'), 'success');
@@ -517,11 +512,9 @@ const InventoryManagerPage: React.FC = () => {
     const thresholdValue = value === '' || value === undefined ? 0 : value;
     setThresholdSaving((prev) => ({ ...prev, [classificationId]: true }));
     try {
-      await axios.put(
-        '/api/inventory/thresholds',
-        { thresholds: [{ classification_id: classificationId, threshold_pcs: thresholdValue }] },
-        { headers: authHeader },
-      );
+      await apiClient.put('/api/inventory/thresholds', {
+        thresholds: [{ classification_id: classificationId, threshold_pcs: thresholdValue }],
+      });
       showToast(t('inventory.messages.thresholdUpdated'), 'success');
       await loadData();
     } catch (err) {
@@ -534,7 +527,7 @@ const InventoryManagerPage: React.FC = () => {
 
   const handleVerify = async (id: number) => {
     try {
-      await axios.post('/api/inventory/in/verify', { movement_id: id }, { headers: authHeader });
+      await apiClient.post('/api/inventory/in/verify', { movement_id: id });
       showToast(t('inventory.messages.movementVerified'), 'success');
       loadData();
     } catch (err) {
@@ -545,7 +538,7 @@ const InventoryManagerPage: React.FC = () => {
 
   const handleCommit = async (id: number) => {
     try {
-      await axios.post('/api/inventory/in/commit', { movement_id: id }, { headers: authHeader });
+      await apiClient.post('/api/inventory/in/commit', { movement_id: id });
       showToast(t('inventory.messages.movementCommitted'), 'success');
       loadData();
     } catch (err) {
@@ -557,10 +550,9 @@ const InventoryManagerPage: React.FC = () => {
   const handleApproveOverride = async (invoiceId: number) => {
     try {
       const note = window.prompt(t('common.prompts.approvalNote'), '');
-      await axios.post(
+      await apiClient.post(
         `/api/sales/invoices/${invoiceId}/override/approve`,
         note ? { decision_reason: note } : {},
-        { headers: authHeader },
       );
       setFormError('');
       setSuccessMessage(t('inventory.messages.overrideApproved'));
@@ -576,10 +568,9 @@ const InventoryManagerPage: React.FC = () => {
   const handleRejectOverride = async (invoiceId: number) => {
     try {
       const reason = window.prompt(t('common.prompts.rejectOverride'), '');
-      await axios.post(
+      await apiClient.post(
         `/api/sales/invoices/${invoiceId}/override/reject`,
         reason ? { decision_reason: reason } : {},
-        { headers: authHeader },
       );
       setFormError('');
       setSuccessMessage(t('inventory.messages.overrideRejected'));

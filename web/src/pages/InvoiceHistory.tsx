@@ -1,10 +1,10 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import axios from 'axios';
+import React, { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../hooks/useAuth';
 import { useToast } from '../components/ToastProvider';
 import { parseApiError } from '../utils/apiErrors';
 import { formatDateTime } from '../utils/dateTime';
+import apiClient from '../api/axios';
 
 interface InvoiceItem {
   id: number;
@@ -74,8 +74,6 @@ const InvoiceHistoryPage: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string>('');
 
-  const authHeader = useMemo(() => (token ? { Authorization: `Bearer ${token}` } : {}), [token]);
-
   const fetchInvoices = useCallback(async () => {
     if (!token) return;
     setLoading(true);
@@ -106,9 +104,8 @@ const InvoiceHistoryPage: React.FC = () => {
         params.driver = driver.trim();
       }
 
-      const res = await axios.get<InvoiceListResponse>('/api/sales/invoices', {
+      const res = await apiClient.get<InvoiceListResponse>('/api/sales/invoices', {
         params,
-        headers: authHeader,
       });
       setInvoices(res.data.items);
       setTotal(res.data.total);
@@ -119,7 +116,7 @@ const InvoiceHistoryPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [authHeader, customer, driver, endDate, page, pageSize, showToast, startDate, status, token, user?.role, invoiceStatus]);
+  }, [customer, driver, endDate, page, pageSize, showToast, startDate, status, token, user?.role, invoiceStatus]);
 
   useEffect(() => {
     fetchInvoices();

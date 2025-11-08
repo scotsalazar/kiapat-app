@@ -1,11 +1,11 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import axios from 'axios';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../hooks/useAuth';
 import { useToast } from '../components/ToastProvider';
 import { parseApiError } from '../utils/apiErrors';
 import { formatDateTime } from '../utils/dateTime';
+import apiClient from '../api/axios';
 
 interface ManagedUser {
   id: number;
@@ -51,7 +51,6 @@ const AdminUsersPage: React.FC = () => {
   const [editError, setEditError] = useState<string | null>(null);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
 
-  const authHeader = useMemo(() => (token ? { Authorization: `Bearer ${token}` } : {}), [token]);
   const { showToast } = useToast();
 
   const loadUsers = async () => {
@@ -59,7 +58,7 @@ const AdminUsersPage: React.FC = () => {
     setLoading(true);
     setLoadError(null);
     try {
-      const res = await axios.get<ManagedUser[]>('/api/users', { headers: authHeader });
+      const res = await apiClient.get<ManagedUser[]>('/api/users');
       setUsers(res.data);
     } catch (err: any) {
       if (err.response?.status === 401) {
@@ -84,17 +83,13 @@ const AdminUsersPage: React.FC = () => {
     setCreateSuccess(null);
     setStatusMessage(null);
     try {
-      await axios.post(
-        '/api/users',
-        {
-          name: createForm.name,
-          username: createForm.username,
-          email: createForm.email || null,
-          password: createForm.password,
-          role: createForm.role,
-        },
-        { headers: authHeader },
-      );
+      await apiClient.post('/api/users', {
+        name: createForm.name,
+        username: createForm.username,
+        email: createForm.email || null,
+        password: createForm.password,
+        role: createForm.role,
+      });
       setCreateForm({ name: '', username: '', email: '', password: '', role: 'driver' });
       const successMessage = t('adminUsers.messages.createSuccess');
       setCreateSuccess(successMessage);
@@ -119,11 +114,11 @@ const AdminUsersPage: React.FC = () => {
     setEditError(null);
     setStatusMessage(null);
     try {
-      await axios.put(
-        `/api/users/${editingUser.id}`,
-        { name: editForm.name, email: editForm.email || null, role: editForm.role },
-        { headers: authHeader },
-      );
+      await apiClient.put(`/api/users/${editingUser.id}`, {
+        name: editForm.name,
+        email: editForm.email || null,
+        role: editForm.role,
+      });
       const successMessage = t('adminUsers.messages.updateSuccess');
       setStatusMessage(successMessage);
       showToast(successMessage, 'success');
@@ -143,11 +138,9 @@ const AdminUsersPage: React.FC = () => {
     if (!newPassword) return;
     setStatusMessage(null);
     try {
-      await axios.post(
-        `/api/users/${user.id}/reset-password`,
-        { new_password: newPassword },
-        { headers: authHeader },
-      );
+      await apiClient.post(`/api/users/${user.id}/reset-password`, {
+        new_password: newPassword,
+      });
       const successMessage = t('adminUsers.messages.resetSuccess', { username: user.username });
       setStatusMessage(successMessage);
       showToast(successMessage, 'success');
@@ -161,7 +154,7 @@ const AdminUsersPage: React.FC = () => {
     if (!window.confirm(t('common.prompts.deleteUser', { username: user.username }))) return;
     setStatusMessage(null);
     try {
-      await axios.delete(`/api/users/${user.id}`, { headers: authHeader });
+      await apiClient.delete(`/api/users/${user.id}`);
       const successMessage = t('adminUsers.messages.deleteSuccess', { username: user.username });
       setStatusMessage(successMessage);
       showToast(successMessage, 'success');
