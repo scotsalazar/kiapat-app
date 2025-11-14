@@ -34,12 +34,19 @@ const VehiclePane = ({
   return (
     <section className={containerClasses}>
       {showHeader && (
-        <div className="flex flex-wrap items-end justify-between gap-3">
-          <div>
-            <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Fleet overview</p>
-            <h2 className="text-2xl font-semibold text-slate-900 dark:text-white">Active vehicles</h2>
+        <div className="flex flex-wrap items-end justify-between gap-4 border-b border-slate-100 pb-4 dark:border-slate-800">
+          <div className="space-y-1">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">
+              Fleet overview
+            </p>
+            <h2 className="text-2xl font-semibold leading-tight tracking-tight text-slate-900 dark:text-white">
+              Active vehicles
+            </h2>
+            <p className="text-sm leading-relaxed text-slate-500 dark:text-slate-400">
+              Updated telemetry for Kidapawan routes and load assignments.
+            </p>
           </div>
-          <div className="text-right text-xs text-slate-500">
+          <div className="text-right text-xs leading-5 text-slate-500">
             <p>Updated moments ago</p>
             <p>ETA placeholders shown for demo</p>
           </div>
@@ -58,10 +65,14 @@ const VehiclePane = ({
             style={onVehicleSelect ? { cursor: 'pointer' } : undefined}
           >
             <div className="flex items-start justify-between gap-3">
-              <div>
-                <p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">{vehicle.id}</p>
-                <h3 className="text-xl font-semibold text-slate-900 dark:text-white">{vehicle.driverName}</h3>
-                <p className="text-xs text-slate-500 dark:text-slate-400">{vehicle.routeName}</p>
+              <div className="space-y-1">
+                <p className="text-xs font-semibold uppercase tracking-[0.25em] text-slate-500 dark:text-slate-400">
+                  {vehicle.id}
+                </p>
+                <h3 className="text-xl font-semibold leading-snug tracking-tight text-slate-900 dark:text-white">
+                  {vehicle.driverName}
+                </h3>
+                <p className="text-sm leading-relaxed text-slate-500 dark:text-slate-400">{vehicle.routeName}</p>
               </div>
               <span className={`rounded-full px-3 py-1 text-xs font-semibold ${STATUS_STYLES[vehicle.status]}`}>
                 {vehicle.status}
@@ -70,24 +81,26 @@ const VehiclePane = ({
 
             <dl className="space-y-2 text-sm">
               <div className="flex items-baseline justify-between rounded-xl bg-white/80 px-3 py-2 text-slate-600 shadow-sm dark:bg-slate-900/70 dark:text-slate-200">
-                <dt className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">Speed</dt>
-                <dd className="text-base font-semibold text-slate-900 dark:text-slate-100">{vehicle.speedKph} km/h</dd>
+                <dt className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">Speed</dt>
+                <dd className="text-base font-semibold leading-6 text-slate-900 dark:text-slate-100">{vehicle.speedKph} km/h</dd>
               </div>
               <div className="flex items-baseline justify-between rounded-xl bg-white/80 px-3 py-2 text-slate-600 shadow-sm dark:bg-slate-900/70 dark:text-slate-200">
-                <dt className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">Capacity</dt>
-                <dd className="text-base font-semibold text-slate-900 dark:text-slate-100">
+                <dt className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">Capacity</dt>
+                <dd className="text-base font-semibold leading-6 text-slate-900 dark:text-slate-100">
                   {vehicle.currentLoadKg}/{vehicle.capacityKg} kg
                 </dd>
               </div>
             </dl>
 
             <div className="rounded-2xl border border-dashed border-slate-200 bg-white/80 p-4 text-xs text-slate-500 dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-300">
-              <p className="text-sm font-semibold text-slate-900 dark:text-white">Last known position</p>
-              <p className="text-sm text-slate-600 dark:text-slate-200">
+              <p className="text-sm font-semibold leading-6 text-slate-900 dark:text-white">Last known position</p>
+              <p className="text-sm leading-relaxed text-slate-600 dark:text-slate-200">
                 Lat {vehicle.location.lat.toFixed(4)}, Lng {vehicle.location.lng.toFixed(4)}
               </p>
-              <p>Last ping: {new Date(vehicle.lastReported).toLocaleTimeString()}</p>
-              <p>ETA to destination: {vehicle.etaMinutes ? `${vehicle.etaMinutes} mins` : 'Awaiting dispatch'}</p>
+              <p className="leading-relaxed">Last ping: {new Date(vehicle.lastReported).toLocaleTimeString()}</p>
+              <p className="leading-relaxed">
+                ETA to destination: {vehicle.etaMinutes ? `${vehicle.etaMinutes} mins` : 'Awaiting dispatch'}
+              </p>
             </div>
           </article>
         ))}
