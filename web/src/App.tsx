@@ -8,6 +8,7 @@ import AdminUsersPage from './pages/AdminUsers';
 import DriverInvoicePage from './pages/DriverInvoice';
 import InvoiceHistoryPage from './pages/InvoiceHistory';
 import DashboardPage from './pages/Dashboard';
+import VehiclesPage from './pages/Vehicles';
 import AppLayout from './components/AppLayout';
 
 const RequireAuth: React.FC<{ allowedRoles?: string[]; children: JSX.Element }> = ({ allowedRoles, children }) => {
@@ -66,6 +67,16 @@ const App: React.FC = () => {
               <RequireAuth allowedRoles={['admin']}>
                 <AppLayout>
                   <InventoryManagerPage />
+                </AppLayout>
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/vehicles"
+            element={
+              <RequireAuth allowedRoles={['admin']}>
+                <AppLayout>
+                  <VehiclesPage />
                 </AppLayout>
               </RequireAuth>
             }

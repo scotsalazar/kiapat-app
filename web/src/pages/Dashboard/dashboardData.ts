@@ -1,5 +1,7 @@
 import { Coordinate, InventoryItem, MockVehicle } from './types';
 
+export type { MockVehicle };
+
 export const KIDAPAWAN_CITY_COORDINATES: Coordinate = {
   lat: 7.0107,
   lng: 125.0926,
