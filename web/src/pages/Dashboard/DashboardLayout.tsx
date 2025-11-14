@@ -1,0 +1,114 @@
+import MapPane from './MapPane';
+import VehiclePane from './VehiclePane';
+import InventoryPane from './InventoryPane';
+import { inventoryItems, mockVehicles } from './dashboardData';
+import type { ReactNode } from 'react';
+
+interface DashboardCardProps {
+  title: string;
+  description: string;
+  icon: ReactNode;
+  children: ReactNode;
+  className?: string;
+}
+
+const iconClasses = 'h-5 w-5 text-slate-600 dark:text-slate-200';
+
+const MapIcon = () => (
+  <svg viewBox="0 0 24 24" fill="none" strokeWidth={1.8} stroke="currentColor" className={iconClasses}>
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      d="M12 21s6-5.686 6-10.2C18 7.015 15.313 4 12 4s-6 3.015-6 6.8C6 15.314 12 21 12 21z"
+    />
+    <circle cx="12" cy="10" r="2" />
+  </svg>
+);
+
+const TruckIcon = () => (
+  <svg viewBox="0 0 24 24" fill="none" strokeWidth={1.8} stroke="currentColor" className={iconClasses}>
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      d="M3 6h11v9H3zM14 9h4l3 3v3h-3M5 18a2 2 0 1 0 4 0M15 18a2 2 0 1 0 4 0"
+    />
+  </svg>
+);
+
+const BoxesIcon = () => (
+  <svg viewBox="0 0 24 24" fill="none" strokeWidth={1.8} stroke="currentColor" className={iconClasses}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M3 7 12 3l9 4-9 4-9-4zm0 0v10l9 4m0-10v10m9-14v10l-9 4" />
+  </svg>
+);
+
+const DashboardCard = ({ title, description, icon, children, className = '' }: DashboardCardProps) => (
+  <section
+    className={`flex h-full flex-col rounded-3xl border border-slate-200 bg-white/95 p-6 shadow-lg shadow-slate-200/60 backdrop-blur-sm transition-colors dark:border-slate-800 dark:bg-slate-900/80 dark:shadow-slate-900/30 ${className}`.trim()}
+  >
+    <header className="flex items-start gap-3 border-b border-slate-100 pb-4 dark:border-slate-800">
+      <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-200">
+        {icon}
+      </span>
+      <div>
+        <p className="text-sm font-semibold text-slate-900 dark:text-white">{title}</p>
+        <p className="text-sm text-slate-500 dark:text-slate-400">{description}</p>
+      </div>
+    </header>
+    <div className="flex flex-1 flex-col overflow-hidden">
+      <div className="flex-1 pt-4">{children}</div>
+    </div>
+  </section>
+);
+
+const DashboardLayout = () => {
+  return (
+    <div className="flex min-h-full flex-1 flex-col gap-6 pb-10">
+      <div className="space-y-2">
+        <p className="text-sm font-semibold uppercase tracking-wide text-emerald-600 dark:text-emerald-400">Kidapawan operations</p>
+        <h1 className="text-3xl font-bold text-slate-900 dark:text-white">Field logistics dashboard</h1>
+        <p className="text-sm text-slate-500 dark:text-slate-400">
+          Live demo data for dispatch leads to monitor vehicle health and inventory readiness inside AppLayout.
+        </p>
+      </div>
+
+      <div className="grid flex-1 grid-cols-1 gap-6 xl:grid-cols-5">
+        <DashboardCard
+          className="xl:col-span-3"
+          title="Live fleet tracking"
+          description={`Monitoring ${mockVehicles.length} Kidapawan-based vehicles in real time.`}
+          icon={<MapIcon />}
+        >
+          <MapPane className="border-0 bg-transparent p-0 shadow-none" showHeader={false} />
+        </DashboardCard>
+
+        <div className="flex flex-col gap-6 xl:col-span-2">
+          <DashboardCard
+            title="Vehicle readiness"
+            description="Statuses, telemetry, and load factors for every driver on duty."
+            icon={<TruckIcon />}
+          >
+            <VehiclePane
+              vehicles={mockVehicles}
+              className="border-0 bg-transparent p-0 shadow-none"
+              showHeader={false}
+            />
+          </DashboardCard>
+
+          <DashboardCard
+            title="Inventory visibility"
+            description="Critical commodities tracked across Kidapawan warehouses."
+            icon={<BoxesIcon />}
+          >
+            <InventoryPane
+              items={inventoryItems}
+              className="border-0 bg-transparent p-0 shadow-none"
+              showHeader={false}
+            />
+          </DashboardCard>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default DashboardLayout;
