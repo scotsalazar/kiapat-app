@@ -1,6 +1,8 @@
 import React from 'react';
+import { NavLink } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import ThemeToggle from './ThemeToggle';
+import { useAuth } from '../hooks/useAuth';
 
 interface AppLayoutProps {
   children: React.ReactNode;
@@ -8,11 +10,22 @@ interface AppLayoutProps {
 
 const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
   const { t } = useTranslation();
+  const { user } = useAuth();
+
+  const navItems = [
+    { to: '/dashboard', label: 'Dashboard', roles: ['admin'] },
+    { to: '/inventory', label: 'Inventory', roles: ['admin'] },
+    { to: '/admin/users', label: 'Users', roles: ['admin'] },
+    { to: '/invoice', label: 'Invoice', roles: ['driver'] },
+    { to: '/invoices/history', label: 'History', roles: ['admin', 'driver'] },
+  ];
+
+  const visibleNavItems = navItems.filter((item) => (user ? item.roles.includes(user.role) : false));
 
   return (
     <div className="flex min-h-screen flex-col bg-slate-50 text-slate-900 transition-colors duration-200 dark:bg-slate-950 dark:text-slate-100">
       <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/90 backdrop-blur-sm transition-colors dark:border-slate-800 dark:bg-slate-900/90">
-        <div className="mx-auto flex w-full max-w-7xl items-center justify-between px-4 py-3 sm:px-6 lg:px-8">
+        <div className="mx-auto flex w-full max-w-7xl items-center justify-between gap-4 px-4 py-3 sm:px-6 lg:px-8">
           <div className="flex items-center gap-3">
             <img src="/logo.png" alt={t('common.appName', 'Kiapat Inventory')} className="h-9 w-9 rounded" />
             <div>
@@ -20,6 +33,25 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
               <p className="text-xs text-slate-500 dark:text-slate-400">{t('common.tagline', 'Inventory & invoicing dashboard')}</p>
             </div>
           </div>
+          {visibleNavItems.length > 0 && (
+            <nav className="hidden flex-1 items-center justify-center gap-3 text-sm font-medium text-slate-500 sm:flex">
+              {visibleNavItems.map((item) => (
+                <NavLink
+                  key={item.to}
+                  to={item.to}
+                  className={({ isActive }) =>
+                    `rounded-full px-3 py-1 transition-colors ${
+                      isActive
+                        ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900'
+                        : 'text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white'
+                    }`
+                  }
+                >
+                  {item.label}
+                </NavLink>
+              ))}
+            </nav>
+          )}
           <ThemeToggle />
         </div>
       </header>
