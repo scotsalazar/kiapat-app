@@ -69,7 +69,7 @@ const DashboardLayout = () => {
   };
 
   return (
-    <div className="flex min-h-full flex-1 flex-col gap-8 py-6">
+    <div className="flex min-h-full flex-1 flex-col gap-8 px-6 py-6 md:px-8">
       <div className="space-y-3">
         <p className="text-xs font-semibold uppercase tracking-[0.3em] text-emerald-600 dark:text-emerald-400">Kidapawan operations</p>
         <h1 className="text-3xl font-semibold leading-tight tracking-tight text-slate-900 dark:text-white md:text-4xl">
@@ -80,9 +80,9 @@ const DashboardLayout = () => {
         </p>
       </div>
 
-      <div className="grid flex-1 grid-cols-1 gap-6 xl:grid-cols-5">
+      <div className="grid flex-1 grid-cols-1 items-start gap-6 lg:grid-cols-2 xl:grid-cols-[3fr_2fr]">
         <DashboardCard
-          className="xl:col-span-3"
+          className="h-full"
           title="Live fleet tracking"
           description={`Monitoring ${mockVehicles.length} Kidapawan-based vehicles in real time.`}
           icon={<MapIcon />}
@@ -90,7 +90,7 @@ const DashboardLayout = () => {
           <MapPane className="border-0 bg-transparent p-0 shadow-none" showHeader={false} />
         </DashboardCard>
 
-        <div className="flex flex-col gap-6 xl:col-span-2">
+        <div className="flex h-full flex-col gap-6">
           <DashboardCard
             title="Vehicle readiness"
             description="Statuses, telemetry, and load factors for every driver on duty."
