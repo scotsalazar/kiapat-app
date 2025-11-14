@@ -9,10 +9,15 @@ import {
 import type { Coordinate, VehicleStatus } from './types';
 
 const MAP_ZOOM = 13;
-const MAP_CONTAINER_CLASSES =
-  'h-[320px] w-full rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:h-[420px] lg:h-full';
+const MAP_CONTAINER_BASE_CLASSES =
+  'flex min-h-[320px] w-full flex-col rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:min-h-[420px] lg:h-full dark:border-slate-800 dark:bg-slate-900';
 const JITTER_INTERVAL_MS = 6000;
 const JITTER_RADIUS_METERS = 120;
+
+interface MapPaneProps {
+  className?: string;
+  showHeader?: boolean;
+}
 
 const statusStyles: Record<VehicleStatus, { label: string; className: string }> = {
   delivering: { label: 'Delivering', className: 'bg-emerald-600 text-white' },
@@ -21,7 +26,7 @@ const statusStyles: Record<VehicleStatus, { label: string; className: string }> 
   maintenance: { label: 'Maintenance', className: 'bg-rose-600 text-white' },
 };
 
-const MapPane = () => {
+const MapPane = ({ className = '', showHeader = true }: MapPaneProps) => {
   const [vehiclePositions, setVehiclePositions] = useState<Record<string, Coordinate>>(
     () => getInitialVehiclePositions()
   );
@@ -52,9 +57,11 @@ const MapPane = () => {
     language: 'en',
   });
 
+  const containerClasses = `${MAP_CONTAINER_BASE_CLASSES} ${className}`.trim();
+
   if (!googleMapsApiKey) {
     return (
-      <div className={`${MAP_CONTAINER_CLASSES} flex items-center justify-center text-center`}>
+      <div className={`${containerClasses} items-center justify-center text-center`}>
         <div>
           <p className="text-base font-semibold text-slate-900">Google Maps unavailable</p>
           <p className="mt-1 text-sm text-slate-500">
@@ -68,7 +75,7 @@ const MapPane = () => {
 
   if (loadError) {
     return (
-      <div className={`${MAP_CONTAINER_CLASSES} flex items-center justify-center text-center`}>
+      <div className={`${containerClasses} items-center justify-center text-center`}>
         <div>
           <p className="text-base font-semibold text-rose-600">Unable to load the map</p>
           <p className="mt-1 text-sm text-slate-500">{loadError.message}</p>
@@ -79,7 +86,7 @@ const MapPane = () => {
 
   if (!isLoaded) {
     return (
-      <div className={`${MAP_CONTAINER_CLASSES} flex flex-col justify-center`}>
+      <div className={`${containerClasses} flex-col justify-center`}>
         <div className="h-4 w-1/2 animate-pulse rounded bg-slate-200" />
         <div className="mt-2 h-4 w-1/3 animate-pulse rounded bg-slate-200" />
         <div className="mt-6 h-48 animate-pulse rounded-xl bg-slate-100" />
@@ -88,17 +95,19 @@ const MapPane = () => {
   }
 
   return (
-    <section className={MAP_CONTAINER_CLASSES}>
-      <header className="mb-4">
-        <p className="text-sm font-medium uppercase tracking-wide text-slate-500">Live fleet tracking</p>
-        <h2 className="text-lg font-semibold text-slate-900">Kidapawan City coverage</h2>
-        <p className="text-sm text-slate-500">Monitoring {mockVehicles.length} active logistics vehicles</p>
-      </header>
-      <div className="h-[220px] sm:h-[300px] lg:h-[420px]">
+    <section className={containerClasses}>
+      {showHeader && (
+        <header className="mb-4">
+          <p className="text-sm font-medium uppercase tracking-wide text-slate-500">Live fleet tracking</p>
+          <h2 className="text-lg font-semibold text-slate-900">Kidapawan City coverage</h2>
+          <p className="text-sm text-slate-500">Monitoring {mockVehicles.length} active logistics vehicles</p>
+        </header>
+      )}
+      <div className="flex-1">
         <GoogleMap
           center={center}
           zoom={MAP_ZOOM}
-          mapContainerClassName="h-full w-full rounded-xl"
+          mapContainerClassName="h-full min-h-[220px] w-full rounded-xl sm:min-h-[300px] lg:min-h-[420px]"
           options={{
             disableDefaultUI: true,
             zoomControl: true,
