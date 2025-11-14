@@ -26,22 +26,6 @@ const MapIcon = () => (
   </svg>
 );
 
-const TruckIcon = () => (
-  <svg viewBox="0 0 24 24" fill="none" strokeWidth={1.8} stroke="currentColor" className={iconClasses}>
-    <path
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      d="M3 6h11v9H3zM14 9h4l3 3v3h-3M5 18a2 2 0 1 0 4 0M15 18a2 2 0 1 0 4 0"
-    />
-  </svg>
-);
-
-const BoxesIcon = () => (
-  <svg viewBox="0 0 24 24" fill="none" strokeWidth={1.8} stroke="currentColor" className={iconClasses}>
-    <path strokeLinecap="round" strokeLinejoin="round" d="M3 7 12 3l9 4-9 4-9-4zm0 0v10l9 4m0-10v10m9-14v10l-9 4" />
-  </svg>
-);
-
 const DashboardCard = ({ title, description, icon, children, className = '' }: DashboardCardProps) => (
   <section
     className={`flex h-full flex-col rounded-3xl border border-slate-200 bg-white/95 p-6 shadow-lg shadow-slate-200/60 backdrop-blur-sm transition-colors dark:border-slate-800 dark:bg-slate-900/80 dark:shadow-slate-900/30 ${className}`.trim()}
@@ -90,32 +74,34 @@ const DashboardLayout = () => {
           <MapPane className="border-0 bg-transparent p-0 shadow-none" showHeader={false} />
         </DashboardCard>
 
-        <div className="flex h-full flex-col gap-6">
-          <DashboardCard
-            title="Vehicle readiness"
-            description="Statuses, telemetry, and load factors for every driver on duty."
-            icon={<TruckIcon />}
-          >
+        <section className="flex h-full flex-col rounded-3xl border border-slate-200 bg-white/95 p-6 shadow-lg shadow-slate-200/60 backdrop-blur-sm transition-colors dark:border-slate-800 dark:bg-slate-900/80 dark:shadow-slate-900/30">
+          <header className="flex flex-col gap-2 border-b border-slate-100 pb-5 dark:border-slate-800">
+            <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500 dark:text-slate-400">
+              Fleet health
+            </p>
+            <h2 className="text-2xl font-semibold leading-tight tracking-tight text-slate-900 dark:text-white">
+              Vehicle readiness
+            </h2>
+            <p className="text-sm leading-relaxed text-slate-500 dark:text-slate-400">
+              Statuses, telemetry, and load factors for every driver on duty plus critical inventory at a glance.
+            </p>
+          </header>
+
+          <div className="flex flex-1 flex-col gap-6 overflow-hidden pt-5">
             <VehiclePane
               vehicles={mockVehicles}
-              className="border-0 bg-transparent p-0 shadow-none"
-              showHeader={false}
+              className="flex-1 overflow-hidden rounded-2xl border border-slate-100 bg-white/90 p-5 shadow-sm dark:border-slate-800/70 dark:bg-slate-900/60"
+              showHeader
               onVehicleSelect={handleVehicleSelect}
             />
-          </DashboardCard>
 
-          <DashboardCard
-            title="Inventory visibility"
-            description="Critical commodities tracked across Kidapawan warehouses."
-            icon={<BoxesIcon />}
-          >
             <InventoryPane
               items={inventoryItems}
-              className="border-0 bg-transparent p-0 shadow-none"
-              showHeader={false}
+              className="h-auto shrink-0 rounded-2xl border border-slate-100 bg-white/90 p-5 shadow-sm dark:border-slate-800/70 dark:bg-slate-900/60"
+              showHeader
             />
-          </DashboardCard>
-        </div>
+          </div>
+        </section>
       </div>
     </div>
   );
