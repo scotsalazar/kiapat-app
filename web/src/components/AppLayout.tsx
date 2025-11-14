@@ -15,6 +15,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
   const navItems = [
     { to: '/dashboard', label: 'Dashboard', roles: ['admin'] },
     { to: '/inventory', label: 'Inventory', roles: ['admin'] },
+    { to: '/vehicles', label: 'Vehicles', roles: ['admin'] },
     { to: '/admin/users', label: 'Users', roles: ['admin'] },
     { to: '/invoice', label: 'Invoice', roles: ['driver'] },
     { to: '/invoices/history', label: 'History', roles: ['admin', 'driver'] },
