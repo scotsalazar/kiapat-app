@@ -7,6 +7,7 @@ import InventoryManagerPage from './pages/InventoryManager';
 import AdminUsersPage from './pages/AdminUsers';
 import DriverInvoicePage from './pages/DriverInvoice';
 import InvoiceHistoryPage from './pages/InvoiceHistory';
+import DashboardPage from './pages/Dashboard';
 import AppLayout from './components/AppLayout';
 
 const RequireAuth: React.FC<{ allowedRoles?: string[]; children: JSX.Element }> = ({ allowedRoles, children }) => {
@@ -27,7 +28,7 @@ const DefaultRoute: React.FC = () => {
     return <Navigate to="/login" replace />;
   }
   if (user.role === 'admin') {
-    return <Navigate to="/admin/users" replace />;
+    return <Navigate to="/dashboard" replace />;
   }
   return <Navigate to="/invoice" replace />;
 };
@@ -39,6 +40,16 @@ const App: React.FC = () => {
         <Routes>
           <Route path="/" element={<DefaultRoute />} />
           <Route path="/login" element={<LoginPage />} />
+          <Route
+            path="/dashboard"
+            element={
+              <RequireAuth allowedRoles={['admin']}>
+                <AppLayout>
+                  <DashboardPage />
+                </AppLayout>
+              </RequireAuth>
+            }
+          />
           <Route
             path="/admin/users"
             element={
