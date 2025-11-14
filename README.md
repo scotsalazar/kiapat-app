@@ -70,9 +70,16 @@ This repository contains a minimal yet functional MVP for **Kiapat**, an egg del
    npm install
    ```
 
-2. **Configure API base URL**:
+2. **Configure API base URL & Google Maps**:
 
-   Create a `.env` file in `web/` and set `VITE_API_BASE_URL` to your backend URL (e.g. `http://localhost:8000`). When running locally this enables Vite’s proxy so that calls to `/api` are forwarded to the backend.
+   Create a `.env` file in `web/` and set:
+
+   ```bash
+   VITE_API_BASE_URL=http://localhost:8000
+   VITE_GOOGLE_MAPS_API_KEY=<demo-or-personal-key>
+   ```
+
+   The dashboard map widgets read the Google Maps API key via `import.meta.env.VITE_GOOGLE_MAPS_API_KEY`, so make sure the value is available in every environment (the repository includes `.env.example` as a reference). When running locally `VITE_API_BASE_URL` enables Vite’s proxy so that calls to `/api` are forwarded to the backend.
 
 3. **Run the frontend**:
 
