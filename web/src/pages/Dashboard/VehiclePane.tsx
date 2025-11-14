@@ -53,7 +53,7 @@ const VehiclePane = ({
         </div>
       )}
 
-      <div className="mt-5 grid flex-1 gap-4 overflow-y-auto pr-1 sm:grid-cols-2 xl:grid-cols-3">
+      <div className="mt-5 flex-1 space-y-4 overflow-y-auto pr-1">
         {vehicles.map((vehicle) => (
           <article
             key={vehicle.id}
