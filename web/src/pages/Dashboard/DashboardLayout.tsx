@@ -3,6 +3,7 @@ import VehiclePane from './VehiclePane';
 import InventoryPane from './InventoryPane';
 import { inventoryItems, mockVehicles } from './dashboardData';
 import type { ReactNode } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 interface DashboardCardProps {
   title: string;
@@ -61,6 +62,12 @@ const DashboardCard = ({ title, description, icon, children, className = '' }: D
 );
 
 const DashboardLayout = () => {
+  const navigate = useNavigate();
+
+  const handleVehicleSelect = () => {
+    navigate('/vehicles');
+  };
+
   return (
     <div className="flex min-h-full flex-1 flex-col gap-6 pb-10">
       <div className="space-y-2">
@@ -91,6 +98,7 @@ const DashboardLayout = () => {
               vehicles={mockVehicles}
               className="border-0 bg-transparent p-0 shadow-none"
               showHeader={false}
+              onVehicleSelect={handleVehicleSelect}
             />
           </DashboardCard>
 

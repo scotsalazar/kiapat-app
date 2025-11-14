@@ -1,3 +1,4 @@
+import type { KeyboardEvent } from 'react';
 import { MockVehicle } from './types';
 import { mockVehicles as defaultVehicles } from './dashboardData';
 
@@ -5,6 +6,7 @@ interface VehiclePaneProps {
   vehicles?: MockVehicle[];
   className?: string;
   showHeader?: boolean;
+  onVehicleSelect?: (vehicle: MockVehicle) => void;
 }
 
 const STATUS_STYLES: Record<MockVehicle['status'], string> = {
@@ -14,8 +16,20 @@ const STATUS_STYLES: Record<MockVehicle['status'], string> = {
   maintenance: 'border-rose-200/70 bg-rose-100 text-rose-700 dark:border-rose-400/40 dark:bg-rose-950/40 dark:text-rose-200',
 };
 
-const VehiclePane = ({ vehicles = defaultVehicles, className = '', showHeader = true }: VehiclePaneProps) => {
+const VehiclePane = ({
+  vehicles = defaultVehicles,
+  className = '',
+  showHeader = true,
+  onVehicleSelect,
+}: VehiclePaneProps) => {
   const containerClasses = `flex h-full flex-col rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900 ${className}`.trim();
+
+  const handleKeyDown = (event: KeyboardEvent<HTMLElement>, vehicle: MockVehicle) => {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      onVehicleSelect?.(vehicle);
+    }
+  };
 
   return (
     <section className={containerClasses}>
@@ -36,7 +50,12 @@ const VehiclePane = ({ vehicles = defaultVehicles, className = '', showHeader = 
         {vehicles.map((vehicle) => (
           <article
             key={vehicle.id}
-            className="flex flex-col gap-3 rounded-xl border border-slate-100 bg-slate-50/60 p-4 text-sm dark:border-slate-800/80 dark:bg-slate-900/40"
+            role={onVehicleSelect ? 'button' : undefined}
+            tabIndex={onVehicleSelect ? 0 : undefined}
+            onClick={onVehicleSelect ? () => onVehicleSelect(vehicle) : undefined}
+            onKeyDown={onVehicleSelect ? (event) => handleKeyDown(event, vehicle) : undefined}
+            className="flex flex-col gap-3 rounded-xl border border-slate-100 bg-slate-50/60 p-4 text-sm transition hover:border-slate-200 hover:bg-white dark:border-slate-800/80 dark:bg-slate-900/40 dark:hover:border-slate-700 dark:hover:bg-slate-900/60"
+            style={onVehicleSelect ? { cursor: 'pointer' } : undefined}
           >
             <div className="flex items-start justify-between gap-3">
               <div>
