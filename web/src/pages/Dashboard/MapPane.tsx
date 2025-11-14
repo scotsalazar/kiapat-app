@@ -10,7 +10,7 @@ import type { Coordinate, VehicleStatus } from './types';
 
 const MAP_ZOOM = 13;
 const MAP_CONTAINER_BASE_CLASSES =
-  'flex min-h-[320px] w-full flex-col rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:min-h-[420px] lg:h-full dark:border-slate-800 dark:bg-slate-900';
+  'flex min-h-[320px] w-full flex-col rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:min-h-[420px] lg:h-full dark:border-slate-800 dark:bg-slate-900';
 const JITTER_INTERVAL_MS = 6000;
 const JITTER_RADIUS_METERS = 120;
 
@@ -62,9 +62,9 @@ const MapPane = ({ className = '', showHeader = true }: MapPaneProps) => {
   if (!googleMapsApiKey) {
     return (
       <div className={`${containerClasses} items-center justify-center text-center`}>
-        <div>
-          <p className="text-base font-semibold text-slate-900">Google Maps unavailable</p>
-          <p className="mt-1 text-sm text-slate-500">
+        <div className="space-y-2">
+          <p className="text-base font-semibold leading-6 tracking-tight text-slate-900">Google Maps unavailable</p>
+          <p className="text-sm leading-relaxed text-slate-500">
             Add <code className="rounded bg-slate-100 px-1 py-0.5">VITE_GOOGLE_MAPS_API_KEY</code> to your environment to
             visualize fleet positions.
           </p>
@@ -76,9 +76,9 @@ const MapPane = ({ className = '', showHeader = true }: MapPaneProps) => {
   if (loadError) {
     return (
       <div className={`${containerClasses} items-center justify-center text-center`}>
-        <div>
-          <p className="text-base font-semibold text-rose-600">Unable to load the map</p>
-          <p className="mt-1 text-sm text-slate-500">{loadError.message}</p>
+        <div className="space-y-2">
+          <p className="text-base font-semibold leading-6 tracking-tight text-rose-600">Unable to load the map</p>
+          <p className="text-sm leading-relaxed text-slate-500">{loadError.message}</p>
         </div>
       </div>
     );
@@ -97,10 +97,12 @@ const MapPane = ({ className = '', showHeader = true }: MapPaneProps) => {
   return (
     <section className={containerClasses}>
       {showHeader && (
-        <header className="mb-4">
-          <p className="text-sm font-medium uppercase tracking-wide text-slate-500">Live fleet tracking</p>
-          <h2 className="text-lg font-semibold text-slate-900">Kidapawan City coverage</h2>
-          <p className="text-sm text-slate-500">Monitoring {mockVehicles.length} active logistics vehicles</p>
+        <header className="mb-4 space-y-1">
+          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Live fleet tracking</p>
+          <h2 className="text-xl font-semibold leading-tight tracking-tight text-slate-900">Kidapawan City coverage</h2>
+          <p className="text-sm leading-relaxed text-slate-500">
+            Monitoring {mockVehicles.length} active logistics vehicles
+          </p>
         </header>
       )}
       <div className="flex-1">

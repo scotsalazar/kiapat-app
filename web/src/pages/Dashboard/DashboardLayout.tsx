@@ -46,13 +46,13 @@ const DashboardCard = ({ title, description, icon, children, className = '' }: D
   <section
     className={`flex h-full flex-col rounded-3xl border border-slate-200 bg-white/95 p-6 shadow-lg shadow-slate-200/60 backdrop-blur-sm transition-colors dark:border-slate-800 dark:bg-slate-900/80 dark:shadow-slate-900/30 ${className}`.trim()}
   >
-    <header className="flex items-start gap-3 border-b border-slate-100 pb-4 dark:border-slate-800">
+    <header className="flex items-start gap-4 border-b border-slate-100 pb-5 dark:border-slate-800">
       <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-200">
         {icon}
       </span>
-      <div>
-        <p className="text-sm font-semibold text-slate-900 dark:text-white">{title}</p>
-        <p className="text-sm text-slate-500 dark:text-slate-400">{description}</p>
+      <div className="space-y-1">
+        <p className="text-base font-semibold leading-6 tracking-tight text-slate-900 dark:text-white">{title}</p>
+        <p className="text-sm leading-relaxed text-slate-500 dark:text-slate-400">{description}</p>
       </div>
     </header>
     <div className="flex flex-1 flex-col overflow-hidden">
@@ -69,11 +69,13 @@ const DashboardLayout = () => {
   };
 
   return (
-    <div className="flex min-h-full flex-1 flex-col gap-6 pb-10">
-      <div className="space-y-2">
-        <p className="text-sm font-semibold uppercase tracking-wide text-emerald-600 dark:text-emerald-400">Kidapawan operations</p>
-        <h1 className="text-3xl font-bold text-slate-900 dark:text-white">Field logistics dashboard</h1>
-        <p className="text-sm text-slate-500 dark:text-slate-400">
+    <div className="flex min-h-full flex-1 flex-col gap-8 py-6">
+      <div className="space-y-3">
+        <p className="text-xs font-semibold uppercase tracking-[0.3em] text-emerald-600 dark:text-emerald-400">Kidapawan operations</p>
+        <h1 className="text-3xl font-semibold leading-tight tracking-tight text-slate-900 dark:text-white md:text-4xl">
+          Field logistics dashboard
+        </h1>
+        <p className="text-base leading-relaxed text-slate-600 dark:text-slate-300">
           Live demo data for dispatch leads to monitor vehicle health and inventory readiness inside AppLayout.
         </p>
       </div>

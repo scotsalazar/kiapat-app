@@ -13,13 +13,19 @@ const InventoryPane = ({ items = defaultInventory, className = '', showHeader = 
   return (
     <section className={containerClasses}>
       {showHeader && (
-        <header className="flex flex-wrap items-end justify-between gap-3">
-          <div>
-            <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Warehouse snapshot</p>
-            <h2 className="text-2xl font-semibold text-slate-900 dark:text-white">Inventory watch</h2>
-            <p className="text-sm text-slate-500 dark:text-slate-400">Tracking {items.length} active stock lines</p>
+        <header className="flex flex-wrap items-end justify-between gap-4 border-b border-slate-100 pb-4 dark:border-slate-800">
+          <div className="space-y-1">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">
+              Warehouse snapshot
+            </p>
+            <h2 className="text-2xl font-semibold leading-tight tracking-tight text-slate-900 dark:text-white">
+              Inventory watch
+            </h2>
+            <p className="text-sm leading-relaxed text-slate-500 dark:text-slate-400">
+              Tracking {items.length} active stock lines
+            </p>
           </div>
-          <p className="text-xs text-slate-500">Updated automatically for demo data</p>
+          <p className="text-xs leading-5 text-slate-500">Updated automatically for demo data</p>
         </header>
       )}
 
@@ -43,11 +49,11 @@ const InventoryPane = ({ items = defaultInventory, className = '', showHeader = 
                 >
                   <th
                     scope="row"
-                    className="block text-base font-semibold text-slate-900 dark:text-white sm:table-cell sm:text-sm"
+                    className="block text-base font-semibold leading-6 text-slate-900 dark:text-white sm:table-cell sm:text-sm"
                   >
-                    <div>
-                      <p>{item.name}</p>
-                      <p className="text-xs font-normal uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                    <div className="space-y-1">
+                      <p className="tracking-tight">{item.name}</p>
+                      <p className="text-xs font-medium uppercase tracking-[0.25em] text-slate-500 dark:text-slate-400">
                         {item.category} · {item.warehouse}
                       </p>
                     </div>
@@ -70,7 +76,7 @@ const InventoryPane = ({ items = defaultInventory, className = '', showHeader = 
                     <span className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400 sm:hidden">
                       Unit
                     </span>
-                    <span className="font-semibold text-slate-900 dark:text-slate-100">{item.unit}</span>
+                    <span className="font-semibold tracking-tight text-slate-900 dark:text-slate-100">{item.unit}</span>
                   </td>
                 </tr>
               );
