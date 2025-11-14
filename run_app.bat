@@ -11,7 +11,12 @@ echo [Kiapat] Setting up Python virtual environment...
 if not exist server\venv (
     python -m venv server\venv
 )
-call server\venv\Scripts\activate
+if exist server\venv\Scripts\activate.bat (
+    call server\venv\Scripts\activate.bat
+) else (
+    echo [Kiapat][Warning] Could not find virtual environment activation script. >&2
+    echo              Continuing with the system Python. >&2
+)
 echo [Kiapat] Installing backend dependencies...
 pip install -r server\requirements.txt
 
@@ -36,11 +41,15 @@ cd web
 if not exist node_modules (
     npm install
 )
-if not exist .env (
-    echo VITE_API_BASE_URL=http://localhost:%KIAPAT_PORT% > .env
-)
+echo VITE_API_BASE_URL=http://localhost:%KIAPAT_PORT% > .env
 echo [Kiapat] Starting frontend...
 start "Kiapat Web" cmd /k "cd /d \"%WEB_DIR%\" && npm run dev"
 
+REM Give the dev servers a moment to boot before launching the browser
+echo [Kiapat] Waiting for services to boot before opening the browser...
+timeout /t 5 > nul
+start "Kiapat App" http://localhost:5173/
+
 echo [Kiapat] Backend running on http://localhost:%KIAPAT_PORT% and frontend on http://localhost:5173
+echo [Kiapat] A browser window should now be open at the frontend URL.
 echo Use seeded credentials: admin/admin123 (admin) or driver/pass123 (driver)
