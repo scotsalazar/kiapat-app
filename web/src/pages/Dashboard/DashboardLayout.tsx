@@ -1,6 +1,7 @@
 import MapPane from './MapPane';
 import VehiclePane from './VehiclePane';
 import InventoryPane from './InventoryPane';
+import FleetOverviewList from './FleetOverviewList';
 import { inventoryItems, mockVehicles } from './dashboardData';
 import type { ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -90,9 +91,14 @@ const DashboardLayout = () => {
           <div className="flex flex-1 flex-col gap-6 overflow-hidden pt-5">
             <VehiclePane
               vehicles={mockVehicles}
-              className="flex-1 overflow-hidden rounded-2xl border border-slate-100 bg-white/90 p-5 shadow-sm dark:border-slate-800/70 dark:bg-slate-900/60"
+              className="shrink-0 overflow-hidden rounded-2xl border border-slate-100 bg-white/90 p-5 shadow-sm dark:border-slate-800/70 dark:bg-slate-900/60"
               showHeader
               onVehicleSelect={handleVehicleSelect}
+            />
+
+            <FleetOverviewList
+              vehicles={mockVehicles}
+              className="flex-1 min-h-0 rounded-2xl border-slate-100 bg-white/90 shadow-sm dark:border-slate-800/70 dark:bg-slate-900/60"
             />
 
             <InventoryPane
