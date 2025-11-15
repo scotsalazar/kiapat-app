@@ -7,18 +7,16 @@ classifications/prices could be added here with proper authorization.
 from fastapi import APIRouter, Depends, Response, status
 from sqlalchemy.orm import Session
 
-from .. import auth, crud, schemas, models
+from .. import auth, crud, schemas
 from ..database import get_db
-from ..errors import AppError, app_error_to_http, forbidden
+from ..errors import AppError, app_error_to_http
 
 
 router = APIRouter(prefix="/api/catalog", tags=["catalog"])
 
 
 @router.get("/classifications", response_model=list[schemas.ClassificationOut])
-def get_classifications(
-    db: Session = Depends(get_db), current_user: models.User = Depends(auth.get_current_active_user)
-):
+def get_classifications(db: Session = Depends(get_db)):
     """Return all active egg classifications."""
     return crud.list_classifications(db)
 
@@ -31,11 +29,9 @@ def get_classifications(
 def create_classification(
     classification: schemas.ClassificationCreate,
     db: Session = Depends(get_db),
-    current_user: models.User = Depends(auth.get_current_active_user),
+    _: None = Depends(auth.require_api_key),
 ):
-    """Create a new classification. Requires admin role."""
-    if current_user.role != models.RoleEnum.ADMIN:
-        raise forbidden("Not authorized to create classifications")
+    """Create a new classification."""
     try:
         return crud.create_classification(db, classification)
     except AppError as exc:
@@ -47,11 +43,9 @@ def update_classification(
     classification_id: int,
     classification: schemas.ClassificationUpdate,
     db: Session = Depends(get_db),
-    current_user: models.User = Depends(auth.get_current_active_user),
+    _: None = Depends(auth.require_api_key),
 ):
-    """Update an existing classification. Requires admin role."""
-    if current_user.role != models.RoleEnum.ADMIN:
-        raise forbidden("Not authorized to update classifications")
+    """Update an existing classification."""
     try:
         return crud.update_classification(db, classification_id, classification)
     except AppError as exc:
@@ -62,11 +56,9 @@ def update_classification(
 def activate_classification(
     classification_id: int,
     db: Session = Depends(get_db),
-    current_user: models.User = Depends(auth.get_current_active_user),
+    _: None = Depends(auth.require_api_key),
 ):
-    """Activate a classification. Requires admin role."""
-    if current_user.role != models.RoleEnum.ADMIN:
-        raise forbidden("Not authorized to activate classifications")
+    """Activate a classification."""
     try:
         return crud.set_classification_active(db, classification_id, True)
     except AppError as exc:
@@ -77,11 +69,9 @@ def activate_classification(
 def deactivate_classification(
     classification_id: int,
     db: Session = Depends(get_db),
-    current_user: models.User = Depends(auth.get_current_active_user),
+    _: None = Depends(auth.require_api_key),
 ):
-    """Deactivate a classification. Requires admin role."""
-    if current_user.role != models.RoleEnum.ADMIN:
-        raise forbidden("Not authorized to deactivate classifications")
+    """Deactivate a classification."""
     try:
         return crud.set_classification_active(db, classification_id, False)
     except AppError as exc:
@@ -92,11 +82,9 @@ def deactivate_classification(
 def delete_classification(
     classification_id: int,
     db: Session = Depends(get_db),
-    current_user: models.User = Depends(auth.get_current_active_user),
+    _: None = Depends(auth.require_api_key),
 ):
-    """Delete a classification. Requires admin role."""
-    if current_user.role != models.RoleEnum.ADMIN:
-        raise forbidden("Not authorized to delete classifications")
+    """Delete a classification."""
     try:
         crud.delete_classification(db, classification_id)
     except AppError as exc:
@@ -105,9 +93,7 @@ def delete_classification(
 
 
 @router.get("/prices", response_model=list[schemas.PriceOut])
-def get_prices(
-    db: Session = Depends(get_db), current_user: models.User = Depends(auth.get_current_active_user)
-):
+def get_prices(db: Session = Depends(get_db)):
     """Return all price entries."""
     return crud.list_prices(db)
 
@@ -116,11 +102,9 @@ def get_prices(
 def create_price(
     price: schemas.PriceCreate,
     db: Session = Depends(get_db),
-    current_user: models.User = Depends(auth.get_current_active_user),
+    _: None = Depends(auth.require_api_key),
 ):
-    """Create a price entry. Requires admin role."""
-    if current_user.role != models.RoleEnum.ADMIN:
-        raise forbidden("Not authorized to create prices")
+    """Create a price entry."""
     try:
         return crud.create_price(db, price)
     except AppError as exc:
@@ -132,11 +116,9 @@ def update_price(
     price_id: int,
     price: schemas.PriceUpdate,
     db: Session = Depends(get_db),
-    current_user: models.User = Depends(auth.get_current_active_user),
+    _: None = Depends(auth.require_api_key),
 ):
-    """Update a price entry. Requires admin role."""
-    if current_user.role != models.RoleEnum.ADMIN:
-        raise forbidden("Not authorized to update prices")
+    """Update a price entry."""
     try:
         return crud.update_price(db, price_id, price)
     except AppError as exc:
@@ -147,11 +129,9 @@ def update_price(
 def activate_price(
     price_id: int,
     db: Session = Depends(get_db),
-    current_user: models.User = Depends(auth.get_current_active_user),
+    _: None = Depends(auth.require_api_key),
 ):
-    """Activate a price entry. Requires admin role."""
-    if current_user.role != models.RoleEnum.ADMIN:
-        raise forbidden("Not authorized to activate prices")
+    """Activate a price entry."""
     try:
         return crud.activate_price(db, price_id)
     except AppError as exc:
@@ -162,11 +142,9 @@ def activate_price(
 def deactivate_price(
     price_id: int,
     db: Session = Depends(get_db),
-    current_user: models.User = Depends(auth.get_current_active_user),
+    _: None = Depends(auth.require_api_key),
 ):
-    """Deactivate a price entry. Requires admin role."""
-    if current_user.role != models.RoleEnum.ADMIN:
-        raise forbidden("Not authorized to deactivate prices")
+    """Deactivate a price entry."""
     try:
         return crud.deactivate_price(db, price_id)
     except AppError as exc:
@@ -177,11 +155,9 @@ def deactivate_price(
 def delete_price(
     price_id: int,
     db: Session = Depends(get_db),
-    current_user: models.User = Depends(auth.get_current_active_user),
+    _: None = Depends(auth.require_api_key),
 ):
-    """Delete a price entry. Requires admin role."""
-    if current_user.role != models.RoleEnum.ADMIN:
-        raise forbidden("Not authorized to delete prices")
+    """Delete a price entry."""
     try:
         crud.delete_price(db, price_id)
     except AppError as exc:

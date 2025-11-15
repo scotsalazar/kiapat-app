@@ -844,7 +844,6 @@ def reject_invoice_override(
 
 def list_invoices(
     db: Session,
-    user: models.User,
     *,
     page: int,
     page_size: int,
@@ -867,9 +866,7 @@ def list_invoices(
         .order_by(models.Invoice.created_at.desc())
     )
 
-    if user.role == models.RoleEnum.DRIVER:
-        query = query.filter(models.Invoice.created_by == user.id)
-    elif driver:
+    if driver:
         like = f"%{driver}%"
         query = query.filter(
             or_(
