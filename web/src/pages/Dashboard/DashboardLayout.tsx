@@ -68,7 +68,7 @@ const DashboardLayout = () => {
         <DashboardCard
           className="h-full"
           title="Live fleet tracking"
-          description={`Monitoring ${mockVehicles.length} Kidapawan-based vehicles in real time.`}
+          description={`Monitoring ${mockVehicles.length} Kidapawan-based vehicles across active routes.`}
           icon={<MapIcon />}
         >
           <MapPane className="border-0 bg-transparent p-0 shadow-none" showHeader={false} />

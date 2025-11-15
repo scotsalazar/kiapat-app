@@ -101,7 +101,7 @@ const MapPane = ({ className = '', showHeader = true }: MapPaneProps) => {
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Live fleet tracking</p>
           <h2 className="text-xl font-semibold leading-tight tracking-tight text-slate-900">Kidapawan City coverage</h2>
           <p className="text-sm leading-relaxed text-slate-500">
-            Monitoring {mockVehicles.length} active logistics vehicles
+            Monitoring {mockVehicles.length} active logistics vehicles across the valley corridor
           </p>
         </header>
       )}
