@@ -1,7 +1,7 @@
 """
 Inventory routes exposing summary information and allowing IN movements
-to be created, verified and committed.  Mutating operations are guarded
-by the shared API key instead of per-user roles.
+to be created, verified and committed.  Mutating operations require an
+authenticated admin user.
 """
 
 from typing import Optional
@@ -24,6 +24,7 @@ def inventory_summary(
     search: Optional[str] = Query(None),
     low_stock: bool = Query(False, alias="low_stock"),
     db: Session = Depends(get_db),
+    _: models.User = Depends(auth.get_current_active_user),
 ):
     """Return the current inventory balances per classification."""
     return crud.get_inventory_summary(
@@ -37,9 +38,11 @@ def inventory_summary(
 
 @router.get("/thresholds", response_model=list[schemas.InventoryThresholdOut])
 def inventory_thresholds(
-    db: Session = Depends(get_db), _: None = Depends(auth.require_api_key)
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(auth.get_current_active_user),
 ):
     """Return configured low stock thresholds."""
+    auth.ensure_role(current_user, [models.RoleEnum.ADMIN])
     thresholds = crud.list_inventory_thresholds(db)
     return [schemas.InventoryThresholdOut.model_validate(t) for t in thresholds]
 
@@ -48,9 +51,10 @@ def inventory_thresholds(
 def update_inventory_thresholds(
     payload: schemas.InventoryThresholdBulkUpdate,
     db: Session = Depends(get_db),
-    _: None = Depends(auth.require_api_key),
+    current_user: models.User = Depends(auth.get_current_active_user),
 ):
     """Update low stock thresholds."""
+    auth.ensure_role(current_user, [models.RoleEnum.ADMIN])
     try:
         thresholds = crud.set_inventory_thresholds(db, payload.thresholds)
     except AppError as exc:
@@ -63,8 +67,10 @@ def list_inventory_movements(
     type: Optional[models.MovementType] = Query(None),
     limit: int = Query(50, ge=1, le=100),
     db: Session = Depends(get_db),
+    current_user: models.User = Depends(auth.get_current_active_user),
 ):
     """Return recent inventory movements, optionally filtered by type."""
+    auth.ensure_role(current_user, [models.RoleEnum.ADMIN])
     return crud.list_movements(db, movement_type=type, limit=limit)
 
 
@@ -72,23 +78,23 @@ def list_inventory_movements(
 def create_in(
     movement: schemas.CreateInMovement,
     db: Session = Depends(get_db),
-    _: None = Depends(auth.require_api_key),
+    current_user: models.User = Depends(auth.get_current_active_user),
 ):
     """Create a draft IN movement."""
-    user = auth.get_service_user(db)
-    return crud.create_in_movement(db, user, movement)
+    auth.ensure_role(current_user, [models.RoleEnum.ADMIN])
+    return crud.create_in_movement(db, current_user, movement)
 
 
 @router.post("/in/verify", response_model=schemas.MovementOut)
 def verify_in(
     req: schemas.VerifyMovement,
     db: Session = Depends(get_db),
-    _: None = Depends(auth.require_api_key),
+    current_user: models.User = Depends(auth.get_current_active_user),
 ):
     """Verify a draft IN movement."""
+    auth.ensure_role(current_user, [models.RoleEnum.ADMIN])
     try:
-        user = auth.get_service_user(db)
-        return crud.verify_movement(db, user, req.movement_id)
+        return crud.verify_movement(db, current_user, req.movement_id)
     except AppError as exc:
         raise app_error_to_http(exc)
 
@@ -97,11 +103,11 @@ def verify_in(
 def commit_in(
     req: schemas.CommitMovement,
     db: Session = Depends(get_db),
-    _: None = Depends(auth.require_api_key),
+    current_user: models.User = Depends(auth.get_current_active_user),
 ):
     """Commit a verified IN movement."""
+    auth.ensure_role(current_user, [models.RoleEnum.ADMIN])
     try:
-        user = auth.get_service_user(db)
-        return crud.commit_movement(db, user, req.movement_id)
+        return crud.commit_movement(db, current_user, req.movement_id)
     except AppError as exc:
         raise app_error_to_http(exc)

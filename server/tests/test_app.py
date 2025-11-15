@@ -35,6 +35,15 @@ def client(tmp_path_factory):
     def _anonymous_user(request: Request):
         """Return a seeded admin or driver user without requiring JWT tokens."""
 
+        auth_header = request.headers.get("authorization")
+        if auth_header and auth_header.lower().startswith("bearer "):
+            token = auth_header.split(" ", 1)[1]
+            db = app_database.SessionLocal()
+            try:
+                return app_auth.get_current_user(token=token, db=db)
+            finally:
+                db.close()
+
         role = app_models.RoleEnum.ADMIN
         if request.url.path == "/api/sales/invoices" and request.method.upper() == "POST":
             role = app_models.RoleEnum.DRIVER
@@ -68,6 +77,19 @@ def seed_db(client: TestClient):
     resp = client.post("/api/admin/seed", headers={"seed-token": "test-token"})
     assert resp.status_code == 200
     return resp.json()
+
+
+def login(client: TestClient, username: str, password: str) -> str:
+    """Authenticate against the API and return the bearer token."""
+
+    resp = client.post(
+        "/api/auth/login",
+        data={"username": username, "password": password},
+        headers={"Content-Type": "application/x-www-form-urlencoded"},
+    )
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    return body["access_token"]
 
 
 def test_seed_and_login(client):

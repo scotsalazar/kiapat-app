@@ -53,6 +53,7 @@ const DEMO_USERS: ManagedUser[] = [
 const AdminUsersPage: React.FC = () => {
   const { token, logout } = useAuth();
   const demoMode = isDemoMode();
+  const liveApiEnabled = !demoMode;
   const navigate = useNavigate();
   const { t } = useTranslation();
   const [users, setUsers] = useState<ManagedUser[]>([]);
@@ -94,7 +95,7 @@ const AdminUsersPage: React.FC = () => {
   const loadUsers = useCallback(async () => {
     setLoading(true);
     setLoadError(null);
-    if (demoMode) {
+    if (!liveApiEnabled) {
       setUsers(DEMO_USERS);
       setLoading(false);
       return;
@@ -118,7 +119,7 @@ const AdminUsersPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [demoMode, logout, showToast, t, token]);
+  }, [liveApiEnabled, logout, showToast, t, token]);
 
   useEffect(() => {
     loadUsers();
@@ -129,7 +130,7 @@ const AdminUsersPage: React.FC = () => {
     setCreateError(null);
     setCreateSuccess(null);
     setStatusMessage(null);
-    if (demoMode) {
+    if (!liveApiEnabled) {
       setCreateError(demoActionMessage);
       notifyDemoActionDisabled();
       return;
@@ -165,7 +166,7 @@ const AdminUsersPage: React.FC = () => {
     if (!editingUser) return;
     setEditError(null);
     setStatusMessage(null);
-    if (demoMode) {
+    if (!liveApiEnabled) {
       setEditError(demoActionMessage);
       notifyDemoActionDisabled();
       return;
@@ -189,7 +190,7 @@ const AdminUsersPage: React.FC = () => {
   };
 
   const handleResetPassword = async (user: ManagedUser) => {
-    if (demoMode) {
+    if (!liveApiEnabled) {
       notifyDemoActionDisabled();
       return;
     }
@@ -212,7 +213,7 @@ const AdminUsersPage: React.FC = () => {
   };
 
   const handleDelete = async (user: ManagedUser) => {
-    if (demoMode) {
+    if (!liveApiEnabled) {
       notifyDemoActionDisabled();
       return;
     }

@@ -163,6 +163,7 @@ const createDemoInvoiceResponse = (itemCount: number): InvoiceResponse => {
 const DriverInvoicePage: React.FC = () => {
   const { token } = useAuth();
   const demoMode = isDemoMode();
+  const liveApiEnabled = !demoMode;
   const navigate = useNavigate();
   const { t } = useTranslation();
   const [classifications, setClassifications] = useState<Classification[]>([]);
@@ -238,10 +239,10 @@ const DriverInvoicePage: React.FC = () => {
     DriverInventoryStreamState,
     InventoryUpdateMessage<unknown, unknown, Price[] | undefined>
   >({
-    token: demoMode ? undefined : token,
+    token: liveApiEnabled ? token : undefined,
     initialData: priceStreamInitialData,
     merge: mergePriceUpdates,
-    enabled: !demoMode,
+    enabled: liveApiEnabled && Boolean(token),
   });
 
   const prices = priceStream.prices ?? [];
@@ -308,7 +309,7 @@ const DriverInvoicePage: React.FC = () => {
   }, [demoMode, streamStatus, t]);
 
   useEffect(() => {
-    if (demoMode) {
+    if (!liveApiEnabled) {
       setClassifications(DEMO_CLASSIFICATIONS);
       setInitialPrices(createDemoPrices());
       return;
@@ -321,7 +322,7 @@ const DriverInvoicePage: React.FC = () => {
       setClassifications(clsRes.data);
       setInitialPrices(priceRes.data);
     });
-  }, [demoMode, token]);
+  }, [liveApiEnabled, token]);
 
   const applyPricing = useCallback(
     (item: InvoiceItemForm): InvoiceItemForm => {
@@ -411,7 +412,7 @@ const DriverInvoicePage: React.FC = () => {
       return;
     }
     setIsSubmitting(true);
-    if (demoMode) {
+    if (!liveApiEnabled) {
       const simulated = createDemoInvoiceResponse(payloadItems.length);
       setInvoiceId(simulated.id);
       setInvoiceStatus(simulated.status);

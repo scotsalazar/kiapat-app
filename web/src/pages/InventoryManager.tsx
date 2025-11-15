@@ -372,6 +372,7 @@ const getLatestPriceChangeTimestamp = (card: InventoryCard): Date | null => {
 const InventoryManagerPage: React.FC = () => {
   const { token, user } = useAuth();
   const demoMode = isDemoMode();
+  const liveApiEnabled = !demoMode;
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { t } = useTranslation();
@@ -525,10 +526,10 @@ const InventoryManagerPage: React.FC = () => {
       InventoryStreamState,
       InventoryUpdateMessage<InventorySummaryResponse | null, Movement[] | undefined>
     >({
-      token: demoMode ? undefined : token,
+      token: liveApiEnabled ? token : undefined,
       initialData: inventoryInitialData,
       merge: mergeInventoryUpdate,
-      enabled: !demoMode,
+      enabled: liveApiEnabled && Boolean(token),
     });
 
   const summary = inventoryData.summary;
@@ -710,7 +711,7 @@ const InventoryManagerPage: React.FC = () => {
   }, [demoMode, streamStatus, t]);
 
   const loadData = useCallback(async () => {
-    if (demoMode) {
+    if (!liveApiEnabled) {
       const summary = createDemoInventorySummary();
       setInitialSummary(summary);
       setInitialMovements(createDemoMovements());
@@ -772,7 +773,7 @@ const InventoryManagerPage: React.FC = () => {
       showToast(message, 'error');
     }
   }, [
-    demoMode,
+    liveApiEnabled,
     showToast,
     token,
     user?.role,
@@ -801,7 +802,7 @@ const InventoryManagerPage: React.FC = () => {
     if (!selectedCls || qty <= 0) return;
     setFormError('');
     setSuccessMessage('');
-    if (demoMode) {
+    if (!liveApiEnabled) {
       setQty(0);
       setSelectedCls('');
       const message = t('inventory.demoMode.draftCreated', {
@@ -846,7 +847,7 @@ const InventoryManagerPage: React.FC = () => {
     const value = thresholdEdits[classificationId];
     const thresholdValue = value === '' || value === undefined ? 0 : value;
     setThresholdSaving((prev) => ({ ...prev, [classificationId]: true }));
-    if (demoMode) {
+    if (!liveApiEnabled) {
       const message = t('inventory.demoMode.thresholdUpdated', {
         defaultValue: 'Threshold updated locally for demo mode.',
       });
@@ -870,7 +871,7 @@ const InventoryManagerPage: React.FC = () => {
   };
 
   const handleVerify = async (id: number) => {
-    if (demoMode) {
+    if (!liveApiEnabled) {
       showToast(demoActionDisabledMessage, 'info');
       return;
     }
@@ -885,7 +886,7 @@ const InventoryManagerPage: React.FC = () => {
   };
 
   const handleCommit = async (id: number) => {
-    if (demoMode) {
+    if (!liveApiEnabled) {
       showToast(demoActionDisabledMessage, 'info');
       return;
     }
@@ -900,7 +901,7 @@ const InventoryManagerPage: React.FC = () => {
   };
 
   const handleApproveOverride = async (invoiceId: number) => {
-    if (demoMode) {
+    if (!liveApiEnabled) {
       showToast(demoActionDisabledMessage, 'info');
       return;
     }
@@ -922,7 +923,7 @@ const InventoryManagerPage: React.FC = () => {
   };
 
   const handleRejectOverride = async (invoiceId: number) => {
-    if (demoMode) {
+    if (!liveApiEnabled) {
       showToast(demoActionDisabledMessage, 'info');
       return;
     }

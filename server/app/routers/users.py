@@ -5,7 +5,7 @@ from typing import List
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
 
-from .. import auth, crud, schemas
+from .. import auth, crud, models, schemas
 from ..database import get_db
 from ..errors import AppError, app_error_to_http, validation_error
 
@@ -16,8 +16,9 @@ router = APIRouter(prefix="/api/users", tags=["users"])
 @router.get("/", response_model=List[schemas.UserOut])
 def list_users(
     db: Session = Depends(get_db),
-    _: None = Depends(auth.require_api_key),
+    current_user: models.User = Depends(auth.get_current_active_user),
 ):
+    auth.ensure_role(current_user, [models.RoleEnum.ADMIN])
     return crud.list_users(db)
 
 
@@ -25,8 +26,9 @@ def list_users(
 def create_user(
     user_in: schemas.UserCreate,
     db: Session = Depends(get_db),
-    _: None = Depends(auth.require_api_key),
+    current_user: models.User = Depends(auth.get_current_active_user),
 ):
+    auth.ensure_role(current_user, [models.RoleEnum.ADMIN])
     try:
         auth.ensure_password_complexity(user_in.password)
         return crud.create_user(db, user_in)
@@ -41,8 +43,9 @@ def update_user(
     user_id: int,
     user_in: schemas.UserUpdate,
     db: Session = Depends(get_db),
-    _: None = Depends(auth.require_api_key),
+    current_user: models.User = Depends(auth.get_current_active_user),
 ):
+    auth.ensure_role(current_user, [models.RoleEnum.ADMIN])
     try:
         return crud.update_user(db, user_id, user_in)
     except AppError as exc:
@@ -55,8 +58,9 @@ def update_user(
 def delete_user(
     user_id: int,
     db: Session = Depends(get_db),
-    _: None = Depends(auth.require_api_key),
+    current_user: models.User = Depends(auth.get_current_active_user),
 ):
+    auth.ensure_role(current_user, [models.RoleEnum.ADMIN])
     try:
         crud.delete_user(db, user_id)
     except AppError as exc:
@@ -70,8 +74,9 @@ def reset_password(
     user_id: int,
     payload: schemas.PasswordResetRequest,
     db: Session = Depends(get_db),
-    _: None = Depends(auth.require_api_key),
+    current_user: models.User = Depends(auth.get_current_active_user),
 ):
+    auth.ensure_role(current_user, [models.RoleEnum.ADMIN])
     try:
         auth.ensure_password_complexity(payload.new_password)
         return crud.reset_user_password(db, user_id, payload.new_password)
