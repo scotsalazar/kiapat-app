@@ -12,7 +12,6 @@ from datetime import datetime, timedelta
 import importlib
 
 import pytest
-from fastapi import Request
 from fastapi.testclient import TestClient
 
 
@@ -23,53 +22,19 @@ def client(tmp_path_factory):
     db_path = tmp_path_factory.mktemp("data") / "test.db"
     os.environ["DATABASE_URL"] = f"sqlite:///{db_path}"
     os.environ["SEED_TOKEN"] = "test-token"
+    os.environ["API_SHARED_SECRET"] = "test-api-key"
     # Reload database/app modules so they pick up the new DATABASE_URL
     app_database = importlib.import_module("app.database")
     importlib.reload(app_database)
-    app_models = importlib.import_module("app.models")
     app_auth = importlib.import_module("app.auth")
+    importlib.reload(app_auth)
     app_main = importlib.import_module("app.main")
     importlib.reload(app_main)
     app = app_main.create_app()
 
-    def _anonymous_user(request: Request):
-        """Return a seeded admin or driver user without requiring JWT tokens."""
-
-        auth_header = request.headers.get("authorization")
-        if auth_header and auth_header.lower().startswith("bearer "):
-            token = auth_header.split(" ", 1)[1]
-            db = app_database.SessionLocal()
-            try:
-                return app_auth.get_current_user(token=token, db=db)
-            finally:
-                db.close()
-
-        role = app_models.RoleEnum.ADMIN
-        if request.url.path == "/api/sales/invoices" and request.method.upper() == "POST":
-            role = app_models.RoleEnum.DRIVER
-
-        db = app_database.SessionLocal()
-        try:
-            user = (
-                db.query(app_models.User)
-                .filter(app_models.User.role == role)
-                .first()
-            )
-            if not user:
-                user = app_models.User(
-                    id=0 if role == app_models.RoleEnum.ADMIN else -1,
-                    username=f"anon-{role.value.lower()}",
-                    role=role,
-                    hashed_password="",
-                    email=f"anon-{role.value.lower()}@kiapat.local",
-                    is_active=True,
-                )
-            return user
-        finally:
-            db.close()
-
-    app.dependency_overrides[app_auth.get_current_active_user] = _anonymous_user
-    return TestClient(app)
+    client = TestClient(app)
+    client.headers.update({"X-API-Key": os.environ["API_SHARED_SECRET"]})
+    return client
 
 
 def seed_db(client: TestClient):

@@ -4,43 +4,32 @@ pytest_plugins = ["tests.test_app"]
 
 from datetime import datetime
 from importlib import import_module
-from typing import Dict
-
 import pytest
 
-from test_app import login, seed_db
+from test_app import seed_db
 
 
-def _auth_headers(token: str) -> Dict[str, str]:
-    return {"Authorization": f"Bearer {token}"}
-
-
-def _commit_inventory_in(client, token: str, classification_id: int, qty: int, unit: str) -> None:
+def _commit_inventory_in(client, classification_id: int, qty: int, unit: str) -> None:
     create_resp = client.post(
         "/api/inventory/in/create",
         json={"classification_id": classification_id, "qty": qty, "unit": unit},
-        headers=_auth_headers(token),
     )
     assert create_resp.status_code == 200
     movement_id = create_resp.json()["id"]
     verify_resp = client.post(
         "/api/inventory/in/verify",
         json={"movement_id": movement_id},
-        headers=_auth_headers(token),
     )
     assert verify_resp.status_code == 200
     commit_resp = client.post(
         "/api/inventory/in/commit",
         json={"movement_id": movement_id},
-        headers=_auth_headers(token),
     )
     assert commit_resp.status_code == 200
 
 
 def test_reports_metrics_across_time_ranges(client):
     seed_db(client)
-    admin_token = login(client, "admin", "admin123")
-    driver_token = login(client, "driver", "pass123")
 
     models = import_module("app.models")
     database = import_module("app.database")
@@ -48,12 +37,11 @@ def test_reports_metrics_across_time_ranges(client):
 
     classifications_resp = client.get(
         "/api/catalog/classifications",
-        headers=_auth_headers(admin_token),
     )
     assert classifications_resp.status_code == 200
     classification_id = classifications_resp.json()[0]["id"]
 
-    _commit_inventory_in(client, admin_token, classification_id, qty=5, unit="TRAY")
+    _commit_inventory_in(client, classification_id, qty=5, unit="TRAY")
 
     invoice_one_resp = client.post(
         "/api/sales/invoices",
@@ -65,7 +53,6 @@ def test_reports_metrics_across_time_ranges(client):
                 {"classification_id": classification_id, "qty": 2, "unit": "DOZEN"}
             ],
         },
-        headers=_auth_headers(driver_token),
     )
     assert invoice_one_resp.status_code == 201, invoice_one_resp.text
     invoice_two_resp = client.post(
@@ -78,7 +65,6 @@ def test_reports_metrics_across_time_ranges(client):
                 {"classification_id": classification_id, "qty": 1, "unit": "TRAY"}
             ],
         },
-        headers=_auth_headers(driver_token),
     )
     assert invoice_two_resp.status_code == 201, invoice_two_resp.text
 
@@ -106,7 +92,6 @@ def test_reports_metrics_across_time_ranges(client):
             "start_date": day_one.isoformat(),
             "end_date": (datetime(2024, 1, 3)).isoformat(),
         },
-        headers=_auth_headers(admin_token),
     )
     assert sales_resp.status_code == 200
     summaries = sales_resp.json()
@@ -121,7 +106,6 @@ def test_reports_metrics_across_time_ranges(client):
 
     turnover_resp = client.get(
         "/api/reports/inventory-turnover",
-        headers=_auth_headers(admin_token),
     )
     assert turnover_resp.status_code == 200
     turnover_metrics = turnover_resp.json()
@@ -132,7 +116,6 @@ def test_reports_metrics_across_time_ranges(client):
 
     cumulative_resp = client.get(
         "/api/reports/cumulative-eggs-sold",
-        headers=_auth_headers(admin_token),
     )
     assert cumulative_resp.status_code == 200
     cumulative = cumulative_resp.json()
@@ -143,7 +126,6 @@ def test_reports_metrics_across_time_ranges(client):
     day_two_only_resp = client.get(
         "/api/reports/daily-sales",
         params={"start_date": day_two.isoformat(), "end_date": day_two.isoformat()},
-        headers=_auth_headers(admin_token),
     )
     assert day_two_only_resp.status_code == 200
     single_day = day_two_only_resp.json()
@@ -152,6 +134,6 @@ def test_reports_metrics_across_time_ranges(client):
 
     forbidden_resp = client.get(
         "/api/reports/daily-sales",
-        headers=_auth_headers(driver_token),
+        headers={"X-API-Key": "invalid"},
     )
-    assert forbidden_resp.status_code == 403
+    assert forbidden_resp.status_code == 401
