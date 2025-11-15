@@ -50,24 +50,72 @@ const statusStyles: Record<
   },
 };
 
-const createPinSvg = (pinColor: string, accentColor: string) => `
-  <svg width="48" height="56" viewBox="0 0 48 56" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <path d="M24 0C13.5066 0 5 8.50659 5 19C5 32.25 24 56 24 56C24 56 43 32.25 43 19C43 8.50659 34.4934 0 24 0Z" fill="${pinColor}" />
-    <circle cx="24" cy="21" r="11" fill="white" fill-opacity="0.9" />
-    <circle cx="24" cy="21" r="7" fill="${accentColor}" />
+const statusIdentifiers: Record<VehicleStatus, string> = {
+  delivering: 'D',
+  loading: 'L',
+  idle: 'I',
+  maintenance: 'M',
+};
+
+const escapeSvgText = (value: string) =>
+  value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;');
+
+const createTruckSvg = ({
+  bodyColor,
+  accentColor,
+  plateText,
+  statusIdentifier,
+}: {
+  bodyColor: string;
+  accentColor: string;
+  plateText: string;
+  statusIdentifier: string;
+}) => `
+  <svg width="96" height="48" viewBox="0 0 96 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <rect x="2" y="12" width="60" height="24" rx="8" fill="${bodyColor}" />
+    <rect x="62" y="16" width="28" height="20" rx="6" fill="${accentColor}" />
+    <rect x="10" y="20" width="36" height="12" rx="4" fill="white" />
+    <text x="28" y="28" font-size="10" font-family="'Inter', 'Segoe UI', sans-serif" fill="#0f172a" font-weight="700" text-anchor="middle">
+      ${escapeSvgText(plateText)}
+    </text>
+    <circle cx="74" cy="26" r="10" fill="white" fill-opacity="0.9" />
+    <text x="74" y="30" font-size="12" font-family="'Inter', 'Segoe UI', sans-serif" fill="#0f172a" font-weight="700" text-anchor="middle">
+      ${escapeSvgText(statusIdentifier)}
+    </text>
+    <rect x="6" y="14" width="52" height="4" rx="2" fill="rgba(255,255,255,0.35)" />
+    <circle cx="24" cy="40" r="6" fill="#0f172a" />
+    <circle cx="24" cy="40" r="3" fill="#e2e8f0" />
+    <circle cx="66" cy="40" r="6" fill="#0f172a" />
+    <circle cx="66" cy="40" r="3" fill="#e2e8f0" />
   </svg>
 `;
 
 const svgToDataUrl = (svg: string) => `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
 
-const createMarkerIcon = (pinColor: string, accentColor: string): google.maps.Icon => {
-  const svg = createPinSvg(pinColor, accentColor);
-  const scaledSize = new window.google.maps.Size(48, 56);
+const getVehicleSvg = (vehicleId: string, status: VehicleStatus) => {
+  const { pinColor, accentColor } = statusStyles[status];
+  return createTruckSvg({
+    bodyColor: pinColor,
+    accentColor,
+    plateText: vehicleId,
+    statusIdentifier: statusIdentifiers[status],
+  });
+};
+
+const getVehicleIconDataUrl = (vehicleId: string, status: VehicleStatus) =>
+  svgToDataUrl(getVehicleSvg(vehicleId, status));
+
+const createVehicleIcon = (
+  vehicleId: string,
+  status: VehicleStatus,
+  sizeFactory: () => { scaledSize: google.maps.Size; anchor: google.maps.Point }
+) => {
+  const { scaledSize, anchor } = sizeFactory();
   return {
-    url: svgToDataUrl(svg),
+    url: getVehicleIconDataUrl(vehicleId, status),
     scaledSize,
-    anchor: new window.google.maps.Point(24, 56),
-  };
+    anchor,
+  } satisfies google.maps.Icon;
 };
 
 const MapPane = ({ className = '', showHeader = true }: MapPaneProps) => {
@@ -110,6 +158,7 @@ const MapPane = ({ className = '', showHeader = true }: MapPaneProps) => {
           left: `${normalizedX}%`,
           top: `${100 - normalizedY}%`,
         },
+        iconUrl: getVehicleIconDataUrl(vehicle.id, vehicle.status),
       };
     });
   }, [vehiclePositions]);
@@ -153,18 +202,24 @@ const MapPane = ({ className = '', showHeader = true }: MapPaneProps) => {
     }, 180);
   };
 
-  const statusIconMap = useMemo(() => {
+  const vehicleIconFactory = useMemo(() => {
     if (!isLoaded || !window.google?.maps) {
       return null;
     }
 
-    return Object.entries(statusStyles).reduce<Record<VehicleStatus, google.maps.Icon>>(
-      (acc, [status, style]) => {
-        acc[status as VehicleStatus] = createMarkerIcon(style.pinColor, style.accentColor);
-        return acc;
-      },
-      {} as Record<VehicleStatus, google.maps.Icon>
-    );
+    const sizeFactory = () => ({
+      scaledSize: new window.google.maps.Size(96, 48),
+      anchor: new window.google.maps.Point(48, 48),
+    });
+
+    const cache = new Map<string, google.maps.Icon>();
+    return (vehicleId: string, status: VehicleStatus) => {
+      const cacheKey = `${vehicleId}-${status}`;
+      if (!cache.has(cacheKey)) {
+        cache.set(cacheKey, createVehicleIcon(vehicleId, status, sizeFactory));
+      }
+      return cache.get(cacheKey)!;
+    };
   }, [isLoaded]);
 
   const infoWindowOptions = useMemo(() => {
@@ -193,19 +248,19 @@ const MapPane = ({ className = '', showHeader = true }: MapPaneProps) => {
         <div className="flex-1">
           <div className={`relative w-full overflow-hidden rounded-xl border border-dashed border-slate-300 bg-slate-50 ${MAP_DIMENSION_CLASSES}`}>
             <div className="absolute inset-0 bg-[linear-gradient(120deg,rgba(15,23,42,0.05)_25%,transparent_25%),linear-gradient(-120deg,rgba(15,23,42,0.05)_25%,transparent_25%)] bg-[length:40px_40px]" />
-            {fallbackMarkers.map(({ vehicle, positionStyle }) => {
-              const { label, className } = statusStyles[vehicle.status];
-              return (
-                <div
-                  key={vehicle.id}
-                  className={`absolute flex -translate-x-1/2 -translate-y-1/2 items-center gap-1 rounded-full px-3 py-1 text-xs font-semibold shadow-sm ring-1 ring-black/5 ${className}`}
-                  style={positionStyle}
-                >
-                  <span>{vehicle.id}</span>
-                  <span className="text-[10px] uppercase tracking-wide opacity-80">{label}</span>
-                </div>
-              );
-            })}
+            {fallbackMarkers.map(({ vehicle, positionStyle, iconUrl }) => (
+              <div
+                key={vehicle.id}
+                className="absolute -translate-x-1/2 -translate-y-1/2"
+                style={positionStyle}
+              >
+                <img
+                  src={iconUrl}
+                  alt={`${vehicle.id} ${statusIdentifiers[vehicle.status]} icon`}
+                  className="h-12 w-24 drop-shadow"
+                />
+              </div>
+            ))}
           </div>
         </div>
       </section>
@@ -265,7 +320,7 @@ const MapPane = ({ className = '', showHeader = true }: MapPaneProps) => {
         >
           {mockVehicles.map((vehicle) => {
             const position = vehiclePositions[vehicle.id] ?? vehicle.location;
-            const icon = statusIconMap?.[vehicle.status];
+            const icon = vehicleIconFactory?.(vehicle.id, vehicle.status);
 
             const handleMouseOver = () => {
               clearHoverTimeout();
