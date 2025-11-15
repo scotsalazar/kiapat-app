@@ -13,10 +13,15 @@ import AppLayout from './components/AppLayout';
 
 const DEMO_MODE_ENABLED = import.meta.env.VITE_DEMO_MODE === 'true';
 
+const LoadingScreen: React.FC = () => <div className="app-loading">Loading...</div>;
+
 const RequireAuth: React.FC<{ allowedRoles?: string[]; children: JSX.Element }> = ({ allowedRoles, children }) => {
-  const { user } = useAuth();
+  const { user, isLoading } = useAuth();
   if (DEMO_MODE_ENABLED) {
     return children;
+  }
+  if (isLoading) {
+    return <LoadingScreen />;
   }
   if (!user) {
     return <Navigate to="/login" replace />;
@@ -29,10 +34,14 @@ const RequireAuth: React.FC<{ allowedRoles?: string[]; children: JSX.Element }> 
 };
 
 const DefaultRoute: React.FC = () => {
-  const { user } = useAuth();
+  const { user, isLoading } = useAuth();
 
   if (DEMO_MODE_ENABLED) {
     return <Navigate to="/dashboard" replace />;
+  }
+
+  if (isLoading) {
+    return <LoadingScreen />;
   }
 
   if (!user) {
