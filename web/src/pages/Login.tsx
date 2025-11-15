@@ -1,7 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { useToast } from '../components/ToastProvider';
+import { isDemoMode } from '../utils/env';
 
 const LoginPage: React.FC = () => {
   const { login, isLoading, user } = useAuth();
@@ -11,11 +12,19 @@ const LoginPage: React.FC = () => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
-  const redirectTo = (location.state as { from?: string })?.from || '/dashboard';
+  const redirectTo = (location.state as { from?: string } | undefined)?.from;
+  const demoMode = isDemoMode();
+  const credentialsHint = useMemo(() => {
+    if (demoMode) {
+      return 'Demo credentials: admin / admin123 (admin) or driver / pass123 (driver)';
+    }
+    return 'Seeded accounts include admin / admin123 (admin) and driver / pass123 (driver).';
+  }, [demoMode]);
 
   useEffect(() => {
     if (user) {
-      navigate('/dashboard', { replace: true });
+      const home = user.role === 'driver' ? '/invoice' : '/dashboard';
+      navigate(home, { replace: true });
     }
   }, [user, navigate]);
 
@@ -24,9 +33,11 @@ const LoginPage: React.FC = () => {
     setError(null);
 
     try {
-      await login(username, password);
-      showToast('Logged in as Demo Admin', 'success');
-      navigate(redirectTo, { replace: true });
+      const loggedInUser = await login(username, password);
+      const fallbackRoute = loggedInUser.role === 'driver' ? '/invoice' : '/dashboard';
+      const destination = redirectTo || fallbackRoute;
+      showToast(`Logged in as ${loggedInUser.name}`, 'success');
+      navigate(destination, { replace: true });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unable to login');
     }
@@ -73,9 +84,7 @@ const LoginPage: React.FC = () => {
           >
             {isLoading ? 'Signing in…' : 'Sign in'}
           </button>
-          <p className="text-center text-xs text-slate-500 dark:text-slate-400">
-            Demo credentials: <span className="font-semibold">admin / admin123</span>
-          </p>
+          <p className="text-center text-xs text-slate-500 dark:text-slate-400">{credentialsHint}</p>
         </form>
       </div>
     </div>

@@ -39,16 +39,6 @@ class ErrorResponse(BaseModel):
 # Authentication
 # --------------------
 
-class Token(BaseModel):
-    access_token: str
-    token_type: str = "bearer"
-
-
-class TokenData(BaseModel):
-    username: Optional[str] = None
-    role: Optional[str] = None
-
-
 class UserOut(BaseModel):
     id: int
     name: str
@@ -58,6 +48,17 @@ class UserOut(BaseModel):
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class Token(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    user: UserOut
+
+
+class TokenData(BaseModel):
+    username: Optional[str] = None
+    role: Optional[str] = None
 
 
 class UserCreate(BaseModel):

@@ -1,37 +1,76 @@
-import React, { createContext, useCallback, useContext, useMemo, useState } from 'react';
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react';
+import { isAxiosError } from 'axios';
+import apiClient, { setAuthToken } from '../api/axios';
+import { isDemoMode } from '../utils/env';
+
+export type UserRole = 'admin' | 'driver';
 
 export interface User {
   id: number;
   name: string;
   username: string;
-  role: string;
+  role: UserRole;
+  email?: string | null;
+  created_at?: string;
+}
+
+interface LoginResponse {
+  access_token: string;
+  token_type: string;
+  user: User;
 }
 
 export interface AuthContextValue {
   user: User | null;
   token: string | null;
   isLoading: boolean;
-  login: (username: string, password: string) => Promise<void>;
+  login: (username: string, password: string) => Promise<User>;
   logout: () => void;
 }
 
-const ADMIN_CREDENTIALS = {
-  username: 'admin',
-  password: 'admin123',
-};
+interface StoredAuthState {
+  user: User | null;
+  token: string | null;
+}
 
-const ADMIN_USER: User = {
-  id: 1,
-  name: 'Demo Admin',
-  username: 'admin',
-  role: 'admin',
-};
+const DEMO_MODE = isDemoMode();
+const STORAGE_KEY = 'kiapat-auth-state';
 
-const STORAGE_KEY = 'demo-auth-state';
+const DEMO_ACCOUNTS: Array<{ username: string; password: string; user: User }> = [
+  {
+    username: 'admin',
+    password: 'admin123',
+    user: {
+      id: 1,
+      name: 'Demo Admin',
+      username: 'admin',
+      role: 'admin',
+      email: 'admin@demo.local',
+    },
+  },
+  {
+    username: 'driver',
+    password: 'pass123',
+    user: {
+      id: 2,
+      name: 'Demo Driver',
+      username: 'driver',
+      role: 'driver',
+      email: 'driver@demo.local',
+    },
+  },
+];
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-const getStoredState = (): { user: User | null; token: string | null } => {
+const getStoredState = (): StoredAuthState => {
   if (typeof window === 'undefined') {
     return { user: null, token: null };
   }
@@ -41,7 +80,7 @@ const getStoredState = (): { user: User | null; token: string | null } => {
     if (!stored) {
       return { user: null, token: null };
     }
-    const parsed = JSON.parse(stored);
+    const parsed = JSON.parse(stored) as StoredAuthState;
     return {
       user: parsed.user ?? null,
       token: parsed.token ?? null,
@@ -68,35 +107,75 @@ const persistState = (user: User | null, token: string | null) => {
   );
 };
 
+const resolveDemoAccount = (username: string, password: string): User | null => {
+  const normalizedUsername = username.trim().toLowerCase();
+  const match = DEMO_ACCOUNTS.find(
+    (account) =>
+      account.username.toLowerCase() === normalizedUsername && account.password === password,
+  );
+  return match ? match.user : null;
+};
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(() => getStoredState().user);
   const [token, setToken] = useState<string | null>(() => getStoredState().token);
   const [isLoading, setIsLoading] = useState(false);
 
+  useEffect(() => {
+    if (DEMO_MODE) {
+      setAuthToken(null);
+      return;
+    }
+    setAuthToken(token);
+  }, [token]);
+
   const login = useCallback(async (username: string, password: string) => {
     setIsLoading(true);
-    await new Promise((resolve) => setTimeout(resolve, 400));
+    try {
+      if (DEMO_MODE) {
+        await new Promise((resolve) => setTimeout(resolve, 350));
+        const demoUser = resolveDemoAccount(username, password);
+        if (!demoUser) {
+          throw new Error('Invalid username or password');
+        }
+        const demoToken = 'demo-token';
+        setUser(demoUser);
+        setToken(demoToken);
+        persistState(demoUser, demoToken);
+        return demoUser;
+      }
 
-    const normalizedUsername = username.trim().toLowerCase();
-    const isValid =
-      normalizedUsername === ADMIN_CREDENTIALS.username && password === ADMIN_CREDENTIALS.password;
-
-    if (!isValid) {
+      const formData = new URLSearchParams();
+      formData.set('username', username.trim());
+      formData.set('password', password);
+      const response = await apiClient.post<LoginResponse>('/api/auth/login', formData);
+      const nextUser = response.data.user;
+      const accessToken = response.data.access_token;
+      setUser(nextUser);
+      setToken(accessToken);
+      persistState(nextUser, accessToken);
+      return nextUser;
+    } catch (error) {
+      let message = 'Unable to login';
+      if (error instanceof Error) {
+        message = error.message;
+      }
+      if (isAxiosError(error)) {
+        const detail = (error.response?.data as { detail?: string; message?: string } | undefined)?.detail;
+        const generic = (error.response?.data as { message?: string } | undefined)?.message;
+        message = detail || generic || 'Invalid username or password';
+      }
+      throw new Error(message);
+    } finally {
       setIsLoading(false);
-      throw new Error('Invalid username or password');
     }
-
-    const fakeToken = 'demo-token';
-    setUser(ADMIN_USER);
-    setToken(fakeToken);
-    persistState(ADMIN_USER, fakeToken);
-    setIsLoading(false);
   }, []);
 
   const logout = useCallback(() => {
     setUser(null);
     setToken(null);
     persistState(null, null);
+    setAuthToken(null);
   }, []);
 
   const value = useMemo<AuthContextValue>(

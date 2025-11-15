@@ -44,6 +44,19 @@ def seed_db(client: TestClient):
     return resp.json()
 
 
+def login(client: TestClient, username: str, password: str) -> str:
+    """Authenticate against the API and return the bearer token."""
+
+    resp = client.post(
+        "/api/auth/login",
+        data={"username": username, "password": password},
+        headers={"Content-Type": "application/x-www-form-urlencoded"},
+    )
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    return body["access_token"]
+
+
 def test_seed_and_login(client):
     seed_db(client)
     resp = client.get("/api/catalog/classifications")

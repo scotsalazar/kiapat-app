@@ -10,13 +10,13 @@ import VehiclesPage from './pages/Vehicles';
 import AppLayout from './components/AppLayout';
 import RequireAuth from './components/RequireAuth';
 import LoginPage from './pages/Login';
-import { useAuth } from './hooks/useAuth';
+import { useAuth, UserRole } from './hooks/useAuth';
 
 const App: React.FC = () => {
   const { user } = useAuth();
 
-  const withLayout = (page: React.ReactNode) => (
-    <RequireAuth>
+  const withLayout = (page: React.ReactNode, allowedRoles?: UserRole[]) => (
+    <RequireAuth allowedRoles={allowedRoles}>
       <AppLayout>{page}</AppLayout>
     </RequireAuth>
   );
@@ -24,14 +24,17 @@ const App: React.FC = () => {
   return (
     <ToastProvider>
       <Routes>
-        <Route path="/" element={<Navigate to={user ? '/dashboard' : '/login'} replace />} />
+        <Route
+          path="/"
+          element={<Navigate to={user ? (user.role === 'driver' ? '/invoice' : '/dashboard') : '/login'} replace />}
+        />
         <Route path="/login" element={<LoginPage />} />
-        <Route path="/dashboard" element={withLayout(<DashboardPage />)} />
-        <Route path="/admin/users" element={withLayout(<AdminUsersPage />)} />
-        <Route path="/inventory" element={withLayout(<InventoryManagerPage />)} />
-        <Route path="/vehicles" element={withLayout(<VehiclesPage />)} />
-        <Route path="/invoice" element={withLayout(<DriverInvoicePage />)} />
-        <Route path="/invoices/history" element={withLayout(<InvoiceHistoryPage />)} />
+        <Route path="/dashboard" element={withLayout(<DashboardPage />, ['admin'])} />
+        <Route path="/admin/users" element={withLayout(<AdminUsersPage />, ['admin'])} />
+        <Route path="/inventory" element={withLayout(<InventoryManagerPage />, ['admin'])} />
+        <Route path="/vehicles" element={withLayout(<VehiclesPage />, ['admin'])} />
+        <Route path="/invoice" element={withLayout(<DriverInvoicePage />, ['driver'])} />
+        <Route path="/invoices/history" element={withLayout(<InvoiceHistoryPage />, ['admin', 'driver'])} />
       </Routes>
     </ToastProvider>
   );

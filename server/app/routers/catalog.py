@@ -7,7 +7,7 @@ classifications/prices could be added here with proper authorization.
 from fastapi import APIRouter, Depends, Response, status
 from sqlalchemy.orm import Session
 
-from .. import auth, crud, schemas
+from .. import auth, crud, models, schemas
 from ..database import get_db
 from ..errors import AppError, app_error_to_http
 
@@ -29,9 +29,10 @@ def get_classifications(db: Session = Depends(get_db)):
 def create_classification(
     classification: schemas.ClassificationCreate,
     db: Session = Depends(get_db),
-    _: None = Depends(auth.require_api_key),
+    current_user: models.User = Depends(auth.get_current_active_user),
 ):
     """Create a new classification."""
+    auth.ensure_role(current_user, [models.RoleEnum.ADMIN])
     try:
         return crud.create_classification(db, classification)
     except AppError as exc:
@@ -43,9 +44,10 @@ def update_classification(
     classification_id: int,
     classification: schemas.ClassificationUpdate,
     db: Session = Depends(get_db),
-    _: None = Depends(auth.require_api_key),
+    current_user: models.User = Depends(auth.get_current_active_user),
 ):
     """Update an existing classification."""
+    auth.ensure_role(current_user, [models.RoleEnum.ADMIN])
     try:
         return crud.update_classification(db, classification_id, classification)
     except AppError as exc:
@@ -56,9 +58,10 @@ def update_classification(
 def activate_classification(
     classification_id: int,
     db: Session = Depends(get_db),
-    _: None = Depends(auth.require_api_key),
+    current_user: models.User = Depends(auth.get_current_active_user),
 ):
     """Activate a classification."""
+    auth.ensure_role(current_user, [models.RoleEnum.ADMIN])
     try:
         return crud.set_classification_active(db, classification_id, True)
     except AppError as exc:
@@ -69,9 +72,10 @@ def activate_classification(
 def deactivate_classification(
     classification_id: int,
     db: Session = Depends(get_db),
-    _: None = Depends(auth.require_api_key),
+    current_user: models.User = Depends(auth.get_current_active_user),
 ):
     """Deactivate a classification."""
+    auth.ensure_role(current_user, [models.RoleEnum.ADMIN])
     try:
         return crud.set_classification_active(db, classification_id, False)
     except AppError as exc:
@@ -82,9 +86,10 @@ def deactivate_classification(
 def delete_classification(
     classification_id: int,
     db: Session = Depends(get_db),
-    _: None = Depends(auth.require_api_key),
+    current_user: models.User = Depends(auth.get_current_active_user),
 ):
     """Delete a classification."""
+    auth.ensure_role(current_user, [models.RoleEnum.ADMIN])
     try:
         crud.delete_classification(db, classification_id)
     except AppError as exc:
@@ -102,9 +107,10 @@ def get_prices(db: Session = Depends(get_db)):
 def create_price(
     price: schemas.PriceCreate,
     db: Session = Depends(get_db),
-    _: None = Depends(auth.require_api_key),
+    current_user: models.User = Depends(auth.get_current_active_user),
 ):
     """Create a price entry."""
+    auth.ensure_role(current_user, [models.RoleEnum.ADMIN])
     try:
         return crud.create_price(db, price)
     except AppError as exc:
@@ -116,9 +122,10 @@ def update_price(
     price_id: int,
     price: schemas.PriceUpdate,
     db: Session = Depends(get_db),
-    _: None = Depends(auth.require_api_key),
+    current_user: models.User = Depends(auth.get_current_active_user),
 ):
     """Update a price entry."""
+    auth.ensure_role(current_user, [models.RoleEnum.ADMIN])
     try:
         return crud.update_price(db, price_id, price)
     except AppError as exc:
@@ -129,9 +136,10 @@ def update_price(
 def activate_price(
     price_id: int,
     db: Session = Depends(get_db),
-    _: None = Depends(auth.require_api_key),
+    current_user: models.User = Depends(auth.get_current_active_user),
 ):
     """Activate a price entry."""
+    auth.ensure_role(current_user, [models.RoleEnum.ADMIN])
     try:
         return crud.activate_price(db, price_id)
     except AppError as exc:
@@ -142,9 +150,10 @@ def activate_price(
 def deactivate_price(
     price_id: int,
     db: Session = Depends(get_db),
-    _: None = Depends(auth.require_api_key),
+    current_user: models.User = Depends(auth.get_current_active_user),
 ):
     """Deactivate a price entry."""
+    auth.ensure_role(current_user, [models.RoleEnum.ADMIN])
     try:
         return crud.deactivate_price(db, price_id)
     except AppError as exc:
@@ -155,9 +164,10 @@ def deactivate_price(
 def delete_price(
     price_id: int,
     db: Session = Depends(get_db),
-    _: None = Depends(auth.require_api_key),
+    current_user: models.User = Depends(auth.get_current_active_user),
 ):
     """Delete a price entry."""
+    auth.ensure_role(current_user, [models.RoleEnum.ADMIN])
     try:
         crud.delete_price(db, price_id)
     except AppError as exc:

@@ -1,31 +1,36 @@
-"""
-Simplified authentication utilities for FastAPI.  The application no
-longer performs OAuth2/JWT token exchanges; instead, write endpoints
-can be guarded by a shared API key header.  Password hashing helpers
-remain so that user management keeps functioning.
-"""
+"""Authentication helpers for password hashing and JWT handling."""
 
 from __future__ import annotations
 
 import os
 import re
+from datetime import datetime, timedelta
+from typing import Iterable
 
-from fastapi import Header, HTTPException, status
+from fastapi import Depends, HTTPException, status
+from fastapi.security import OAuth2PasswordBearer
+from jose import JWTError, jwt
 from passlib.context import CryptContext
 from sqlalchemy.orm import Session
 
-from . import models
+from . import models, schemas
+from .database import get_db
 
 
-# Password hashing configuration
 pwd_context = CryptContext(
     schemes=["pbkdf2_sha256", "bcrypt"],
     default="pbkdf2_sha256",
     deprecated="auto",
 )
 
-API_SHARED_SECRET = os.getenv("API_SHARED_SECRET", "")
-SERVICE_USERNAME = os.getenv("API_SERVICE_USERNAME", "admin")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
+
+SECRET_KEY = os.getenv("SECRET_KEY", "change-me")
+ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
+try:
+    ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "60"))
+except ValueError:
+    ACCESS_TOKEN_EXPIRE_MINUTES = 60
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
@@ -53,35 +58,72 @@ def ensure_password_complexity(password: str) -> None:
         raise ValueError("Password must contain at least one digit")
 
 
-def require_api_key(x_api_key: str | None = Header(default=None, alias="X-API-Key")) -> None:
-    """Dependency that validates the shared API key header.
+def get_user(db: Session, username: str) -> models.User | None:
+    """Fetch a user by username."""
 
-    When ``API_SHARED_SECRET`` is not defined the dependency becomes a
-    no-op so the application can continue to run in development
-    environments.
-    """
-
-    if not API_SHARED_SECRET:
-        return
-    if x_api_key != API_SHARED_SECRET:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid or missing API key",
-        )
+    return db.query(models.User).filter(models.User.username == username).first()
 
 
-def get_service_user(db: Session) -> models.User:
-    """Return a deterministic user record for system initiated actions."""
+def authenticate_user(db: Session, username: str, password: str) -> models.User | None:
+    """Return the user when credentials are valid."""
 
-    query = db.query(models.User)
-    user = None
-    if SERVICE_USERNAME:
-        user = query.filter(models.User.username == SERVICE_USERNAME).first()
+    user = get_user(db, username)
     if not user:
-        user = query.order_by(models.User.id.asc()).first()
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="No users available for system operations",
-        )
+        return None
+    if not verify_password(password, user.hashed_password):
+        return None
     return user
+
+
+def create_access_token(data: dict, expires_delta: timedelta | None = None) -> str:
+    """Encode a JWT with the provided payload."""
+
+    to_encode = data.copy()
+    expire = datetime.utcnow() + (expires_delta or timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES))
+    to_encode.update({"exp": expire})
+    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+    return encoded_jwt
+
+
+def get_current_user(
+    token: str = Depends(oauth2_scheme),
+    db: Session = Depends(get_db),
+) -> models.User:
+    """Dependency returning the authenticated user from a bearer token."""
+
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Could not validate credentials",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        username: str | None = payload.get("sub")
+        if username is None:
+            raise credentials_exception
+        token_data = schemas.TokenData(username=username, role=payload.get("role"))
+    except JWTError:
+        raise credentials_exception
+    user = get_user(db, token_data.username)
+    if user is None:
+        raise credentials_exception
+    return user
+
+
+def get_current_active_user(
+    current_user: models.User = Depends(get_current_user),
+) -> models.User:
+    """Dependency used by routers to ensure the user exists."""
+
+    return current_user
+
+
+def ensure_role(user: models.User, allowed_roles: Iterable[models.RoleEnum]) -> None:
+    """Raise an HTTP 403 error when the user does not have one of the roles."""
+
+    allowed = {role.value if isinstance(role, models.RoleEnum) else role for role in allowed_roles}
+    if user.role.value not in allowed:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Insufficient permissions",
+        )
