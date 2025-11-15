@@ -10,7 +10,8 @@ import type { Coordinate, VehicleStatus } from './types';
 
 const MAP_ZOOM = 13;
 const MAP_CONTAINER_BASE_CLASSES =
-  'flex min-h-[320px] w-full flex-col rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:min-h-[360px] lg:min-h-[420px] max-h-[560px] dark:border-slate-800 dark:bg-slate-900';
+  'flex min-h-[420px] w-full flex-col rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:min-h-[480px] lg:min-h-[560px] dark:border-slate-800 dark:bg-slate-900';
+const MAP_DIMENSION_CLASSES = 'h-[420px] sm:h-[480px] lg:h-[560px]';
 const JITTER_INTERVAL_MS = 6000;
 const JITTER_RADIUS_METERS = 120;
 
@@ -107,7 +108,7 @@ const MapPane = ({ className = '', showHeader = true }: MapPaneProps) => {
           </header>
         )}
         <div className="flex-1">
-          <div className="relative h-[320px] w-full overflow-hidden rounded-xl border border-dashed border-slate-300 bg-slate-50 sm:h-[360px] lg:h-[420px]">
+          <div className={`relative w-full overflow-hidden rounded-xl border border-dashed border-slate-300 bg-slate-50 ${MAP_DIMENSION_CLASSES}`}>
             <div className="absolute inset-0 bg-[linear-gradient(120deg,rgba(15,23,42,0.05)_25%,transparent_25%),linear-gradient(-120deg,rgba(15,23,42,0.05)_25%,transparent_25%)] bg-[length:40px_40px]" />
             {fallbackMarkers.map(({ vehicle, positionStyle }) => {
               const { label, className } = statusStyles[vehicle.status];
@@ -144,7 +145,7 @@ const MapPane = ({ className = '', showHeader = true }: MapPaneProps) => {
       <div className={`${containerClasses} flex-col justify-center`}>
         <div className="h-4 w-1/2 animate-pulse rounded bg-slate-200" />
         <div className="mt-2 h-4 w-1/3 animate-pulse rounded bg-slate-200" />
-        <div className="mt-6 h-48 animate-pulse rounded-xl bg-slate-100" />
+        <div className={`mt-6 w-full animate-pulse rounded-xl bg-slate-100 ${MAP_DIMENSION_CLASSES}`} />
       </div>
     );
   }
@@ -164,7 +165,7 @@ const MapPane = ({ className = '', showHeader = true }: MapPaneProps) => {
         <GoogleMap
           center={center}
           zoom={MAP_ZOOM}
-          mapContainerClassName="h-[320px] w-full rounded-xl sm:h-[360px] lg:h-[420px]"
+          mapContainerClassName={`w-full rounded-xl ${MAP_DIMENSION_CLASSES}`}
           options={{
             disableDefaultUI: true,
             zoomControl: true,
