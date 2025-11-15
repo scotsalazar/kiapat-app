@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import apiClient from '../api/axios';
 
 interface User {
@@ -17,13 +17,37 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+const DEMO_MODE_ENABLED = import.meta.env.VITE_DEMO_MODE === 'true';
+const DEMO_TOKEN = 'demo-token';
+const DEMO_FLAG_KEY = 'demo-auth-active';
+const DEMO_USER: User = {
+  id: 0,
+  name: 'Demo Admin',
+  username: 'demo-admin',
+  role: 'admin',
+};
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(() => {
     return localStorage.getItem('token');
   });
 
+  const seedDemoSession = useCallback(() => {
+    setUser(DEMO_USER);
+    setToken(DEMO_TOKEN);
+    localStorage.setItem('token', DEMO_TOKEN);
+    localStorage.setItem(DEMO_FLAG_KEY, 'true');
+  }, []);
+
   useEffect(() => {
+    if (DEMO_MODE_ENABLED) {
+      seedDemoSession();
+      return;
+    }
+
+    localStorage.removeItem(DEMO_FLAG_KEY);
+
     if (token) {
       // fetch current user
       apiClient
@@ -35,9 +59,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           localStorage.removeItem('token');
         });
     }
-  }, [token]);
+  }, [seedDemoSession, token]);
 
   const login = async (username: string, password: string) => {
+    if (DEMO_MODE_ENABLED) {
+      seedDemoSession();
+      return;
+    }
+
     const params = new URLSearchParams();
     params.append('username', username);
     params.append('password', password);
@@ -56,6 +85,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setUser(null);
     setToken(null);
     localStorage.removeItem('token');
+    localStorage.removeItem(DEMO_FLAG_KEY);
   };
 
   const value: AuthContextType = { user, token, login, logout };
