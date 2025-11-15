@@ -78,9 +78,9 @@ const DashboardLayout = () => {
         </p>
       </div>
 
-      <div className="grid flex-1 grid-cols-1 items-start gap-6 lg:grid-cols-2 xl:grid-cols-[2.25fr_1fr] xl:items-stretch">
+      <div className="grid flex-1 grid-cols-1 items-start gap-6 xl:grid-cols-3 xl:items-stretch">
         <DashboardCard
-          className="max-h-[640px] xl:row-span-2"
+          className="xl:col-span-3"
           title="Live fleet tracking"
           description={`Monitoring ${mockVehicles.length} Kidapawan-based vehicles across active routes.`}
           icon={<MapIcon />}
@@ -89,6 +89,7 @@ const DashboardLayout = () => {
         </DashboardCard>
 
         <DashboardCard
+          className="xl:col-span-2"
           title="Fleet health"
           description="Statuses, telemetry, and load factors for every driver on duty."
           icon={<FleetIcon />}
@@ -100,6 +101,7 @@ const DashboardLayout = () => {
         </DashboardCard>
 
         <DashboardCard
+          className="xl:col-span-1"
           title="Critical inventory"
           description="Readiness of med kits, water, and recovery equipment staged for deployment."
           icon={<InventoryIcon />}
