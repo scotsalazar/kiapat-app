@@ -103,13 +103,6 @@ const fil = {
         walkIn: 'Walk-in',
       },
     },
-    login: {
-      title: 'Mag-sign in sa iyong account',
-      submit: 'Mag-sign in',
-      username: 'Username',
-      password: 'Password',
-      error: 'Maling kredensyal',
-    },
     inventory: {
       title: 'Imbentaryo ng Kiapat',
       stream: {

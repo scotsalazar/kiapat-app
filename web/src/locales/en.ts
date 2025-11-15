@@ -103,13 +103,6 @@ const en = {
         walkIn: 'Walk-in',
       },
     },
-    login: {
-      title: 'Sign in to your account',
-      submit: 'Sign in',
-      username: 'Username',
-      password: 'Password',
-      error: 'Invalid credentials',
-    },
     inventory: {
       title: 'Kiapat Inventory',
       stream: {
