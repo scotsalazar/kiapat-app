@@ -11,8 +11,13 @@ import DashboardPage from './pages/Dashboard';
 import VehiclesPage from './pages/Vehicles';
 import AppLayout from './components/AppLayout';
 
+const DEMO_MODE_ENABLED = import.meta.env.VITE_DEMO_MODE === 'true';
+
 const RequireAuth: React.FC<{ allowedRoles?: string[]; children: JSX.Element }> = ({ allowedRoles, children }) => {
   const { user } = useAuth();
+  if (DEMO_MODE_ENABLED) {
+    return children;
+  }
   if (!user) {
     return <Navigate to="/login" replace />;
   }
@@ -25,6 +30,11 @@ const RequireAuth: React.FC<{ allowedRoles?: string[]; children: JSX.Element }> 
 
 const DefaultRoute: React.FC = () => {
   const { user } = useAuth();
+
+  if (DEMO_MODE_ENABLED) {
+    return <Navigate to="/dashboard" replace />;
+  }
+
   if (!user) {
     return <Navigate to="/login" replace />;
   }

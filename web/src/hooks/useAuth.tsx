@@ -28,8 +28,13 @@ const DEMO_USER: User = {
 };
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<User | null>(() => (DEMO_MODE_ENABLED ? DEMO_USER : null));
   const [token, setToken] = useState<string | null>(() => {
+    if (DEMO_MODE_ENABLED) {
+      localStorage.setItem('token', DEMO_TOKEN);
+      localStorage.setItem(DEMO_FLAG_KEY, 'true');
+      return DEMO_TOKEN;
+    }
     return localStorage.getItem('token');
   });
 
