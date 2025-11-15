@@ -8,60 +8,30 @@ import InvoiceHistoryPage from './pages/InvoiceHistory';
 import DashboardPage from './pages/Dashboard';
 import VehiclesPage from './pages/Vehicles';
 import AppLayout from './components/AppLayout';
+import RequireAuth from './components/RequireAuth';
+import LoginPage from './pages/Login';
+import { useAuth } from './hooks/useAuth';
 
 const App: React.FC = () => {
+  const { user } = useAuth();
+
+  const withLayout = (page: React.ReactNode) => (
+    <RequireAuth>
+      <AppLayout>{page}</AppLayout>
+    </RequireAuth>
+  );
+
   return (
     <ToastProvider>
       <Routes>
-        <Route path="/" element={<Navigate to="/dashboard" replace />} />
-        <Route
-          path="/dashboard"
-          element={
-            <AppLayout>
-              <DashboardPage />
-            </AppLayout>
-          }
-        />
-        <Route
-          path="/admin/users"
-          element={
-            <AppLayout>
-              <AdminUsersPage />
-            </AppLayout>
-          }
-        />
-        <Route
-          path="/inventory"
-          element={
-            <AppLayout>
-              <InventoryManagerPage />
-            </AppLayout>
-          }
-        />
-        <Route
-          path="/vehicles"
-          element={
-            <AppLayout>
-              <VehiclesPage />
-            </AppLayout>
-          }
-        />
-        <Route
-          path="/invoice"
-          element={
-            <AppLayout>
-              <DriverInvoicePage />
-            </AppLayout>
-          }
-        />
-        <Route
-          path="/invoices/history"
-          element={
-            <AppLayout>
-              <InvoiceHistoryPage />
-            </AppLayout>
-          }
-        />
+        <Route path="/" element={<Navigate to={user ? '/dashboard' : '/login'} replace />} />
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/dashboard" element={withLayout(<DashboardPage />)} />
+        <Route path="/admin/users" element={withLayout(<AdminUsersPage />)} />
+        <Route path="/inventory" element={withLayout(<InventoryManagerPage />)} />
+        <Route path="/vehicles" element={withLayout(<VehiclesPage />)} />
+        <Route path="/invoice" element={withLayout(<DriverInvoicePage />)} />
+        <Route path="/invoices/history" element={withLayout(<InvoiceHistoryPage />)} />
       </Routes>
     </ToastProvider>
   );
