@@ -10,7 +10,7 @@ import type { Coordinate, VehicleStatus } from './types';
 
 const MAP_ZOOM = 13;
 const MAP_CONTAINER_BASE_CLASSES =
-  'flex min-h-[320px] w-full flex-col rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:min-h-[420px] lg:h-full dark:border-slate-800 dark:bg-slate-900';
+  'flex min-h-[320px] w-full flex-col rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:min-h-[360px] lg:min-h-[420px] max-h-[560px] dark:border-slate-800 dark:bg-slate-900';
 const JITTER_INTERVAL_MS = 6000;
 const JITTER_RADIUS_METERS = 120;
 
@@ -109,7 +109,7 @@ const MapPane = ({ className = '', showHeader = true }: MapPaneProps) => {
         <GoogleMap
           center={center}
           zoom={MAP_ZOOM}
-          mapContainerClassName="h-full min-h-[220px] w-full rounded-xl sm:min-h-[300px] lg:min-h-[420px]"
+          mapContainerClassName="h-[320px] w-full rounded-xl sm:h-[360px] lg:h-[420px]"
           options={{
             disableDefaultUI: true,
             zoomControl: true,
