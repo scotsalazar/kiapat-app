@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import apiClient from '../api/axios';
+import { isDemoMode } from '../utils/env';
 
 interface User {
   id: number;
@@ -17,7 +18,7 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const DEMO_MODE_ENABLED = import.meta.env.VITE_DEMO_MODE === 'true';
+const DEMO_MODE_ENABLED = isDemoMode();
 const DEMO_TOKEN = 'demo-token';
 const DEMO_FLAG_KEY = 'demo-auth-active';
 const DEMO_USER: User = {

@@ -7,6 +7,7 @@ import { parseApiError } from '../utils/apiErrors';
 import useInventoryStream, { InventoryUpdateMessage } from '../hooks/useInventoryStream';
 import { formatDate, formatDateTime } from '../utils/dateTime';
 import apiClient from '../api/axios';
+import { isDemoMode } from '../utils/env';
 
 interface Classification {
   id: number;
@@ -117,6 +118,190 @@ type InventoryStreamState = {
   movements: Movement[];
 };
 
+const createDemoInventorySummary = (): InventorySummaryResponse => {
+  const now = new Date();
+  const cards: InventoryCard[] = [
+    {
+      classification_id: 1,
+      size: 'MEDIUM',
+      color: 'BROWN',
+      qty_tray: 140,
+      qty_dozen: 420,
+      qty_pcs: 5040,
+      unit_price: 155,
+      stock_value: 781200,
+      threshold_pcs: 3500,
+      is_low: false,
+      price_per_dozen: 180,
+      price_per_tray: 2160,
+      price_per_dozen_changed_at: new Date(now.getTime() - 6 * 60 * 60 * 1000).toISOString(),
+      price_per_tray_changed_at: new Date(now.getTime() - 26 * 60 * 60 * 1000).toISOString(),
+      price_updated_at: new Date(now.getTime() - 6 * 60 * 60 * 1000).toISOString(),
+      unit_price_changed_at: new Date(now.getTime() - 6 * 60 * 60 * 1000).toISOString(),
+    },
+  ];
+  cards.push(
+    {
+      classification_id: 2,
+      size: 'LARGE',
+      color: 'WHITE',
+      qty_tray: 60,
+      qty_dozen: 180,
+      qty_pcs: 2160,
+      unit_price: 170,
+      stock_value: 367200,
+      threshold_pcs: 2500,
+      is_low: true,
+      price_per_dozen: 195,
+      price_per_tray: 2340,
+      price_per_dozen_changed_at: new Date(now.getTime() - 4 * 24 * 60 * 60 * 1000).toISOString(),
+      price_per_tray_changed_at: new Date(now.getTime() - 4 * 24 * 60 * 60 * 1000).toISOString(),
+      price_updated_at: null,
+      unit_price_changed_at: null,
+    },
+    {
+      classification_id: 3,
+      size: 'SMALL',
+      color: 'WHITE',
+      qty_tray: 200,
+      qty_dozen: 400,
+      qty_pcs: 4800,
+      unit_price: 120,
+      stock_value: 576000,
+      threshold_pcs: 3000,
+      is_low: false,
+      price_per_dozen: 135,
+      price_per_tray: 1620,
+      price_per_dozen_changed_at: new Date(now.getTime() - 8 * 24 * 60 * 60 * 1000).toISOString(),
+      price_per_tray_changed_at: new Date(now.getTime() - 8 * 24 * 60 * 60 * 1000).toISOString(),
+      price_updated_at: null,
+      unit_price_changed_at: null,
+    },
+  );
+
+  const totals = cards.reduce<InventoryTotals>(
+    (acc, card) => ({
+      qty_tray: acc.qty_tray + card.qty_tray,
+      qty_dozen: acc.qty_dozen + card.qty_dozen,
+      qty_pcs: acc.qty_pcs + card.qty_pcs,
+      stock_value: (acc.stock_value ?? 0) + (card.stock_value ?? 0),
+    }),
+    { qty_tray: 0, qty_dozen: 0, qty_pcs: 0, stock_value: 0 },
+  );
+
+  return {
+    timestamp: now.toISOString(),
+    totals,
+    cards,
+  };
+};
+
+const createDemoMovements = (): Movement[] => {
+  const now = Date.now();
+  return [
+    {
+      id: 5001,
+      type: 'IN',
+      classification_id: 1,
+      qty_pcs: 720,
+      unit_entered: 'TRAY',
+      qty_entered: 24,
+      by_user_id: 12,
+      status: 'COMMITTED',
+      created_at: new Date(now - 2 * 60 * 60 * 1000).toISOString(),
+      committed_at: new Date(now - 90 * 60 * 1000).toISOString(),
+    },
+    {
+      id: 5002,
+      type: 'OUT',
+      classification_id: 2,
+      qty_pcs: 360,
+      unit_entered: 'DOZEN',
+      qty_entered: 30,
+      by_user_id: 18,
+      status: 'VERIFIED',
+      created_at: new Date(now - 4 * 60 * 60 * 1000).toISOString(),
+      committed_at: null,
+    },
+    {
+      id: 5003,
+      type: 'IN',
+      classification_id: 3,
+      qty_pcs: 1200,
+      unit_entered: 'PCS',
+      qty_entered: 1200,
+      by_user_id: 14,
+      status: 'DRAFT',
+      created_at: new Date(now - 30 * 60 * 1000).toISOString(),
+      committed_at: null,
+    },
+  ];
+};
+
+const createDemoClassificationsFromSummary = (
+  summary: InventorySummaryResponse,
+): Classification[] =>
+  summary.cards.map((card) => ({
+    id: card.classification_id,
+    size: card.size,
+    color: card.color,
+  }));
+
+const createDemoPendingOverrides = (): PendingOverride[] => {
+  const createdAt = new Date();
+  createdAt.setHours(createdAt.getHours() - 5);
+  return [
+    {
+      id: 9100,
+      invoice_id: 7801,
+      classification_id: 2,
+      requested_qty_pcs: 300,
+      requested_unit: 'DOZEN',
+      available_qty_pcs: 240,
+      status: 'PENDING',
+      created_at: createdAt.toISOString(),
+      decision_reason: null,
+      invoice: {
+        id: 7801,
+        customer_name: 'Mercado Deli',
+        customer_phone: '0917 123 4567',
+        total_amount: 15840,
+        status: 'PENDING_OVERRIDE',
+        created_by: 18,
+        created_at: createdAt.toISOString(),
+        created_by_user: {
+          id: 18,
+          name: 'Ivy Driver',
+          username: 'ivy.driver',
+        },
+      },
+      classification: {
+        id: 2,
+        size: 'LARGE',
+        color: 'WHITE',
+      },
+    },
+  ];
+};
+
+const createDemoDailySales = (): DailySalesSummary[] => {
+  const days = 7;
+  const today = new Date();
+  const entries: DailySalesSummary[] = [];
+  for (let offset = days - 1; offset >= 0; offset -= 1) {
+    const date = new Date(today);
+    date.setDate(today.getDate() - offset);
+    const index = days - 1 - offset;
+    entries.push({
+      date: date.toISOString().split('T')[0],
+      total_amount: 12000 + index * 650,
+      eggs_sold_pcs: 2400 + index * 120,
+      invoice_count: 18 + index * 2,
+    });
+  }
+  return entries;
+};
+
 const RECENT_PRICE_CHANGE_WINDOW_MS = 1000 * 60 * 60 * 48; // 48 hours
 const SIZE_RANK: Record<string, number> = {
   SMALL: 0,
@@ -186,6 +371,7 @@ const getLatestPriceChangeTimestamp = (card: InventoryCard): Date | null => {
 
 const InventoryManagerPage: React.FC = () => {
   const { token, user } = useAuth();
+  const demoMode = isDemoMode();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { t } = useTranslation();
@@ -217,6 +403,28 @@ const InventoryManagerPage: React.FC = () => {
   const currencyFormatter = useMemo(
     () => new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }),
     [],
+  );
+  const demoBannerMessage = useMemo(
+    () =>
+      t('inventory.demoMode.banner', {
+        defaultValue:
+          'Demo mode is active. Data is mocked locally and API calls are disabled.',
+      }),
+    [t],
+  );
+  const demoActionDisabledMessage = useMemo(
+    () =>
+      t('inventory.demoMode.actionDisabled', {
+        defaultValue: 'This action is disabled in demo mode.',
+      }),
+    [t],
+  );
+  const demoSimulatedMessage = useMemo(
+    () =>
+      t('inventory.demoMode.simulated', {
+        defaultValue: 'Changes are simulated for the presentation.',
+      }),
+    [t],
   );
 
   useEffect(() => {
@@ -317,9 +525,10 @@ const InventoryManagerPage: React.FC = () => {
       InventoryStreamState,
       InventoryUpdateMessage<InventorySummaryResponse | null, Movement[] | undefined>
     >({
-      token,
+      token: demoMode ? undefined : token,
       initialData: inventoryInitialData,
       merge: mergeInventoryUpdate,
+      enabled: !demoMode,
     });
 
   const summary = inventoryData.summary;
@@ -451,6 +660,15 @@ const InventoryManagerPage: React.FC = () => {
   );
 
   const streamStatusMeta = useMemo(() => {
+    if (demoMode) {
+      return {
+        label: t('inventory.demoMode.streamStatus', {
+          defaultValue: 'Demo data',
+        }),
+        dotClass: 'bg-blue-500',
+        textClass: 'text-blue-600 dark:text-blue-300',
+      };
+    }
     switch (streamStatus) {
       case 'open':
         return {
@@ -489,9 +707,23 @@ const InventoryManagerPage: React.FC = () => {
           textClass: 'text-gray-500 dark:text-slate-400',
         };
     }
-  }, [streamStatus, t]);
+  }, [demoMode, streamStatus, t]);
 
   const loadData = useCallback(async () => {
+    if (demoMode) {
+      const summary = createDemoInventorySummary();
+      setInitialSummary(summary);
+      setInitialMovements(createDemoMovements());
+      setClassifications(createDemoClassificationsFromSummary(summary));
+      if (user?.role === 'admin') {
+        setPendingOverrides(createDemoPendingOverrides());
+        setDailySales(createDemoDailySales());
+      } else {
+        setPendingOverrides([]);
+        setDailySales([]);
+      }
+      return;
+    }
     if (!token) return;
     try {
       const summaryParams: Record<string, string> = {};
@@ -539,7 +771,16 @@ const InventoryManagerPage: React.FC = () => {
       const { message } = parseApiError(err, t('inventory.errors.load'));
       showToast(message, 'error');
     }
-  }, [showToast, token, user?.role, sizeFilter, colorFilter, lowStockOnly, t]);
+  }, [
+    demoMode,
+    showToast,
+    token,
+    user?.role,
+    sizeFilter,
+    colorFilter,
+    lowStockOnly,
+    t,
+  ]);
 
   useEffect(() => {
     loadData();
@@ -560,6 +801,16 @@ const InventoryManagerPage: React.FC = () => {
     if (!selectedCls || qty <= 0) return;
     setFormError('');
     setSuccessMessage('');
+    if (demoMode) {
+      setQty(0);
+      setSelectedCls('');
+      const message = t('inventory.demoMode.draftCreated', {
+        defaultValue: 'Inventory draft simulated for demo mode.',
+      });
+      setSuccessMessage(message);
+      showToast(demoSimulatedMessage, 'info');
+      return;
+    }
     try {
       await apiClient.post('/api/inventory/in/create', {
         classification_id: selectedCls,
@@ -595,6 +846,15 @@ const InventoryManagerPage: React.FC = () => {
     const value = thresholdEdits[classificationId];
     const thresholdValue = value === '' || value === undefined ? 0 : value;
     setThresholdSaving((prev) => ({ ...prev, [classificationId]: true }));
+    if (demoMode) {
+      const message = t('inventory.demoMode.thresholdUpdated', {
+        defaultValue: 'Threshold updated locally for demo mode.',
+      });
+      setSuccessMessage(message);
+      showToast(demoSimulatedMessage, 'info');
+      setThresholdSaving((prev) => ({ ...prev, [classificationId]: false }));
+      return;
+    }
     try {
       await apiClient.put('/api/inventory/thresholds', {
         thresholds: [{ classification_id: classificationId, threshold_pcs: thresholdValue }],
@@ -610,6 +870,10 @@ const InventoryManagerPage: React.FC = () => {
   };
 
   const handleVerify = async (id: number) => {
+    if (demoMode) {
+      showToast(demoActionDisabledMessage, 'info');
+      return;
+    }
     try {
       await apiClient.post('/api/inventory/in/verify', { movement_id: id });
       showToast(t('inventory.messages.movementVerified'), 'success');
@@ -621,6 +885,10 @@ const InventoryManagerPage: React.FC = () => {
   };
 
   const handleCommit = async (id: number) => {
+    if (demoMode) {
+      showToast(demoActionDisabledMessage, 'info');
+      return;
+    }
     try {
       await apiClient.post('/api/inventory/in/commit', { movement_id: id });
       showToast(t('inventory.messages.movementCommitted'), 'success');
@@ -632,6 +900,10 @@ const InventoryManagerPage: React.FC = () => {
   };
 
   const handleApproveOverride = async (invoiceId: number) => {
+    if (demoMode) {
+      showToast(demoActionDisabledMessage, 'info');
+      return;
+    }
     try {
       const note = window.prompt(t('common.prompts.approvalNote'), '');
       await apiClient.post(
@@ -650,6 +922,10 @@ const InventoryManagerPage: React.FC = () => {
   };
 
   const handleRejectOverride = async (invoiceId: number) => {
+    if (demoMode) {
+      showToast(demoActionDisabledMessage, 'info');
+      return;
+    }
     try {
       const reason = window.prompt(t('common.prompts.rejectOverride'), '');
       await apiClient.post(
@@ -707,6 +983,11 @@ const InventoryManagerPage: React.FC = () => {
           )}
         </div>
       </div>
+      {demoMode && (
+        <div className="rounded border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900 shadow-sm dark:border-blue-500 dark:bg-blue-900/30 dark:text-blue-100">
+          {demoBannerMessage}
+        </div>
+      )}
       {successMessage && <p className="mt-2 text-green-600 dark:text-green-400">{successMessage}</p>}
       {formError && <p className="mt-2 text-red-600 dark:text-red-400">{formError}</p>}
       {summary && (
