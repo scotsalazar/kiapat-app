@@ -60,7 +60,7 @@ const DashboardCard = ({ title, description, icon, children, className = '' }: D
       </div>
     </header>
     <div className="flex flex-1 flex-col overflow-hidden">
-      <div className="flex-1 pt-4">{children}</div>
+      <div className="flex flex-1 min-h-0 flex-col pt-4">{children}</div>
     </div>
   </section>
 );
@@ -91,26 +91,19 @@ const DashboardLayout = () => {
         <DashboardCard
           className="xl:col-span-2"
           title="Fleet health"
-          description="Statuses, telemetry, and load factors for every driver on duty."
+          description={`Statuses, telemetry, and load factors for ${mockVehicles.length} drivers on duty.`}
           icon={<FleetIcon />}
         >
-          <FleetOverviewList
-            vehicles={mockVehicles}
-            className="flex-1 min-h-0 rounded-2xl border-slate-100 bg-white/90 shadow-sm dark:border-slate-800/70 dark:bg-slate-900/60"
-          />
+          <FleetOverviewList vehicles={mockVehicles} className="flex-1 min-h-0 overflow-auto" />
         </DashboardCard>
 
         <DashboardCard
           className="xl:col-span-1"
           title="Critical inventory"
-          description="Readiness of med kits, water, and recovery equipment staged for deployment."
+          description={`Readiness across ${inventoryItems.length} stocked lines staged for deployment.`}
           icon={<InventoryIcon />}
         >
-          <InventoryPane
-            items={inventoryItems}
-            className="h-auto shrink-0 rounded-2xl border border-slate-100 bg-white/90 p-5 shadow-sm dark:border-slate-800/70 dark:bg-slate-900/60"
-            showHeader
-          />
+          <InventoryPane items={inventoryItems} className="flex-1 min-h-0 overflow-auto" />
         </DashboardCard>
       </div>
     </div>
