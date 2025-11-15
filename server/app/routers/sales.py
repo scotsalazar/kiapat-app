@@ -1,7 +1,7 @@
 """
 Sales routes for creating and retrieving invoices.  Creating a sales
-invoice will decrement inventory and create OUT movements.  Only
-drivers can create invoices.  Admins may list all invoices.
+invoice will decrement inventory and create OUT movements.  Access is
+now guarded by the shared API key rather than per-user roles.
 """
 
 from datetime import datetime
@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 
 from .. import auth, crud, models, schemas
 from ..database import get_db
-from ..errors import AppError, ErrorCode, app_error_to_http, forbidden, not_found, validation_error
+from ..errors import AppError, ErrorCode, app_error_to_http, not_found, validation_error
 
 
 router = APIRouter(prefix="/api/sales/invoices", tags=["sales"])
@@ -22,13 +22,12 @@ router = APIRouter(prefix="/api/sales/invoices", tags=["sales"])
 def create_invoice(
     invoice_in: schemas.InvoiceCreate,
     db: Session = Depends(get_db),
-    current_user: models.User = Depends(auth.get_current_active_user),
+    _: None = Depends(auth.require_api_key),
 ):
-    """Create a new sales invoice.  Only drivers may create invoices."""
-    if current_user.role != models.RoleEnum.DRIVER:
-        raise forbidden("Only drivers can create invoices")
+    """Create a new sales invoice."""
     try:
-        invoice = crud.create_invoice(db, current_user, invoice_in)
+        user = auth.get_service_user(db)
+        invoice = crud.create_invoice(db, user, invoice_in)
     except AppError as exc:
         raise app_error_to_http(exc)
     return invoice
@@ -37,12 +36,9 @@ def create_invoice(
 @router.get("/overrides/pending", response_model=List[schemas.InvoiceOverrideOut])
 def list_overrides(
     db: Session = Depends(get_db),
-    current_user: models.User = Depends(auth.get_current_active_user),
+    _: None = Depends(auth.require_api_key),
 ):
-    """List all pending override requests for administrators."""
-
-    if current_user.role != models.RoleEnum.ADMIN:
-        raise forbidden("Only admins can view override requests")
+    """List all pending override requests."""
     return crud.list_pending_overrides(db)
 
 
@@ -51,15 +47,14 @@ def approve_override(
     invoice_id: int,
     decision: Optional[schemas.OverrideDecision] = None,
     db: Session = Depends(get_db),
-    current_user: models.User = Depends(auth.get_current_active_user),
+    _: None = Depends(auth.require_api_key),
 ):
     """Approve a pending override request."""
 
-    if current_user.role != models.RoleEnum.ADMIN:
-        raise forbidden("Only admins can approve overrides")
     try:
+        user = auth.get_service_user(db)
         invoice = crud.approve_invoice_override(
-            db, current_user, invoice_id, (decision.decision_reason if decision else None)
+            db, user, invoice_id, (decision.decision_reason if decision else None)
         )
     except AppError as exc:
         raise app_error_to_http(exc)
@@ -71,15 +66,14 @@ def reject_override(
     invoice_id: int,
     decision: Optional[schemas.OverrideDecision] = None,
     db: Session = Depends(get_db),
-    current_user: models.User = Depends(auth.get_current_active_user),
+    _: None = Depends(auth.require_api_key),
 ):
     """Reject a pending override request."""
 
-    if current_user.role != models.RoleEnum.ADMIN:
-        raise forbidden("Only admins can reject overrides")
     try:
+        user = auth.get_service_user(db)
         invoice = crud.reject_invoice_override(
-            db, current_user, invoice_id, (decision.decision_reason if decision else None)
+            db, user, invoice_id, (decision.decision_reason if decision else None)
         )
     except AppError as exc:
         raise app_error_to_http(exc)
@@ -97,15 +91,14 @@ def list_invoices(
     status: Optional[models.MovementStatus] = None,
     invoice_status: Optional[models.InvoiceStatus] = None,
     db: Session = Depends(get_db),
-    current_user: models.User = Depends(auth.get_current_active_user),
+    _: None = Depends(auth.require_api_key),
 ):
-    """List invoices.  Drivers see only their invoices; admins see all."""
+    """List invoices."""
     if end_date and start_date and end_date < start_date:
         raise validation_error("end_date must be on or after start_date")
 
     invoices, total = crud.list_invoices(
         db,
-        current_user,
         page=page,
         page_size=page_size,
         start_date=start_date,
@@ -127,12 +120,10 @@ def list_invoices(
 def get_invoice(
     invoice_id: int,
     db: Session = Depends(get_db),
-    current_user: models.User = Depends(auth.get_current_active_user),
+    _: None = Depends(auth.require_api_key),
 ):
-    """Retrieve a single invoice by id.  Drivers may only retrieve their own invoices."""
+    """Retrieve a single invoice by id."""
     invoice = db.query(models.Invoice).get(invoice_id)
     if not invoice:
         raise not_found("Invoice not found", code=ErrorCode.SALES_NOT_FOUND, details={"invoice_id": invoice_id})
-    if current_user.role == models.RoleEnum.DRIVER and invoice.created_by != current_user.id:
-        raise forbidden("Not authorized to view this invoice")
     return invoice

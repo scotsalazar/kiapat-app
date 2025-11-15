@@ -6,12 +6,11 @@ environment variable `SEED_TOKEN` to prevent accidental reseeding.
 """
 
 import os
-from fastapi import APIRouter, Depends, Header
+from fastapi import APIRouter, Depends, Header, HTTPException, status
 from sqlalchemy.orm import Session
 
-from .. import auth, models, utils, seeder
+from .. import seeder
 from ..database import get_db
-from ..errors import forbidden
 
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
@@ -33,7 +32,7 @@ def seed(
     """
     expected = os.getenv("SEED_TOKEN", "seed-secret")
     if seed_token != expected:
-        raise forbidden("Invalid seed token")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Invalid seed token")
     # Use centralised seeder; returns 'seeded' or 'already-seeded'
     result = seeder.seed_database(db)
     return {"message": result}

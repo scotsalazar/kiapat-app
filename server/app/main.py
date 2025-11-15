@@ -9,7 +9,6 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .database import engine
 from . import models
-from .routers import auth as auth_router
 from .routers import catalog as catalog_router
 from .routers import inventory as inventory_router
 from .routers import sales as sales_router
@@ -42,7 +41,6 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
     # Include routers
-    app.include_router(auth_router.router)
     app.include_router(catalog_router.router)
     app.include_router(inventory_router.router)
     app.include_router(sales_router.router)

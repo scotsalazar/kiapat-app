@@ -15,8 +15,6 @@ class ErrorCode(str, Enum):
 
     COMMON_VALIDATION_ERROR = "common:validation_error"
     COMMON_NOT_FOUND = "common:not_found"
-    AUTH_NOT_AUTHENTICATED = "auth:not_authenticated"
-    AUTH_FORBIDDEN = "auth:forbidden"
     USERS_USERNAME_EXISTS = "users:username_exists"
     USERS_EMAIL_EXISTS = "users:email_exists"
     USERS_NOT_FOUND = "users:not_found"
@@ -73,15 +71,6 @@ def app_error_to_http(error: AppError) -> HTTPException:
     """Convert an AppError into an HTTPException for FastAPI."""
 
     return http_exception(error.status_code, error.code, error.message, details=error.details)
-
-
-def forbidden(
-    message: str = "Not authorized",
-    *,
-    code: ErrorCode = ErrorCode.AUTH_FORBIDDEN,
-    details: Any | None = None,
-) -> HTTPException:
-    return http_exception(status.HTTP_403_FORBIDDEN, code, message, details=details)
 
 
 def not_found(

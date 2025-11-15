@@ -5,24 +5,18 @@ from typing import List
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
 
-from .. import auth, crud, models, schemas
+from .. import auth, crud, schemas
 from ..database import get_db
-from ..errors import AppError, app_error_to_http, forbidden, validation_error
+from ..errors import AppError, app_error_to_http, validation_error
 
 
 router = APIRouter(prefix="/api/users", tags=["users"])
 
 
-def require_admin(current_user: models.User = Depends(auth.get_current_active_user)) -> models.User:
-    if current_user.role != models.RoleEnum.ADMIN:
-        raise forbidden("Admin access required")
-    return current_user
-
-
 @router.get("/", response_model=List[schemas.UserOut])
 def list_users(
     db: Session = Depends(get_db),
-    _: models.User = Depends(require_admin),
+    _: None = Depends(auth.require_api_key),
 ):
     return crud.list_users(db)
 
@@ -31,7 +25,7 @@ def list_users(
 def create_user(
     user_in: schemas.UserCreate,
     db: Session = Depends(get_db),
-    _: models.User = Depends(require_admin),
+    _: None = Depends(auth.require_api_key),
 ):
     try:
         auth.ensure_password_complexity(user_in.password)
@@ -47,7 +41,7 @@ def update_user(
     user_id: int,
     user_in: schemas.UserUpdate,
     db: Session = Depends(get_db),
-    _: models.User = Depends(require_admin),
+    _: None = Depends(auth.require_api_key),
 ):
     try:
         return crud.update_user(db, user_id, user_in)
@@ -61,7 +55,7 @@ def update_user(
 def delete_user(
     user_id: int,
     db: Session = Depends(get_db),
-    _: models.User = Depends(require_admin),
+    _: None = Depends(auth.require_api_key),
 ):
     try:
         crud.delete_user(db, user_id)
@@ -76,7 +70,7 @@ def reset_password(
     user_id: int,
     payload: schemas.PasswordResetRequest,
     db: Session = Depends(get_db),
-    _: models.User = Depends(require_admin),
+    _: None = Depends(auth.require_api_key),
 ):
     try:
         auth.ensure_password_complexity(payload.new_password)
