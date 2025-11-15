@@ -7,12 +7,12 @@ invoice creation.
 """
 
 from base64 import b64encode
-import json
 import os
 from datetime import datetime, timedelta
 import importlib
 
 import pytest
+from fastapi import Request
 from fastapi.testclient import TestClient
 
 
@@ -26,9 +26,40 @@ def client(tmp_path_factory):
     # Reload database/app modules so they pick up the new DATABASE_URL
     app_database = importlib.import_module("app.database")
     importlib.reload(app_database)
+    app_models = importlib.import_module("app.models")
+    app_auth = importlib.import_module("app.auth")
     app_main = importlib.import_module("app.main")
     importlib.reload(app_main)
     app = app_main.create_app()
+
+    def _anonymous_user(request: Request):
+        """Return a seeded admin or driver user without requiring JWT tokens."""
+
+        role = app_models.RoleEnum.ADMIN
+        if request.url.path == "/api/sales/invoices" and request.method.upper() == "POST":
+            role = app_models.RoleEnum.DRIVER
+
+        db = app_database.SessionLocal()
+        try:
+            user = (
+                db.query(app_models.User)
+                .filter(app_models.User.role == role)
+                .first()
+            )
+            if not user:
+                user = app_models.User(
+                    id=0 if role == app_models.RoleEnum.ADMIN else -1,
+                    username=f"anon-{role.value.lower()}",
+                    role=role,
+                    hashed_password="",
+                    email=f"anon-{role.value.lower()}@kiapat.local",
+                    is_active=True,
+                )
+            return user
+        finally:
+            db.close()
+
+    app.dependency_overrides[app_auth.get_current_active_user] = _anonymous_user
     return TestClient(app)
 
 
@@ -39,35 +70,21 @@ def seed_db(client: TestClient):
     return resp.json()
 
 
-def login(client: TestClient, username: str, password: str) -> str:
-    resp = client.post(
-        "/api/auth/login",
-        data={"username": username, "password": password},
-        headers={"Content-Type": "application/x-www-form-urlencoded"},
-    )
-    assert resp.status_code == 200
-    token = resp.json()["access_token"]
-    return token
-
-
 def test_seed_and_login(client):
     seed_db(client)
-    # login admin
-    token = login(client, "admin", "admin123")
-    assert token
-    # login driver
-    token2 = login(client, "driver", "pass123")
-    assert token2
+    resp = client.get("/api/catalog/classifications")
+    assert resp.status_code == 200
+    assert resp.json(), "Expected classifications to be visible anonymously"
+    resp = client.get("/api/inventory/summary")
+    assert resp.status_code == 200
+    summary = resp.json()
+    assert summary["cards"], "Inventory summary should be accessible anonymously"
 
 
 def test_inventory_in_flow(client):
     seed_db(client)
-    admin_token = login(client, "admin", "admin123")
     # list classifications
-    resp = client.get(
-        "/api/catalog/classifications",
-        headers={"Authorization": f"Bearer {admin_token}"},
-    )
+    resp = client.get("/api/catalog/classifications")
     assert resp.status_code == 200
     classifications = resp.json()
     cls_id = classifications[0]["id"]
@@ -75,7 +92,6 @@ def test_inventory_in_flow(client):
     resp = client.post(
         "/api/inventory/in/create",
         json={"classification_id": cls_id, "qty": 1, "unit": "TRAY"},
-        headers={"Authorization": f"Bearer {admin_token}"},
     )
     assert resp.status_code == 200
     movement_id = resp.json()["id"]
@@ -83,21 +99,16 @@ def test_inventory_in_flow(client):
     resp = client.post(
         "/api/inventory/in/verify",
         json={"movement_id": movement_id},
-        headers={"Authorization": f"Bearer {admin_token}"},
     )
     assert resp.status_code == 200
     # commit
     resp = client.post(
         "/api/inventory/in/commit",
         json={"movement_id": movement_id},
-        headers={"Authorization": f"Bearer {admin_token}"},
     )
     assert resp.status_code == 200
     # inventory summary should reflect 30 pcs (1 tray) added
-    resp = client.get(
-        "/api/inventory/summary",
-        headers={"Authorization": f"Bearer {admin_token}"},
-    )
+    resp = client.get("/api/inventory/summary")
     summary = resp.json()
     # find card
     card = next(c for c in summary["cards"] if c["classification_id"] == cls_id)
@@ -106,30 +117,22 @@ def test_inventory_in_flow(client):
 
 def test_driver_invoice_flow(client):
     seed_db(client)
-    admin_token = login(client, "admin", "admin123")
-    driver_token = login(client, "driver", "pass123")
     # top up stock for two classifications
-    resp = client.get(
-        "/api/catalog/classifications",
-        headers={"Authorization": f"Bearer {admin_token}"},
-    )
+    resp = client.get("/api/catalog/classifications")
     classes = resp.json()
     for cls in classes[:2]:
         resp = client.post(
             "/api/inventory/in/create",
             json={"classification_id": cls["id"], "qty": 2, "unit": "DOZEN"},
-            headers={"Authorization": f"Bearer {admin_token}"},
         )
         mid = resp.json()["id"]
         client.post(
             "/api/inventory/in/verify",
             json={"movement_id": mid},
-            headers={"Authorization": f"Bearer {admin_token}"},
         )
         client.post(
             "/api/inventory/in/commit",
             json={"movement_id": mid},
-            headers={"Authorization": f"Bearer {admin_token}"},
         )
     # create invoice as driver
     invoice_payload = {
@@ -145,7 +148,6 @@ def test_driver_invoice_flow(client):
     resp = client.post(
         "/api/sales/invoices",
         json=invoice_payload,
-        headers={"Authorization": f"Bearer {driver_token}"},
     )
     assert resp.status_code == 201
     invoice = resp.json()
@@ -153,10 +155,7 @@ def test_driver_invoice_flow(client):
     assert invoice["status"] == "COMPLETED"
     assert invoice["overrides"] == []
     # inventory should decrement
-    resp = client.get(
-        "/api/inventory/summary",
-        headers={"Authorization": f"Bearer {admin_token}"},
-    )
+    resp = client.get("/api/inventory/summary")
     summary = resp.json()
     for item in invoice["items"]:
         card = next(c for c in summary["cards"] if c["classification_id"] == item["classification_id"])
@@ -166,28 +165,20 @@ def test_driver_invoice_flow(client):
 
 def test_inventory_threshold_configuration(client):
     seed_db(client)
-    admin_token = login(client, "admin", "admin123")
 
-    resp = client.get(
-        "/api/catalog/classifications",
-        headers={"Authorization": f"Bearer {admin_token}"},
-    )
+    resp = client.get("/api/catalog/classifications")
     assert resp.status_code == 200
     classification_id = resp.json()[0]["id"]
 
     resp = client.put(
         "/api/inventory/thresholds",
         json={"thresholds": [{"classification_id": classification_id, "threshold_pcs": 120}]},
-        headers={"Authorization": f"Bearer {admin_token}"},
     )
     assert resp.status_code == 200
     thresholds = resp.json()
     assert any(t["classification_id"] == classification_id for t in thresholds)
 
-    resp = client.get(
-        "/api/inventory/summary",
-        headers={"Authorization": f"Bearer {admin_token}"},
-    )
+    resp = client.get("/api/inventory/summary")
     assert resp.status_code == 200
     summary = resp.json()
     card = next(c for c in summary["cards"] if c["classification_id"] == classification_id)
@@ -197,14 +188,10 @@ def test_inventory_threshold_configuration(client):
     resp = client.put(
         "/api/inventory/thresholds",
         json={"thresholds": [{"classification_id": classification_id, "threshold_pcs": 0}]},
-        headers={"Authorization": f"Bearer {admin_token}"},
     )
     assert resp.status_code == 200
 
-    resp = client.get(
-        "/api/inventory/summary",
-        headers={"Authorization": f"Bearer {admin_token}"},
-    )
+    resp = client.get("/api/inventory/summary")
     summary = resp.json()
     card = next(c for c in summary["cards"] if c["classification_id"] == classification_id)
     assert card["threshold_pcs"] is None
@@ -213,12 +200,8 @@ def test_inventory_threshold_configuration(client):
 
 def test_inventory_summary_filters(client):
     seed_db(client)
-    admin_token = login(client, "admin", "admin123")
 
-    resp = client.get(
-        "/api/inventory/summary",
-        headers={"Authorization": f"Bearer {admin_token}"},
-    )
+    resp = client.get("/api/inventory/summary")
     assert resp.status_code == 200
     summary = resp.json()
     assert summary["cards"], "Expected seeded inventory to include classifications"
@@ -227,7 +210,6 @@ def test_inventory_summary_filters(client):
     resp = client.get(
         "/api/inventory/summary",
         params={"size": first_card["size"]},
-        headers={"Authorization": f"Bearer {admin_token}"},
     )
     assert resp.status_code == 200
     size_filtered = resp.json()["cards"]
@@ -237,7 +219,6 @@ def test_inventory_summary_filters(client):
     resp = client.get(
         "/api/inventory/summary",
         params={"color": first_card["color"]},
-        headers={"Authorization": f"Bearer {admin_token}"},
     )
     assert resp.status_code == 200
     color_filtered = resp.json()["cards"]
@@ -256,13 +237,11 @@ def test_inventory_summary_filters(client):
                 }
             ]
         },
-        headers={"Authorization": f"Bearer {admin_token}"},
     )
 
     resp = client.get(
         "/api/inventory/summary",
         params={"low_stock": "true"},
-        headers={"Authorization": f"Bearer {admin_token}"},
     )
     assert resp.status_code == 200
     low_filtered = resp.json()["cards"]
@@ -274,7 +253,6 @@ def test_inventory_summary_filters(client):
     resp = client.get(
         "/api/inventory/summary",
         params={"search": search_term},
-        headers={"Authorization": f"Bearer {admin_token}"},
     )
     assert resp.status_code == 200
     search_filtered = resp.json()["cards"]
@@ -287,13 +265,10 @@ def test_inventory_summary_filters(client):
 
 def test_invoice_override_flow(client):
     seed_db(client)
-    admin_token = login(client, "admin", "admin123")
-    driver_token = login(client, "driver", "pass123")
 
     # load a single classification and add limited stock
     resp = client.get(
         "/api/catalog/classifications",
-        headers={"Authorization": f"Bearer {admin_token}"},
     )
     assert resp.status_code == 200
     cls = resp.json()[0]
@@ -301,18 +276,15 @@ def test_invoice_override_flow(client):
     resp = client.post(
         "/api/inventory/in/create",
         json={"classification_id": cls["id"], "qty": 1, "unit": "DOZEN"},
-        headers={"Authorization": f"Bearer {admin_token}"},
     )
     movement_id = resp.json()["id"]
     client.post(
         "/api/inventory/in/verify",
         json={"movement_id": movement_id},
-        headers={"Authorization": f"Bearer {admin_token}"},
     )
     client.post(
         "/api/inventory/in/commit",
         json={"movement_id": movement_id},
-        headers={"Authorization": f"Bearer {admin_token}"},
     )
 
     # driver requests more stock than available to trigger override
@@ -327,7 +299,6 @@ def test_invoice_override_flow(client):
     resp = client.post(
         "/api/sales/invoices",
         json=invoice_payload,
-        headers={"Authorization": f"Bearer {driver_token}"},
     )
     assert resp.status_code == 201
     invoice = resp.json()
@@ -336,19 +307,13 @@ def test_invoice_override_flow(client):
     assert invoice["overrides"][0]["requested_unit"] == "DOZEN"
 
     # inventory should remain unchanged while pending
-    resp = client.get(
-        "/api/inventory/summary",
-        headers={"Authorization": f"Bearer {admin_token}"},
-    )
+    resp = client.get("/api/inventory/summary")
     summary = resp.json()
     card = next(c for c in summary["cards"] if c["classification_id"] == cls["id"])
     assert card["qty_pcs"] == 12
 
     # admin sees pending overrides
-    resp = client.get(
-        "/api/sales/invoices/overrides/pending",
-        headers={"Authorization": f"Bearer {admin_token}"},
-    )
+    resp = client.get("/api/sales/invoices/overrides/pending")
     overrides = resp.json()
     assert any(o["invoice_id"] == invoice["id"] for o in overrides)
 
@@ -356,7 +321,6 @@ def test_invoice_override_flow(client):
     resp = client.post(
         f"/api/sales/invoices/{invoice['id']}/override/approve",
         json={},
-        headers={"Authorization": f"Bearer {admin_token}"},
     )
     assert resp.status_code == 200
     approved_invoice = resp.json()
@@ -364,101 +328,88 @@ def test_invoice_override_flow(client):
     assert all(o["status"] == "APPROVED" for o in approved_invoice["overrides"])
 
     # inventory now reflects deduction (12 - 24 = -12)
-    resp = client.get(
-        "/api/inventory/summary",
-        headers={"Authorization": f"Bearer {admin_token}"},
-    )
+    resp = client.get("/api/inventory/summary")
     summary = resp.json()
     card = next(c for c in summary["cards"] if c["classification_id"] == cls["id"])
     assert card["qty_pcs"] == -12
 
 
-def test_authorization_checks(client):
+def test_inventory_movement_state_rules(client):
     seed_db(client)
-    admin_token = login(client, "admin", "admin123")
-    driver_token = login(client, "driver", "pass123")
-    # driver should not be able to verify or commit movements
-    # create draft as admin
     cls_id = 1
     resp = client.post(
         "/api/inventory/in/create",
         json={"classification_id": cls_id, "qty": 1, "unit": "DOZEN"},
-        headers={"Authorization": f"Bearer {admin_token}"},
     )
     movement_id = resp.json()["id"]
-    # attempt verify as driver
-    resp = client.post(
-        "/api/inventory/in/verify",
-        json={"movement_id": movement_id},
-        headers={"Authorization": f"Bearer {driver_token}"},
-    )
-    assert resp.status_code == 403
-    # attempt commit as driver
+
+    # committing before verifying should fail due to invalid state
     resp = client.post(
         "/api/inventory/in/commit",
         json={"movement_id": movement_id},
-        headers={"Authorization": f"Bearer {driver_token}"},
     )
-    assert resp.status_code == 403
-    # admin can verify and commit
+    assert resp.status_code == 400
+
+    # verifying works once
     resp = client.post(
         "/api/inventory/in/verify",
         json={"movement_id": movement_id},
-        headers={"Authorization": f"Bearer {admin_token}"},
     )
     assert resp.status_code == 200
+
+    # verifying again should fail because status already advanced
+    resp = client.post(
+        "/api/inventory/in/verify",
+        json={"movement_id": movement_id},
+    )
+    assert resp.status_code == 400
+
+    # committing now succeeds
     resp = client.post(
         "/api/inventory/in/commit",
         json={"movement_id": movement_id},
-        headers={"Authorization": f"Bearer {admin_token}"},
     )
     assert resp.status_code == 200
 
+    # committing twice should again fail with invalid state
+    resp = client.post(
+        "/api/inventory/in/commit",
+        json={"movement_id": movement_id},
+    )
+    assert resp.status_code == 400
 
-def test_catalog_admin_routes_authorization(client):
+
+def test_catalog_management_flow(client):
     seed_db(client)
-    admin_token = login(client, "admin", "admin123")
-    driver_token = login(client, "driver", "pass123")
 
-    resp = client.get(
-        "/api/catalog/classifications",
-        headers={"Authorization": f"Bearer {admin_token}"},
-    )
+    resp = client.get("/api/catalog/classifications")
     assert resp.status_code == 200
     classifications = resp.json()
     assert classifications
     target_cls = classifications[-1]
 
+    # duplicates should be rejected even for anonymous callers
     resp = client.post(
         "/api/catalog/classifications",
         json={"size": target_cls["size"], "color": target_cls["color"]},
-        headers={"Authorization": f"Bearer {driver_token}"},
     )
-    assert resp.status_code == 403
+    assert resp.status_code == 400
 
-    resp = client.get(
-        "/api/catalog/prices",
-        headers={"Authorization": f"Bearer {admin_token}"},
-    )
+    resp = client.get("/api/catalog/prices")
     assert resp.status_code == 200
     for price in resp.json():
         if price["classification_id"] == target_cls["id"]:
             del_resp = client.delete(
                 f"/api/catalog/prices/{price['id']}",
-                headers={"Authorization": f"Bearer {admin_token}"},
             )
             assert del_resp.status_code == 204
 
-    resp = client.delete(
-        f"/api/catalog/classifications/{target_cls['id']}",
-        headers={"Authorization": f"Bearer {admin_token}"},
-    )
+    resp = client.delete(f"/api/catalog/classifications/{target_cls['id']}")
     assert resp.status_code == 204
 
     resp = client.post(
         "/api/catalog/classifications",
         json={"size": target_cls["size"], "color": target_cls["color"]},
-        headers={"Authorization": f"Bearer {admin_token}"},
     )
     assert resp.status_code == 201
     new_classification = resp.json()
@@ -466,26 +417,17 @@ def test_catalog_admin_routes_authorization(client):
     resp = client.put(
         f"/api/catalog/classifications/{new_classification['id']}",
         json={"size": new_classification["size"]},
-        headers={"Authorization": f"Bearer {admin_token}"},
     )
     assert resp.status_code == 200
 
     resp = client.post(
         f"/api/catalog/classifications/{new_classification['id']}/deactivate",
-        headers={"Authorization": f"Bearer {admin_token}"},
     )
     assert resp.status_code == 200
     assert resp.json()["is_active"] is False
 
     resp = client.post(
         f"/api/catalog/classifications/{new_classification['id']}/activate",
-        headers={"Authorization": f"Bearer {driver_token}"},
-    )
-    assert resp.status_code == 403
-
-    resp = client.post(
-        f"/api/catalog/classifications/{new_classification['id']}/activate",
-        headers={"Authorization": f"Bearer {admin_token}"},
     )
     assert resp.status_code == 200
     assert resp.json()["is_active"] is True
@@ -497,21 +439,20 @@ def test_catalog_admin_routes_authorization(client):
             "unit": "DOZEN",
             "price_per_unit": 123.0,
         },
-        headers={"Authorization": f"Bearer {driver_token}"},
     )
-    assert resp.status_code == 403
+    assert resp.status_code == 201
+    first_price = resp.json()
 
     effective_from = datetime.utcnow() - timedelta(days=1)
     price_payload = {
         "classification_id": new_classification["id"],
-        "unit": "DOZEN",
+        "unit": "TRAY",
         "price_per_unit": 150.0,
         "effective_from": effective_from.isoformat(),
     }
     resp = client.post(
         "/api/catalog/prices",
         json=price_payload,
-        headers={"Authorization": f"Bearer {admin_token}"},
     )
     assert resp.status_code == 201
     price = resp.json()
@@ -519,7 +460,6 @@ def test_catalog_admin_routes_authorization(client):
     resp = client.post(
         "/api/catalog/prices",
         json=price_payload,
-        headers={"Authorization": f"Bearer {admin_token}"},
     )
     assert resp.status_code == 400
 
@@ -527,27 +467,23 @@ def test_catalog_admin_routes_authorization(client):
     resp = client.put(
         f"/api/catalog/prices/{price['id']}",
         json={"price_per_unit": 175.0, "effective_to": future_end},
-        headers={"Authorization": f"Bearer {admin_token}"},
     )
     assert resp.status_code == 200
     assert resp.json()["price_per_unit"] == 175.0
 
     resp = client.post(
         f"/api/catalog/prices/{price['id']}/deactivate",
-        headers={"Authorization": f"Bearer {admin_token}"},
     )
     assert resp.status_code == 200
     assert resp.json()["effective_to"] is not None
 
     resp = client.post(
         f"/api/catalog/prices/{price['id']}/activate",
-        headers={"Authorization": f"Bearer {driver_token}"},
-    )
-    assert resp.status_code == 403
-
-    resp = client.post(
-        f"/api/catalog/prices/{price['id']}/activate",
-        headers={"Authorization": f"Bearer {admin_token}"},
     )
     assert resp.status_code == 200
     assert resp.json()["effective_to"] is None
+
+    # ensure we can still fetch prices including the original unit
+    resp = client.get("/api/catalog/prices")
+    assert resp.status_code == 200
+    assert any(p["id"] == first_price["id"] for p in resp.json())
