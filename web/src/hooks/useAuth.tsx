@@ -12,6 +12,7 @@ interface User {
 interface AuthContextType {
   user: User | null;
   token: string | null;
+  isLoading: boolean;
   login: (username: string, password: string) => Promise<void>;
   logout: () => void;
 }
@@ -38,6 +39,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
     return localStorage.getItem('token');
   });
+  const [isLoading, setIsLoading] = useState<boolean>(() => {
+    if (DEMO_MODE_ENABLED) {
+      return false;
+    }
+    return !!localStorage.getItem('token');
+  });
 
   const seedDemoSession = useCallback(() => {
     setUser(DEMO_USER);
@@ -49,12 +56,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     if (DEMO_MODE_ENABLED) {
       seedDemoSession();
+      setIsLoading(false);
       return;
     }
 
     localStorage.removeItem(DEMO_FLAG_KEY);
 
     if (token) {
+      setIsLoading(true);
       // fetch current user
       apiClient
         .get('/api/auth/me')
@@ -63,7 +72,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setUser(null);
           setToken(null);
           localStorage.removeItem('token');
-        });
+        })
+        .finally(() => setIsLoading(false));
+    } else {
+      setIsLoading(false);
     }
   }, [seedDemoSession, token]);
 
@@ -90,11 +102,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const logout = () => {
     setUser(null);
     setToken(null);
+    setIsLoading(false);
     localStorage.removeItem('token');
     localStorage.removeItem(DEMO_FLAG_KEY);
   };
 
-  const value: AuthContextType = { user, token, login, logout };
+  const value: AuthContextType = { user, token, isLoading, login, logout };
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
 
