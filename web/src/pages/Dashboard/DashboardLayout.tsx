@@ -64,9 +64,9 @@ const DashboardLayout = () => {
         </p>
       </div>
 
-      <div className="grid flex-1 grid-cols-1 items-start gap-6 lg:grid-cols-2 xl:grid-cols-[3fr_2fr]">
+      <div className="grid flex-1 grid-cols-1 items-start gap-6 lg:grid-cols-2 xl:grid-cols-[3fr_2fr] xl:items-stretch">
         <DashboardCard
-          className="h-full"
+          className="max-h-[600px] xl:self-start"
           title="Live fleet tracking"
           description={`Monitoring ${mockVehicles.length} Kidapawan-based vehicles across active routes.`}
           icon={<MapIcon />}
