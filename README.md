@@ -70,16 +70,19 @@ This repository contains a minimal yet functional MVP for **Kiapat**, an egg del
    npm install
    ```
 
-2. **Configure API base URL & Google Maps**:
+2. **Configure API base URL, Google Maps & demo mode**:
 
    Create a `.env` file in `web/` and set:
 
    ```bash
    VITE_API_BASE_URL=http://localhost:8000
    VITE_GOOGLE_MAPS_API_KEY=<demo-or-personal-key>
+   VITE_DEMO_MODE=false # change to true only for mock dashboards
    ```
 
    The dashboard map widgets read the Google Maps API key via `import.meta.env.VITE_GOOGLE_MAPS_API_KEY`, so make sure the value is available in every environment (the repository includes `.env.example` as a reference). When running locally `VITE_API_BASE_URL` enables Vite’s proxy so that calls to `/api` are forwarded to the backend.
+
+   Setting `VITE_DEMO_MODE=true` tells the frontend to bypass `RequireAuth` and load the dashboard plus vehicle list using seeded mock data. This is helpful for QA when the API is offline, but keep it `false` in production builds so the real authentication flow and live inventory data are enforced.
 
 3. **Run the frontend**:
 
