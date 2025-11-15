@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../hooks/useAuth';
@@ -6,6 +6,7 @@ import { useToast } from '../components/ToastProvider';
 import { parseApiError } from '../utils/apiErrors';
 import { formatDateTime } from '../utils/dateTime';
 import apiClient from '../api/axios';
+import { isDemoMode } from '../utils/env';
 
 interface ManagedUser {
   id: number;
@@ -30,8 +31,28 @@ interface EditFormState {
   role: 'admin' | 'driver';
 }
 
+const DEMO_USERS: ManagedUser[] = [
+  {
+    id: 1,
+    name: 'Demo Admin',
+    username: 'demo.admin',
+    email: 'demo.admin@kiapat.test',
+    role: 'admin',
+    created_at: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
+  },
+  {
+    id: 2,
+    name: 'Demo Driver',
+    username: 'demo.driver',
+    email: 'driver@kiapat.test',
+    role: 'driver',
+    created_at: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
+  },
+];
+
 const AdminUsersPage: React.FC = () => {
   const { token, logout } = useAuth();
+  const demoMode = isDemoMode();
   const navigate = useNavigate();
   const { t } = useTranslation();
   const [users, setUsers] = useState<ManagedUser[]>([]);
@@ -52,17 +73,43 @@ const AdminUsersPage: React.FC = () => {
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
 
   const { showToast } = useToast();
+  const demoBannerMessage = useMemo(
+    () =>
+      t('adminUsers.demoMode.banner', {
+        defaultValue: 'Demo mode is active. User management actions are disabled.',
+      }),
+    [t],
+  );
+  const demoActionMessage = useMemo(
+    () =>
+      t('adminUsers.demoMode.actionDisabled', {
+        defaultValue: 'This action is unavailable while demo mode is enabled.',
+      }),
+    [t],
+  );
+  const notifyDemoActionDisabled = useCallback(() => {
+    showToast(demoActionMessage, 'info');
+  }, [demoActionMessage, showToast]);
 
-  const loadUsers = async () => {
-    if (!token) return;
+  const loadUsers = useCallback(async () => {
     setLoading(true);
     setLoadError(null);
+    if (demoMode) {
+      setUsers(DEMO_USERS);
+      setLoading(false);
+      return;
+    }
+    if (!token) {
+      setLoading(false);
+      return;
+    }
     try {
       const res = await apiClient.get<ManagedUser[]>('/api/users');
       setUsers(res.data);
     } catch (err: any) {
       if (err.response?.status === 401) {
         logout();
+        setLoading(false);
         return;
       }
       const { message } = parseApiError(err, t('adminUsers.messages.loadError'));
@@ -71,17 +118,22 @@ const AdminUsersPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [demoMode, logout, showToast, t, token]);
 
   useEffect(() => {
     loadUsers();
-  }, [token]);
+  }, [loadUsers]);
 
   const handleCreateSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setCreateError(null);
     setCreateSuccess(null);
     setStatusMessage(null);
+    if (demoMode) {
+      setCreateError(demoActionMessage);
+      notifyDemoActionDisabled();
+      return;
+    }
     try {
       await apiClient.post('/api/users', {
         name: createForm.name,
@@ -113,6 +165,11 @@ const AdminUsersPage: React.FC = () => {
     if (!editingUser) return;
     setEditError(null);
     setStatusMessage(null);
+    if (demoMode) {
+      setEditError(demoActionMessage);
+      notifyDemoActionDisabled();
+      return;
+    }
     try {
       await apiClient.put(`/api/users/${editingUser.id}`, {
         name: editForm.name,
@@ -132,6 +189,10 @@ const AdminUsersPage: React.FC = () => {
   };
 
   const handleResetPassword = async (user: ManagedUser) => {
+    if (demoMode) {
+      notifyDemoActionDisabled();
+      return;
+    }
     const newPassword = window.prompt(
       t('common.prompts.resetPassword', { username: user.username }),
     );
@@ -151,6 +212,10 @@ const AdminUsersPage: React.FC = () => {
   };
 
   const handleDelete = async (user: ManagedUser) => {
+    if (demoMode) {
+      notifyDemoActionDisabled();
+      return;
+    }
     if (!window.confirm(t('common.prompts.deleteUser', { username: user.username }))) return;
     setStatusMessage(null);
     try {
@@ -186,6 +251,11 @@ const AdminUsersPage: React.FC = () => {
           </button>
         </div>
       </div>
+      {demoMode && (
+        <div className="rounded border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900 shadow-sm dark:border-blue-500 dark:bg-blue-900/30 dark:text-blue-100">
+          {demoBannerMessage}
+        </div>
+      )}
 
       {statusMessage && <div className="text-green-600 dark:text-green-400">{statusMessage}</div>}
       {loadError && <div className="text-red-600 dark:text-red-400">{loadError}</div>}
