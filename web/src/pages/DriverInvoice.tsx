@@ -386,10 +386,67 @@ const DriverInvoicePage: React.FC = () => {
     return warnings;
   }, [classificationMap, items, prices, signatureDataUrl, t]);
 
+  const statusCard =
+    invoiceId && (
+      <section
+        className={`w-full rounded-2xl border p-4 text-sm transition-colors ${
+          invoiceStatus === 'PENDING_OVERRIDE'
+            ? 'border-yellow-400 bg-yellow-50 text-yellow-800 dark:border-yellow-500 dark:bg-yellow-900/40 dark:text-yellow-200'
+            : invoiceStatus === 'REJECTED'
+            ? 'border-red-400 bg-red-50 text-red-700 dark:border-red-500 dark:bg-red-900/40 dark:text-red-200'
+            : 'border-green-400 bg-green-50 text-green-700 dark:border-green-500 dark:bg-green-900/30 dark:text-green-200'
+        }`}
+      >
+        <p className="text-base font-semibold text-slate-900 dark:text-slate-100">
+          Invoice #{invoiceId}
+        </p>
+        <p className="text-sm">
+          {invoiceStatus === 'PENDING_OVERRIDE'
+            ? t('driverInvoice.statusBadge.pending')
+            : invoiceStatus === 'REJECTED'
+            ? t('driverInvoice.statusBadge.rejected')
+            : t('driverInvoice.statusBadge.created')}
+        </p>
+      </section>
+    );
+
+  const overridesCard =
+    overrides.length > 0 ? (
+      <section className="w-full rounded-2xl border border-yellow-300 bg-yellow-50 p-4 text-yellow-900 transition-colors dark:border-yellow-500 dark:bg-yellow-900/30 dark:text-yellow-100">
+        <h2 className="mb-2 text-base font-semibold text-slate-900 dark:text-yellow-100">
+          {t('driverInvoice.overrides.title')}
+        </h2>
+        <ul className="list-disc space-y-1 pl-5 text-sm">
+          {overrides.map((override) => {
+            const cls = classificationMap.get(override.classification_id);
+            const shortage = override.requested_qty_pcs - override.available_qty_pcs;
+            const classificationLabel = cls
+              ? `${cls.size} / ${cls.color}`
+              : t('driverInvoice.overrides.classificationFallback', {
+                  id: override.classification_id,
+                });
+            const shortageText =
+              shortage > 0 ? t('driverInvoice.overrides.shortage', { value: shortage }) : '';
+            return (
+              <li key={override.id}>
+                {t('driverInvoice.overrides.entry', {
+                  classification: classificationLabel,
+                  requested: override.requested_qty_pcs,
+                  unit: override.requested_unit.toLowerCase(),
+                  available: override.available_qty_pcs,
+                  shortage: shortageText,
+                })}
+              </li>
+            );
+          })}
+        </ul>
+      </section>
+    ) : null;
+
   return (
     <div className="space-y-6 sm:space-y-7">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+        <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:gap-3">
           <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">{t('driverInvoice.title')}</h1>
           <button
             type="button"
@@ -399,7 +456,7 @@ const DriverInvoicePage: React.FC = () => {
             {t('common.actions.viewInvoiceHistory')}
           </button>
         </div>
-        <div className="flex flex-col items-start text-sm sm:items-end">
+        <div className="flex flex-col items-start text-sm lg:items-end">
           <div className={`flex items-center gap-2 ${streamStatusMeta.textClass} dark:text-slate-300`}>
             <span className={`h-2 w-2 rounded-full ${streamStatusMeta.dotClass}`} />
             <span className="text-slate-700 dark:text-slate-300">{streamStatusMeta.label}</span>
@@ -409,93 +466,46 @@ const DriverInvoicePage: React.FC = () => {
           )}
         </div>
       </div>
-      {message && (
-        <p
-          className={`mb-2 ${
-            messageTone === 'error'
-              ? 'text-red-600 dark:text-red-400'
-              : messageTone === 'warning'
-              ? 'text-yellow-700 dark:text-yellow-400'
-              : 'text-green-600 dark:text-green-400'
-          }`}
-        >
-          {message}
-        </p>
-      )}
-      {invoiceId && (
-        <div
-          className={`border p-2 rounded mb-4 ${
-            invoiceStatus === 'PENDING_OVERRIDE'
-              ? 'border-yellow-400 bg-yellow-50 text-yellow-800 dark:border-yellow-500 dark:bg-yellow-900/40 dark:text-yellow-200'
-              : invoiceStatus === 'REJECTED'
-              ? 'border-red-400 bg-red-50 text-red-700 dark:border-red-500 dark:bg-red-900/40 dark:text-red-200'
-              : 'border-green-400 bg-green-50 text-green-700 dark:border-green-500 dark:bg-green-900/40 dark:text-green-200'
-          }`}
-        >
-          Invoice #{invoiceId}{' '}
-          {invoiceStatus === 'PENDING_OVERRIDE'
-            ? t('driverInvoice.statusBadge.pending')
-            : invoiceStatus === 'REJECTED'
-            ? t('driverInvoice.statusBadge.rejected')
-            : t('driverInvoice.statusBadge.created')}
-        </div>
-      )}
-      {overrides.length > 0 && (
-        <div className="rounded border border-yellow-300 bg-yellow-50 p-3 text-yellow-900 transition-colors dark:border-yellow-500 dark:bg-yellow-900/30 dark:text-yellow-100">
-          <h2 className="mb-2 font-semibold text-slate-900 dark:text-yellow-100">{t('driverInvoice.overrides.title')}</h2>
-          <ul className="space-y-1 list-disc pl-5 text-sm">
-            {overrides.map((override) => {
-              const cls = classificationMap.get(override.classification_id);
-              const shortage = override.requested_qty_pcs - override.available_qty_pcs;
-              const classificationLabel = cls
-                ? `${cls.size} / ${cls.color}`
-                : t('driverInvoice.overrides.classificationFallback', {
-                    id: override.classification_id,
-                  });
-              const shortageText =
-                shortage > 0
-                  ? t('driverInvoice.overrides.shortage', { value: shortage })
-                  : '';
-              return (
-                <li key={override.id}>
-                  {t('driverInvoice.overrides.entry', {
-                    classification: classificationLabel,
-                    requested: override.requested_qty_pcs,
-                    unit: override.requested_unit.toLowerCase(),
-                    available: override.available_qty_pcs,
-                    shortage: shortageText,
-                  })}
-                </li>
-              );
-            })}
-          </ul>
-        </div>
-      )}
-      <form onSubmit={handleSubmit} className="space-y-5 sm:space-y-6">
-        <div className="flex flex-col gap-4 sm:gap-5 md:flex-row">
-          <label className="flex flex-1 flex-col text-sm">
-            <span className="font-medium text-slate-700 dark:text-slate-200">{t('common.labels.customerName')}</span>
-            <input
-              id="invoice-customer-name"
-              type="text"
-              placeholder={t('driverInvoice.form.customerNamePlaceholder')}
-              value={customerName}
-              onChange={(e) => setCustomerName(e.target.value)}
-              className="rounded border border-slate-300 px-3 py-2 text-slate-900 transition-colors focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
-            />
-          </label>
-          <label className="flex flex-1 flex-col text-sm">
-            <span className="font-medium text-slate-700 dark:text-slate-200">{t('common.labels.customerPhone')}</span>
-            <input
-              id="invoice-customer-phone"
-              type="text"
-              placeholder={t('driverInvoice.form.customerPhonePlaceholder')}
-              value={customerPhone}
-              onChange={(e) => setCustomerPhone(e.target.value)}
-              className="rounded border border-slate-300 px-3 py-2 text-slate-900 transition-colors focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
-            />
-          </label>
-        </div>
+      <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
+        <div className="flex flex-1 flex-col gap-6">
+          {message && (
+            <p
+              className={`text-sm ${
+                messageTone === 'error'
+                  ? 'text-red-600 dark:text-red-400'
+                  : messageTone === 'warning'
+                  ? 'text-yellow-700 dark:text-yellow-400'
+                  : 'text-green-600 dark:text-green-400'
+              }`}
+            >
+              {message}
+            </p>
+          )}
+          <form onSubmit={handleSubmit} className="space-y-5 sm:space-y-6">
+            <div className="flex flex-col gap-4 sm:gap-5 lg:flex-row">
+              <label className="flex flex-1 flex-col text-sm">
+                <span className="font-medium text-slate-700 dark:text-slate-200">{t('common.labels.customerName')}</span>
+                <input
+                  id="invoice-customer-name"
+                  type="text"
+                  placeholder={t('driverInvoice.form.customerNamePlaceholder')}
+                  value={customerName}
+                  onChange={(e) => setCustomerName(e.target.value)}
+                  className="rounded border border-slate-300 px-3 py-2 text-slate-900 transition-colors focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
+                />
+              </label>
+              <label className="flex flex-1 flex-col text-sm">
+                <span className="font-medium text-slate-700 dark:text-slate-200">{t('common.labels.customerPhone')}</span>
+                <input
+                  id="invoice-customer-phone"
+                  type="text"
+                  placeholder={t('driverInvoice.form.customerPhonePlaceholder')}
+                  value={customerPhone}
+                  onChange={(e) => setCustomerPhone(e.target.value)}
+                  className="rounded border border-slate-300 px-3 py-2 text-slate-900 transition-colors focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
+                />
+              </label>
+            </div>
         {/* Line Items */}
         <div className="space-y-3">
           <h2 className="text-xl font-semibold text-slate-900 dark:text-slate-100">
@@ -906,30 +916,38 @@ const DriverInvoicePage: React.FC = () => {
             </div>
           </div>
           {/* Verified layouts at 360px, 768px, and 1280px viewports. Extremely narrow screens (<340px) may still require horizontal scrolling for action labels. */}
+            <button
+              type="button"
+              onClick={addItem}
+              className="mt-2 rounded bg-indigo-600 px-3 py-1 text-sm font-medium text-white transition hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:ring-offset-slate-100 dark:focus:ring-offset-slate-900"
+            >
+              {t('common.actions.addItem')}
+            </button>
+          </div>
+          {/* Total */}
+          <div className="text-right text-lg font-semibold text-slate-900 dark:text-slate-100">
+            {t('driverInvoice.form.totalLabel')} {formatCurrencyValue(total)}
+          </div>
+          {/* Signature */}
+          <div>
+            <h2 className="mb-1 text-xl font-semibold text-slate-900 dark:text-slate-100">{t('common.labels.signature')}</h2>
+            <SignaturePad onChange={setSignatureDataUrl} />
+          </div>
           <button
-            type="button"
-            onClick={addItem}
-            className="mt-2 rounded bg-indigo-600 px-3 py-1 text-sm font-medium text-white transition hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:ring-offset-slate-100 dark:focus:ring-offset-slate-900"
+            type="submit"
+            className="rounded bg-green-600 px-4 py-2 text-white transition hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 focus:ring-offset-slate-100 dark:focus:ring-offset-slate-900"
           >
-            {t('common.actions.addItem')}
+            {t('common.actions.previewInvoice')}
           </button>
+          </form>
         </div>
-        {/* Total */}
-        <div className="text-right text-lg font-semibold text-slate-900 dark:text-slate-100">
-          {t('driverInvoice.form.totalLabel')} {formatCurrencyValue(total)}
-        </div>
-        {/* Signature */}
-        <div>
-          <h2 className="mb-1 text-xl font-semibold text-slate-900 dark:text-slate-100">{t('common.labels.signature')}</h2>
-          <SignaturePad onChange={setSignatureDataUrl} />
-        </div>
-        <button
-          type="submit"
-          className="rounded bg-green-600 px-4 py-2 text-white transition hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 focus:ring-offset-slate-100 dark:focus:ring-offset-slate-900"
-        >
-          {t('common.actions.previewInvoice')}
-        </button>
-      </form>
+        {(statusCard || overridesCard) && (
+          <aside className="flex w-full max-w-xl flex-col gap-4">
+            {statusCard}
+            {overridesCard}
+          </aside>
+        )}
+      </div>
       <InvoicePreviewModal
         isOpen={isPreviewOpen}
         items={items}
