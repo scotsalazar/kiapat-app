@@ -10,7 +10,6 @@ import InvoicePreviewModal from '../components/InvoicePreviewModal';
 import type { Classification, InvoiceItemForm, Price } from '../types/invoice';
 import { formatDateTime } from '../utils/dateTime';
 import apiClient from '../api/axios';
-import { isDemoMode } from '../utils/env';
 
 const units = ['TRAY', 'DOZEN', 'PCS'] as const;
 type UnitType = (typeof units)[number];
@@ -71,99 +70,8 @@ type DriverInventoryStreamState = {
   prices: Price[];
 };
 
-const DEMO_CLASSIFICATIONS: Classification[] = [
-  { id: 1, size: 'MEDIUM', color: 'BROWN' },
-  { id: 2, size: 'LARGE', color: 'WHITE' },
-  { id: 3, size: 'SMALL', color: 'WHITE' },
-];
-
-const createDemoPrices = (): Price[] => {
-  const now = Date.now();
-  return [
-    {
-      id: 101,
-      classification_id: 1,
-      unit: 'TRAY',
-      price_per_unit: 2250,
-      effective_from: new Date(now - 3 * 24 * 60 * 60 * 1000).toISOString(),
-      effective_to: null,
-    },
-    {
-      id: 102,
-      classification_id: 1,
-      unit: 'DOZEN',
-      price_per_unit: 900,
-      effective_from: new Date(now - 3 * 24 * 60 * 60 * 1000).toISOString(),
-      effective_to: null,
-    },
-    {
-      id: 103,
-      classification_id: 1,
-      unit: 'PCS',
-      price_per_unit: 80,
-      effective_from: new Date(now - 3 * 24 * 60 * 60 * 1000).toISOString(),
-      effective_to: null,
-    },
-    {
-      id: 201,
-      classification_id: 2,
-      unit: 'TRAY',
-      price_per_unit: 2400,
-      effective_from: new Date(now - 5 * 24 * 60 * 60 * 1000).toISOString(),
-      effective_to: null,
-    },
-    {
-      id: 202,
-      classification_id: 2,
-      unit: 'DOZEN',
-      price_per_unit: 960,
-      effective_from: new Date(now - 5 * 24 * 60 * 60 * 1000).toISOString(),
-      effective_to: null,
-    },
-    {
-      id: 301,
-      classification_id: 3,
-      unit: 'TRAY',
-      price_per_unit: 2100,
-      effective_from: new Date(now - 7 * 24 * 60 * 60 * 1000).toISOString(),
-      effective_to: null,
-    },
-    {
-      id: 302,
-      classification_id: 3,
-      unit: 'DOZEN',
-      price_per_unit: 840,
-      effective_from: new Date(now - 7 * 24 * 60 * 60 * 1000).toISOString(),
-      effective_to: null,
-    },
-  ];
-};
-
-const createDemoInvoiceResponse = (itemCount: number): InvoiceResponse => {
-  const hasOverride = itemCount > 2;
-  return {
-    id: Math.floor(Date.now() / 1000),
-    status: hasOverride ? 'PENDING_OVERRIDE' : 'COMPLETED',
-    overrides: hasOverride
-      ? [
-          {
-            id: 1,
-            classification_id: 2,
-            requested_qty_pcs: 240,
-            requested_unit: 'DOZEN',
-            available_qty_pcs: 180,
-            status: 'PENDING',
-            decision_reason: null,
-          },
-        ]
-      : [],
-  };
-};
-
 const DriverInvoicePage: React.FC = () => {
   const { token } = useAuth();
-  const demoMode = isDemoMode();
-  const liveApiEnabled = !demoMode;
   const navigate = useNavigate();
   const { t } = useTranslation();
   const [classifications, setClassifications] = useState<Classification[]>([]);
@@ -186,21 +94,6 @@ const DriverInvoicePage: React.FC = () => {
     () => new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }),
     [],
   );
-  const demoBannerMessage = useMemo(
-    () =>
-      t('driverInvoice.demoMode.banner', {
-        defaultValue: 'Demo mode is active. Pricing and invoices are mocked locally.',
-      }),
-    [t],
-  );
-  const demoSubmissionMessage = useMemo(
-    () =>
-      t('driverInvoice.demoMode.submission', {
-        defaultValue: 'Invoice submission simulated for demo mode.',
-      }),
-    [t],
-  );
-
   const formatCurrencyValue = useCallback(
     (value: number | null | undefined) =>
       value !== null && value !== undefined
@@ -239,10 +132,10 @@ const DriverInvoicePage: React.FC = () => {
     DriverInventoryStreamState,
     InventoryUpdateMessage<unknown, unknown, Price[] | undefined>
   >({
-    token: liveApiEnabled ? token : undefined,
+    token,
     initialData: priceStreamInitialData,
     merge: mergePriceUpdates,
-    enabled: liveApiEnabled && Boolean(token),
+    enabled: Boolean(token),
   });
 
   const prices = priceStream.prices ?? [];
@@ -261,13 +154,6 @@ const DriverInvoicePage: React.FC = () => {
   }, [prices]);
 
   const streamStatusMeta = useMemo(() => {
-    if (demoMode) {
-      return {
-        label: t('driverInvoice.demoMode.streamStatus', { defaultValue: 'Demo data' }),
-        dotClass: 'bg-blue-500',
-        textClass: 'text-blue-600 dark:text-blue-300',
-      };
-    }
     switch (streamStatus) {
       case 'open':
         return {
@@ -306,14 +192,9 @@ const DriverInvoicePage: React.FC = () => {
           textClass: 'text-gray-500 dark:text-slate-400',
         };
     }
-  }, [demoMode, streamStatus, t]);
+  }, [streamStatus, t]);
 
   useEffect(() => {
-    if (!liveApiEnabled) {
-      setClassifications(DEMO_CLASSIFICATIONS);
-      setInitialPrices(createDemoPrices());
-      return;
-    }
     if (!token) return;
     Promise.all([
       apiClient.get('/api/catalog/classifications'),
@@ -322,7 +203,7 @@ const DriverInvoicePage: React.FC = () => {
       setClassifications(clsRes.data);
       setInitialPrices(priceRes.data);
     });
-  }, [liveApiEnabled, token]);
+  }, [token]);
 
   const applyPricing = useCallback(
     (item: InvoiceItemForm): InvoiceItemForm => {
@@ -412,29 +293,6 @@ const DriverInvoicePage: React.FC = () => {
       return;
     }
     setIsSubmitting(true);
-    if (!liveApiEnabled) {
-      const simulated = createDemoInvoiceResponse(payloadItems.length);
-      setInvoiceId(simulated.id);
-      setInvoiceStatus(simulated.status);
-      setOverrides(simulated.overrides);
-      if (simulated.status === 'PENDING_OVERRIDE') {
-        const pendingMessage = t('driverInvoice.messages.pendingSubmission');
-        setMessage(pendingMessage);
-        setMessageTone('warning');
-        showToast(pendingMessage, 'info');
-      } else {
-        setMessage(demoSubmissionMessage);
-        setMessageTone('success');
-        showToast(demoSubmissionMessage, 'success');
-      }
-      setItems([]);
-      setCustomerName('');
-      setCustomerPhone('');
-      setSignatureDataUrl('');
-      setIsPreviewOpen(false);
-      setIsSubmitting(false);
-      return;
-    }
     try {
       const res = await apiClient.post('/api/sales/invoices', {
         customer_name: customerName || null,
@@ -608,11 +466,6 @@ const DriverInvoicePage: React.FC = () => {
           )}
         </div>
       </div>
-      {demoMode && (
-        <div className="rounded border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900 shadow-sm dark:border-blue-500 dark:bg-blue-900/30 dark:text-blue-100">
-          {demoBannerMessage}
-        </div>
-      )}
       <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
         <div className="flex flex-1 flex-col gap-6">
           {message && (

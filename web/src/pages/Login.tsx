@@ -2,7 +2,6 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { useToast } from '../components/ToastProvider';
-import { isDemoMode } from '../utils/env';
 
 const LoginPage: React.FC = () => {
   const { login, isLoading, user } = useAuth();
@@ -13,13 +12,10 @@ const LoginPage: React.FC = () => {
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const redirectTo = (location.state as { from?: string } | undefined)?.from;
-  const demoMode = isDemoMode();
-  const credentialsHint = useMemo(() => {
-    if (demoMode) {
-      return 'Demo credentials: admin / admin123 (admin) or driver / pass123 (driver)';
-    }
-    return 'Seeded accounts include admin / admin123 (admin) and driver / pass123 (driver).';
-  }, [demoMode]);
+  const credentialsHint = useMemo(
+    () => 'Seeded accounts include admin / admin123 (admin) and driver / pass123 (driver).',
+    [],
+  );
 
   useEffect(() => {
     if (user) {
