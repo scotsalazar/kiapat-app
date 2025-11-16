@@ -1,11 +1,10 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../hooks/useAuth';
 import { useToast } from '../components/ToastProvider';
 import { parseApiError } from '../utils/apiErrors';
 import { formatDateTime } from '../utils/dateTime';
 import apiClient from '../api/axios';
-import { isDemoMode } from '../utils/env';
 
 interface InvoiceItem {
   id: number;
@@ -58,122 +57,9 @@ interface InvoiceListResponse {
 const MOVEMENT_STATUSES = ['DRAFT', 'VERIFIED', 'COMMITTED', 'PENDING_OVERRIDE', 'REJECTED'];
 const INVOICE_STATUSES = ['COMPLETED', 'PENDING_OVERRIDE', 'REJECTED'];
 
-const DEMO_INVOICES: Invoice[] = [
-  {
-    id: 5001,
-    customer_name: 'Mercado Deli',
-    customer_phone: '0917 123 4567',
-    total_amount: 28750,
-    signature_png_path: null,
-    created_by: 2,
-    created_at: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
-    status: 'COMPLETED',
-    created_by_user: {
-      id: 2,
-      name: 'Demo Driver',
-      username: 'demo.driver',
-      role: 'driver',
-      created_at: new Date(Date.now() - 40 * 24 * 60 * 60 * 1000).toISOString(),
-    },
-    items: [
-      {
-        id: 1,
-        classification_id: 1,
-        unit: 'TRAY',
-        qty: 5,
-        unit_price: 2150,
-        line_total: 10750,
-      },
-      {
-        id: 2,
-        classification_id: 2,
-        unit: 'DOZEN',
-        qty: 20,
-        unit_price: 900,
-        line_total: 18000,
-      },
-    ],
-    overrides: [],
-  },
-  {
-    id: 5002,
-    customer_name: 'Sunrise Cafe',
-    customer_phone: '0918 765 4321',
-    total_amount: 15420,
-    signature_png_path: null,
-    created_by: 3,
-    created_at: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
-    status: 'PENDING_OVERRIDE',
-    created_by_user: {
-      id: 3,
-      name: 'Demo Driver 2',
-      username: 'demo.driver2',
-      role: 'driver',
-      created_at: new Date(Date.now() - 25 * 24 * 60 * 60 * 1000).toISOString(),
-    },
-    items: [
-      {
-        id: 3,
-        classification_id: 2,
-        unit: 'TRAY',
-        qty: 4,
-        unit_price: 2400,
-        line_total: 9600,
-      },
-      {
-        id: 4,
-        classification_id: 3,
-        unit: 'PCS',
-        qty: 120,
-        unit_price: 48,
-        line_total: 4800,
-      },
-    ],
-    overrides: [
-      {
-        id: 1,
-        status: 'PENDING',
-        classification_id: 2,
-        requested_qty_pcs: 240,
-        requested_unit: 'DOZEN',
-        available_qty_pcs: 180,
-        decision_reason: null,
-      },
-    ],
-  },
-  {
-    id: 5003,
-    customer_name: null,
-    customer_phone: null,
-    total_amount: 12750,
-    signature_png_path: null,
-    created_by: 4,
-    created_at: new Date(Date.now() - 8 * 24 * 60 * 60 * 1000).toISOString(),
-    status: 'REJECTED',
-    created_by_user: {
-      id: 4,
-      name: 'Demo Admin',
-      username: 'demo.admin',
-      role: 'admin',
-      created_at: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString(),
-    },
-    items: [
-      {
-        id: 5,
-        classification_id: 1,
-        unit: 'DOZEN',
-        qty: 15,
-        unit_price: 850,
-        line_total: 12750,
-      },
-    ],
-    overrides: [],
-  },
-];
 
 const InvoiceHistoryPage: React.FC = () => {
   const { token, user } = useAuth();
-  const demoMode = isDemoMode();
   const { showToast } = useToast();
   const { t } = useTranslation();
   const [invoices, setInvoices] = useState<Invoice[]>([]);
@@ -188,14 +74,6 @@ const InvoiceHistoryPage: React.FC = () => {
   const [invoiceStatus, setInvoiceStatus] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string>('');
-
-  const demoBannerMessage = useMemo(
-    () =>
-      t('invoiceHistory.demoMode.banner', {
-        defaultValue: 'Demo mode is active. Invoice results are mocked locally.',
-      }),
-    [t],
-  );
 
   const fetchInvoices = useCallback(async () => {
     setLoading(true);
@@ -236,15 +114,6 @@ const InvoiceHistoryPage: React.FC = () => {
       }
       return filtered;
     };
-
-    if (demoMode) {
-      const filtered = applyFilters(DEMO_INVOICES);
-      const startIndex = (page - 1) * pageSize;
-      setTotal(filtered.length);
-      setInvoices(filtered.slice(startIndex, startIndex + pageSize));
-      setLoading(false);
-      return;
-    }
 
     if (!token) {
       setLoading(false);
@@ -291,7 +160,6 @@ const InvoiceHistoryPage: React.FC = () => {
     }
   }, [
     customer,
-    demoMode,
     driver,
     endDate,
     page,
@@ -339,11 +207,6 @@ const InvoiceHistoryPage: React.FC = () => {
         <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">{t('invoiceHistory.title')}</h1>
         <p className="text-sm text-slate-600 dark:text-slate-300">{t('invoiceHistory.description')}</p>
       </div>
-      {demoMode && (
-        <div className="rounded border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900 shadow-sm dark:border-blue-500 dark:bg-blue-900/30 dark:text-blue-100">
-          {demoBannerMessage}
-        </div>
-      )}
       <div className="space-y-4 rounded border border-slate-200 bg-white p-4 shadow-sm transition-colors dark:border-slate-700 dark:bg-slate-900 dark:shadow-slate-900/40">
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
           <label className="flex flex-col text-sm">
