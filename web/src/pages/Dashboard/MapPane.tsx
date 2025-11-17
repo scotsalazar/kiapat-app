@@ -119,6 +119,8 @@ const createVehicleIcon = (
 };
 
 const MapPane = ({ className = '', showHeader = true }: MapPaneProps) => {
+  const vehicles = mockVehicles;
+  const hasVehicles = vehicles.length > 0;
   const [vehiclePositions, setVehiclePositions] = useState<Record<string, Coordinate>>(
     () => getInitialVehiclePositions()
   );
@@ -129,7 +131,11 @@ const MapPane = ({ className = '', showHeader = true }: MapPaneProps) => {
   const center = useMemo(() => KIDAPAWAN_CITY_COORDINATES, []);
 
   const fallbackMarkers = useMemo(() => {
-    const positions = mockVehicles.map(
+    if (!hasVehicles) {
+      return [];
+    }
+
+    const positions = vehicles.map(
       (vehicle) => vehiclePositions[vehicle.id] ?? vehicle.location
     );
 
@@ -147,7 +153,7 @@ const MapPane = ({ className = '', showHeader = true }: MapPaneProps) => {
     const latRange = maxLat - minLat || 1;
     const lngRange = maxLng - minLng || 1;
 
-    return mockVehicles.map((vehicle, index) => {
+    return vehicles.map((vehicle, index) => {
       const position = positions[index];
       const normalizedX = ((position.lng - minLng) / lngRange) * 100;
       const normalizedY = ((position.lat - minLat) / latRange) * 100;
@@ -161,13 +167,17 @@ const MapPane = ({ className = '', showHeader = true }: MapPaneProps) => {
         iconUrl: getVehicleIconDataUrl(vehicle.id, vehicle.status),
       };
     });
-  }, [vehiclePositions]);
+  }, [hasVehicles, vehiclePositions, vehicles]);
 
   useEffect(() => {
+    if (!hasVehicles) {
+      return undefined;
+    }
+
     const intervalId = window.setInterval(() => {
       setVehiclePositions((prev) => {
         const nextPositions: Record<string, Coordinate> = { ...prev };
-        mockVehicles.forEach((vehicle) => {
+        vehicles.forEach((vehicle) => {
           const previous = prev[vehicle.id] ?? vehicle.location;
           nextPositions[vehicle.id] = jitterCoordinates(previous, JITTER_RADIUS_METERS);
         });
@@ -178,7 +188,7 @@ const MapPane = ({ className = '', showHeader = true }: MapPaneProps) => {
     return () => {
       window.clearInterval(intervalId);
     };
-  }, []);
+  }, [hasVehicles, vehicles]);
 
   const { isLoaded, loadError } = useLoadScript({
     id: 'kiapat-dashboard-map',
@@ -240,28 +250,39 @@ const MapPane = ({ className = '', showHeader = true }: MapPaneProps) => {
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Live fleet snapshot</p>
             <h2 className="text-xl font-semibold leading-tight tracking-tight text-slate-900">Kidapawan City coverage</h2>
             <p className="text-sm leading-relaxed text-slate-500">
-              Add <code className="rounded bg-slate-100 px-1 py-0.5">VITE_GOOGLE_MAPS_API_KEY</code> for an interactive view. This
-              fallback uses live telemetry to keep vehicle placements fresh.
+              Add <code className="rounded bg-slate-100 px-1 py-0.5">VITE_GOOGLE_MAPS_API_KEY</code> for an interactive view.
+              {hasVehicles
+                ? ' This fallback keeps vehicle placements fresh without Google Maps.'
+                : ' Vehicle telemetry is not connected yet.'}
             </p>
           </header>
         )}
         <div className="flex-1">
-          <div className={`relative w-full overflow-hidden rounded-xl border border-dashed border-slate-300 bg-slate-50 ${MAP_DIMENSION_CLASSES}`}>
-            <div className="absolute inset-0 bg-[linear-gradient(120deg,rgba(15,23,42,0.05)_25%,transparent_25%),linear-gradient(-120deg,rgba(15,23,42,0.05)_25%,transparent_25%)] bg-[length:40px_40px]" />
-            {fallbackMarkers.map(({ vehicle, positionStyle, iconUrl }) => (
-              <div
-                key={vehicle.id}
-                className="absolute -translate-x-1/2 -translate-y-1/2"
-                style={positionStyle}
-              >
-                <img
-                  src={iconUrl}
-                  alt={`${vehicle.id} ${statusIdentifiers[vehicle.status]} icon`}
-                  className="h-12 w-24 drop-shadow"
-                />
-              </div>
-            ))}
-          </div>
+          {hasVehicles ? (
+            <div className={`relative w-full overflow-hidden rounded-xl border border-dashed border-slate-300 bg-slate-50 ${MAP_DIMENSION_CLASSES}`}>
+              <div className="absolute inset-0 bg-[linear-gradient(120deg,rgba(15,23,42,0.05)_25%,transparent_25%),linear-gradient(-120deg,rgba(15,23,42,0.05)_25%,transparent_25%)] bg-[length:40px_40px]" />
+              {fallbackMarkers.map(({ vehicle, positionStyle, iconUrl }) => (
+                <div
+                  key={vehicle.id}
+                  className="absolute -translate-x-1/2 -translate-y-1/2"
+                  style={positionStyle}
+                >
+                  <img
+                    src={iconUrl}
+                    alt={`${vehicle.id} ${statusIdentifiers[vehicle.status]} icon`}
+                    className="h-12 w-24 drop-shadow"
+                  />
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div
+              className={`flex items-center justify-center rounded-xl border border-dashed border-slate-300 bg-slate-50 text-sm text-slate-500 ${MAP_DIMENSION_CLASSES}`}
+              aria-label="No vehicle data connected"
+            >
+              No vehicle data connected. Add telemetry to start tracking.
+            </div>
+          )}
         </div>
       </section>
     );
@@ -295,120 +316,131 @@ const MapPane = ({ className = '', showHeader = true }: MapPaneProps) => {
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Live fleet tracking</p>
           <h2 className="text-xl font-semibold leading-tight tracking-tight text-slate-900">Kidapawan City coverage</h2>
           <p className="text-sm leading-relaxed text-slate-500">
-            Monitoring {mockVehicles.length} active logistics vehicles across the valley corridor
+            {hasVehicles
+              ? `Monitoring ${vehicles.length} active logistics vehicles across the valley corridor.`
+              : 'No vehicle telemetry available yet. Connect fleet data to see live tracking.'}
           </p>
         </header>
       )}
       <div className="flex-1">
-        <GoogleMap
-          center={center}
-          zoom={MAP_ZOOM}
-          mapContainerClassName={`w-full rounded-xl ${MAP_DIMENSION_CLASSES}`}
-          options={{
-            disableDefaultUI: true,
-            zoomControl: true,
-            mapTypeControl: false,
-            streetViewControl: false,
-            fullscreenControl: false,
-            styles: [
-              {
-                featureType: 'poi',
-                stylers: [{ visibility: 'off' }],
-              },
-            ],
-          }}
-        >
-          {mockVehicles.map((vehicle) => {
-            const position = vehiclePositions[vehicle.id] ?? vehicle.location;
-            const icon = vehicleIconFactory?.(vehicle.id, vehicle.status);
+        {hasVehicles ? (
+          <GoogleMap
+            center={center}
+            zoom={MAP_ZOOM}
+            mapContainerClassName={`w-full rounded-xl ${MAP_DIMENSION_CLASSES}`}
+            options={{
+              disableDefaultUI: true,
+              zoomControl: true,
+              mapTypeControl: false,
+              streetViewControl: false,
+              fullscreenControl: false,
+              styles: [
+                {
+                  featureType: 'poi',
+                  stylers: [{ visibility: 'off' }],
+                },
+              ],
+            }}
+          >
+            {vehicles.map((vehicle) => {
+              const position = vehiclePositions[vehicle.id] ?? vehicle.location;
+              const icon = vehicleIconFactory?.(vehicle.id, vehicle.status);
 
-            const handleMouseOver = () => {
-              clearHoverTimeout();
-              setHoveredVehicleId(vehicle.id);
-            };
+              const handleMouseOver = () => {
+                clearHoverTimeout();
+                setHoveredVehicleId(vehicle.id);
+              };
 
-            const handleMouseOut = () => {
-              scheduleHoverClear();
-            };
+              const handleMouseOut = () => {
+                scheduleHoverClear();
+              };
 
-            const handleClick = () => {
-              clearHoverTimeout();
-              setHoveredVehicleId((current) => (current === vehicle.id ? null : vehicle.id));
-            };
+              const handleClick = () => {
+                clearHoverTimeout();
+                setHoveredVehicleId((current) => (current === vehicle.id ? null : vehicle.id));
+              };
 
-            return (
-              <MarkerF
-                key={vehicle.id}
-                position={position}
-                title={`${vehicle.driverName} · ${vehicle.routeName}`}
-                icon={icon ?? undefined}
-                onMouseOver={handleMouseOver}
-                onMouseOut={handleMouseOut}
-                onClick={handleClick}
-              />
-            );
-          })}
-          {(() => {
-            if (!hoveredVehicleId) {
-              return null;
-            }
+              return (
+                <MarkerF
+                  key={vehicle.id}
+                  position={position}
+                  title={`${vehicle.driverName} · ${vehicle.routeName}`}
+                  icon={icon ?? undefined}
+                  onMouseOver={handleMouseOver}
+                  onMouseOut={handleMouseOut}
+                  onClick={handleClick}
+                />
+              );
+            })}
+            {(() => {
+              if (!hoveredVehicleId) {
+                return null;
+              }
 
-            const hoveredVehicle = mockVehicles.find((vehicle) => vehicle.id === hoveredVehicleId);
-            if (!hoveredVehicle) {
-              return null;
-            }
+              const hoveredVehicle = vehicles.find((vehicle) => vehicle.id === hoveredVehicleId);
+              if (!hoveredVehicle) {
+                return null;
+              }
 
-            const position = vehiclePositions[hoveredVehicle.id] ?? hoveredVehicle.location;
-            const { label, className } = statusStyles[hoveredVehicle.status];
+              const position = vehiclePositions[hoveredVehicle.id] ?? hoveredVehicle.location;
+              const { label, className } = statusStyles[hoveredVehicle.status];
 
-            return (
-              <InfoWindowF
-                position={position}
-                options={infoWindowOptions}
-                onCloseClick={() => setHoveredVehicleId(null)}
-              >
-                <div
-                  className="w-64 space-y-3 text-slate-900"
-                  onMouseEnter={clearHoverTimeout}
-                  onMouseLeave={scheduleHoverClear}
+              return (
+                <InfoWindowF
+                  position={position}
+                  options={infoWindowOptions}
+                  onCloseClick={() => setHoveredVehicleId(null)}
                 >
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
-                        {hoveredVehicle.id}
-                      </p>
-                      <p className="text-sm font-semibold text-slate-900">{hoveredVehicle.driverName}</p>
-                      <p className="text-xs text-slate-500">{hoveredVehicle.routeName}</p>
+                  <div
+                    className="w-64 space-y-3 text-slate-900"
+                    onMouseEnter={clearHoverTimeout}
+                    onMouseLeave={scheduleHoverClear}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
+                          {hoveredVehicle.id}
+                        </p>
+                        <p className="text-sm font-semibold text-slate-900">{hoveredVehicle.driverName}</p>
+                        <p className="text-xs text-slate-500">{hoveredVehicle.routeName}</p>
+                      </div>
+                      <span className={`rounded-full px-2 py-1 text-[11px] font-semibold uppercase ${className}`}>
+                        {label}
+                      </span>
                     </div>
-                    <span className={`rounded-full px-2 py-1 text-[11px] font-semibold uppercase ${className}`}>
-                      {label}
-                    </span>
+                    <dl className="grid grid-cols-2 gap-3 text-xs text-slate-500">
+                      <div>
+                        <dt className="font-semibold uppercase tracking-wide text-slate-400">Speed</dt>
+                        <dd className="text-sm font-semibold text-slate-900">{hoveredVehicle.speedKph} km/h</dd>
+                      </div>
+                      <div>
+                        <dt className="font-semibold uppercase tracking-wide text-slate-400">ETA</dt>
+                        <dd className="text-sm font-semibold text-slate-900">{hoveredVehicle.etaMinutes} min</dd>
+                      </div>
+                      <div className="col-span-2">
+                        <dt className="font-semibold uppercase tracking-wide text-slate-400">Load</dt>
+                        <dd className="text-sm font-semibold text-slate-900">
+                          {hoveredVehicle.currentLoadKg.toLocaleString()} kg
+                          <span className="text-xs font-medium text-slate-500">
+                            {' '}
+                            / {hoveredVehicle.capacityKg.toLocaleString()} kg
+                          </span>
+                        </dd>
+                      </div>
+                    </dl>
                   </div>
-                  <dl className="grid grid-cols-2 gap-3 text-xs text-slate-500">
-                    <div>
-                      <dt className="font-semibold uppercase tracking-wide text-slate-400">Speed</dt>
-                      <dd className="text-sm font-semibold text-slate-900">{hoveredVehicle.speedKph} km/h</dd>
-                    </div>
-                    <div>
-                      <dt className="font-semibold uppercase tracking-wide text-slate-400">ETA</dt>
-                      <dd className="text-sm font-semibold text-slate-900">{hoveredVehicle.etaMinutes} min</dd>
-                    </div>
-                    <div className="col-span-2">
-                      <dt className="font-semibold uppercase tracking-wide text-slate-400">Load</dt>
-                      <dd className="text-sm font-semibold text-slate-900">
-                        {hoveredVehicle.currentLoadKg.toLocaleString()} kg
-                        <span className="text-xs font-medium text-slate-500">
-                          {' '}
-                          / {hoveredVehicle.capacityKg.toLocaleString()} kg
-                        </span>
-                      </dd>
-                    </div>
-                  </dl>
-                </div>
-              </InfoWindowF>
-            );
-          })()}
-        </GoogleMap>
+                </InfoWindowF>
+              );
+            })()}
+          </GoogleMap>
+        ) : (
+          <div
+            className={`flex h-full items-center justify-center rounded-xl border border-dashed border-slate-300 bg-slate-50 text-sm text-slate-500 ${MAP_DIMENSION_CLASSES}`}
+            aria-label="No vehicle data connected"
+          >
+            No vehicle data connected. Add telemetry to start tracking.
+          </div>
+        )}
       </div>
     </section>
   );

@@ -66,6 +66,9 @@ const DashboardCard = ({ title, description, icon, children, className = '' }: D
 );
 
 const DashboardLayout = () => {
+  const vehicleCount = mockVehicles.length;
+  const inventoryCount = inventoryItems.length;
+
   return (
     <div className="flex min-h-full flex-1 flex-col gap-8 px-6 py-6 md:px-8">
       <div className="space-y-3">
@@ -74,7 +77,7 @@ const DashboardLayout = () => {
           Field logistics dashboard
         </h1>
         <p className="text-base leading-relaxed text-slate-600 dark:text-slate-300">
-          Live demo data for dispatch leads to monitor vehicle health and inventory readiness inside AppLayout.
+          Monitor live vehicle health and inventory readiness inside AppLayout.
         </p>
       </div>
 
@@ -82,7 +85,11 @@ const DashboardLayout = () => {
         <DashboardCard
           className="xl:col-span-3"
           title="Live fleet tracking"
-          description={`Monitoring ${mockVehicles.length} Kidapawan-based vehicles across active routes.`}
+          description={
+            vehicleCount
+              ? `Monitoring ${vehicleCount} Kidapawan-based vehicles across active routes.`
+              : 'No fleet data connected yet. Add vehicles to begin tracking.'
+          }
           icon={<MapIcon />}
         >
           <MapPane className="border-0 bg-transparent p-0 shadow-none" showHeader={false} />
@@ -91,7 +98,11 @@ const DashboardLayout = () => {
         <DashboardCard
           className="xl:col-span-2"
           title="Fleet health"
-          description={`Statuses, telemetry, and load factors for ${mockVehicles.length} drivers on duty.`}
+          description={
+            vehicleCount
+              ? `Statuses, telemetry, and load factors for ${vehicleCount} drivers on duty.`
+              : 'Statuses and telemetry will appear when vehicles are connected.'
+          }
           icon={<FleetIcon />}
         >
           <FleetOverviewList vehicles={mockVehicles} className="flex-1 min-h-0 overflow-auto" />
@@ -100,7 +111,11 @@ const DashboardLayout = () => {
         <DashboardCard
           className="xl:col-span-1"
           title="Critical inventory"
-          description={`Readiness across ${inventoryItems.length} stocked lines staged for deployment.`}
+          description={
+            inventoryCount
+              ? `Readiness across ${inventoryCount} stocked lines staged for deployment.`
+              : 'Inventory readiness will display once items are connected.'
+          }
           icon={<InventoryIcon />}
         >
           <InventoryPane items={inventoryItems} className="flex-1 min-h-0 overflow-auto" />
