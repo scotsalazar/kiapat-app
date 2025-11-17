@@ -36,51 +36,59 @@ const FleetOverviewList: React.FC<FleetOverviewListProps> = ({ vehicles = defaul
         </tr>
       </thead>
       <tbody className="divide-y divide-slate-100 bg-white dark:divide-slate-800 dark:bg-slate-900">
-        {vehicles.map((vehicle) => {
-          const etaLabel =
-            vehicle.etaMinutes > 0
-              ? `~${vehicle.etaMinutes} min`
-              : vehicle.status === 'maintenance'
-              ? '—'
-              : 'N/A';
-          const lastPing = new Date(vehicle.lastReported).toLocaleTimeString(undefined, {
-            hour: '2-digit',
-            minute: '2-digit',
-          });
-          const loadPercent = Math.round((vehicle.currentLoadKg / vehicle.capacityKg) * 100);
+        {vehicles.length === 0 ? (
+          <tr>
+            <td className="px-6 py-6 text-center text-sm text-slate-500" colSpan={7}>
+              No fleet data available. Connect telemetry to see vehicles here.
+            </td>
+          </tr>
+        ) : (
+          vehicles.map((vehicle) => {
+            const etaLabel =
+              vehicle.etaMinutes > 0
+                ? `~${vehicle.etaMinutes} min`
+                : vehicle.status === 'maintenance'
+                ? '—'
+                : 'N/A';
+            const lastPing = new Date(vehicle.lastReported).toLocaleTimeString(undefined, {
+              hour: '2-digit',
+              minute: '2-digit',
+            });
+            const loadPercent = Math.round((vehicle.currentLoadKg / vehicle.capacityKg) * 100);
 
-          return (
-            <tr key={vehicle.id} className="hover:bg-slate-50/70 dark:hover:bg-slate-800/60">
-              <td className="whitespace-nowrap px-6 py-4">
-                <div className="font-medium text-slate-900 dark:text-white">{vehicle.driverName}</div>
-                <p className="text-xs text-slate-500">{vehicle.id}</p>
-              </td>
-              <td className="px-6 py-4">
-                <p className="font-medium text-slate-900 dark:text-white">{vehicle.plateNumber}</p>
-              </td>
-              <td className="px-6 py-4">
-                <p className="text-slate-700 dark:text-slate-200">{vehicle.routeName}</p>
-                <p className="text-xs text-slate-500">{vehicle.speedKph} kph</p>
-              </td>
-              <td className="px-6 py-4">
-                <p className="font-medium text-slate-900 dark:text-white">
-                  {vehicle.currentLoadKg.toLocaleString()} kg
-                  <span className="text-xs text-slate-500"> / {vehicle.capacityKg.toLocaleString()} kg</span>
-                </p>
-                <div className="mt-1 h-1.5 rounded-full bg-slate-100 dark:bg-slate-800">
-                  <div className="h-1.5 rounded-full bg-blue-500" style={{ width: `${loadPercent}%` }} />
-                </div>
-              </td>
-              <td className="px-6 py-4">
-                <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${statusStyles[vehicle.status]}`}>
-                  {statusLabels[vehicle.status]}
-                </span>
-              </td>
-              <td className="px-6 py-4 text-slate-700 dark:text-slate-200">{etaLabel}</td>
-              <td className="px-6 py-4 text-slate-700 dark:text-slate-200">{lastPing}</td>
-            </tr>
-          );
-        })}
+            return (
+              <tr key={vehicle.id} className="hover:bg-slate-50/70 dark:hover:bg-slate-800/60">
+                <td className="whitespace-nowrap px-6 py-4">
+                  <div className="font-medium text-slate-900 dark:text-white">{vehicle.driverName}</div>
+                  <p className="text-xs text-slate-500">{vehicle.id}</p>
+                </td>
+                <td className="px-6 py-4">
+                  <p className="font-medium text-slate-900 dark:text-white">{vehicle.plateNumber}</p>
+                </td>
+                <td className="px-6 py-4">
+                  <p className="text-slate-700 dark:text-slate-200">{vehicle.routeName}</p>
+                  <p className="text-xs text-slate-500">{vehicle.speedKph} kph</p>
+                </td>
+                <td className="px-6 py-4">
+                  <p className="font-medium text-slate-900 dark:text-white">
+                    {vehicle.currentLoadKg.toLocaleString()} kg
+                    <span className="text-xs text-slate-500"> / {vehicle.capacityKg.toLocaleString()} kg</span>
+                  </p>
+                  <div className="mt-1 h-1.5 rounded-full bg-slate-100 dark:bg-slate-800">
+                    <div className="h-1.5 rounded-full bg-blue-500" style={{ width: `${loadPercent}%` }} />
+                  </div>
+                </td>
+                <td className="px-6 py-4">
+                  <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${statusStyles[vehicle.status]}`}>
+                    {statusLabels[vehicle.status]}
+                  </span>
+                </td>
+                <td className="px-6 py-4 text-slate-700 dark:text-slate-200">{etaLabel}</td>
+                <td className="px-6 py-4 text-slate-700 dark:text-slate-200">{lastPing}</td>
+              </tr>
+            );
+          })
+        )}
       </tbody>
     </table>
   </div>
