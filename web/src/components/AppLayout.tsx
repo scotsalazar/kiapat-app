@@ -24,6 +24,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
     { to: '/inventory', label: 'Inventory', roles: ['admin'] },
     { to: '/vehicles', label: 'Vehicles', roles: ['admin'] },
     { to: '/admin/users', label: 'Users', roles: ['admin'] },
+    { to: '/sales-invoices', label: 'Sales Invoices', roles: ['admin'] },
     { to: '/invoice', label: 'Invoice', roles: ['driver'] },
     { to: '/invoices/history', label: 'History', roles: ['admin', 'driver'] },
   ];

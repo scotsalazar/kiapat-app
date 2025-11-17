@@ -11,6 +11,7 @@ import AppLayout from './components/AppLayout';
 import RequireAuth from './components/RequireAuth';
 import LoginPage from './pages/Login';
 import { useAuth, UserRole } from './hooks/useAuth';
+import SalesInvoicesPage from './pages/SalesInvoices';
 
 const App: React.FC = () => {
   const { user } = useAuth();
@@ -35,6 +36,7 @@ const App: React.FC = () => {
         <Route path="/vehicles" element={withLayout(<VehiclesPage />, ['admin'])} />
         <Route path="/invoice" element={withLayout(<DriverInvoicePage />, ['driver'])} />
         <Route path="/invoices/history" element={withLayout(<InvoiceHistoryPage />, ['admin', 'driver'])} />
+        <Route path="/sales-invoices" element={withLayout(<SalesInvoicesPage />, ['admin'])} />
       </Routes>
     </ToastProvider>
   );
