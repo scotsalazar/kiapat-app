@@ -173,22 +173,6 @@ const AdminUsersPage: React.FC = () => {
     <div className="space-y-6">
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">{t('adminUsers.title')}</h1>
-        <div className="flex gap-2">
-          <button
-            type="button"
-            className="rounded px-4 py-2 transition-colors bg-slate-200 text-slate-800 hover:bg-slate-300 dark:bg-slate-700 dark:text-slate-100 dark:hover:bg-slate-600"
-            onClick={() => navigate('/inventory')}
-          >
-            {t('adminUsers.navigation.inventory')}
-          </button>
-          <button
-            type="button"
-            className="rounded px-4 py-2 transition-colors bg-slate-200 text-slate-800 hover:bg-slate-300 dark:bg-slate-700 dark:text-slate-100 dark:hover:bg-slate-600"
-            onClick={() => navigate('/')}
-          >
-            {t('adminUsers.navigation.home')}
-          </button>
-        </div>
       </div>
       {statusMessage && <div className="text-green-600 dark:text-green-400">{statusMessage}</div>}
       {loadError && <div className="text-red-600 dark:text-red-400">{loadError}</div>}

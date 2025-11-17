@@ -87,6 +87,9 @@ const DriverInvoicePage: React.FC = () => {
   const [overrides, setOverrides] = useState<InvoiceOverride[]>([]);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [gpsCoordinates, setGpsCoordinates] = useState('');
+  const [isFetchingLocation, setIsFetchingLocation] = useState(false);
+  const [locationError, setLocationError] = useState('');
 
   const { showToast } = useToast();
 
@@ -205,6 +208,39 @@ const DriverInvoicePage: React.FC = () => {
     });
   }, [token]);
 
+  const fetchGpsCoordinates = useCallback(async (): Promise<string> => {
+    if (!('geolocation' in navigator)) {
+      const unavailableMessage = t('driverInvoice.form.locationUnavailable');
+      setLocationError(unavailableMessage);
+      return '';
+    }
+
+    setIsFetchingLocation(true);
+    setLocationError('');
+
+    return new Promise((resolve) => {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const coords = `${position.coords.latitude.toFixed(6)}, ${position.coords.longitude.toFixed(6)}`;
+          setGpsCoordinates(coords);
+          setIsFetchingLocation(false);
+          resolve(coords);
+        },
+        (error) => {
+          const errorMessage = t('driverInvoice.form.locationError', { message: error.message });
+          setLocationError(errorMessage);
+          setIsFetchingLocation(false);
+          resolve('');
+        },
+        { enableHighAccuracy: true, timeout: 10000 },
+      );
+    });
+  }, [t]);
+
+  useEffect(() => {
+    void fetchGpsCoordinates();
+  }, [fetchGpsCoordinates]);
+
   const applyPricing = useCallback(
     (item: InvoiceItemForm): InvoiceItemForm => {
       if (!item.classification_id || !item.unit || !item.qty || item.qty <= 0) {
@@ -276,11 +312,117 @@ const DriverInvoicePage: React.FC = () => {
     setIsPreviewOpen(true);
   };
 
+  const buildReceiptHtml = useCallback(
+    (invoiceNumber: number | null, coordinates: string) => {
+      const submissionTime = formatDateTime(new Date().toISOString());
+      const subtotal = items.reduce((sum, item) => sum + (item.line_total || 0), 0);
+      const taxes = subtotal * 0.12;
+      const totalWithTax = subtotal + taxes;
+
+      const lineItemRows = items
+        .map((item) => {
+          const classification =
+            item.classification_id && classificationMap.get(item.classification_id);
+          const label = classification
+            ? `${classification.size} / ${classification.color}`
+            : t('invoicePreview.unclassified');
+
+          return `
+            <tr>
+              <td style="padding: 6px 4px; border-bottom: 1px solid #e2e8f0;">${label}</td>
+              <td style="padding: 6px 4px; border-bottom: 1px solid #e2e8f0; text-align: right;">${item.qty}</td>
+              <td style="padding: 6px 4px; border-bottom: 1px solid #e2e8f0; text-align: right;">${item.unit}</td>
+              <td style="padding: 6px 4px; border-bottom: 1px solid #e2e8f0; text-align: right;">${formatCurrencyValue(item.unit_price)}</td>
+              <td style="padding: 6px 4px; border-bottom: 1px solid #e2e8f0; text-align: right;">${formatCurrencyValue(item.line_total)}</td>
+            </tr>
+          `;
+        })
+        .join('');
+
+      return `
+        <html>
+          <head>
+            <meta name="viewport" content="width=device-width, initial-scale=1" />
+            <title>Sales Invoice Receipt</title>
+            <style>
+              body { font-family: Arial, sans-serif; color: #0f172a; padding: 16px; }
+              h1 { font-size: 18px; margin-bottom: 8px; }
+              table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+              tfoot td { font-weight: bold; }
+            </style>
+          </head>
+          <body>
+            <h1>${t('driverInvoice.title')}</h1>
+            <p><strong>${t('invoicePreview.summaryHeading')}:</strong> #${invoiceNumber ?? '—'} | ${submissionTime}</p>
+            <p><strong>${t('common.labels.customerName')}:</strong> ${customerName || '—'}<br />
+               <strong>${t('common.labels.customerPhone')}:</strong> ${customerPhone || '—'}<br />
+               <strong>${t('driverInvoice.form.gpsCoordinatesLabel')}:</strong> ${coordinates || t('driverInvoice.form.locationUnavailable')}</p>
+            <table>
+              <thead>
+                <tr>
+                  <th style="text-align:left; padding: 6px 4px; border-bottom: 1px solid #e2e8f0;">${t('invoicePreview.table.classification')}</th>
+                  <th style="text-align:right; padding: 6px 4px; border-bottom: 1px solid #e2e8f0;">${t('invoicePreview.table.quantity')}</th>
+                  <th style="text-align:right; padding: 6px 4px; border-bottom: 1px solid #e2e8f0;">${t('invoicePreview.table.unit')}</th>
+                  <th style="text-align:right; padding: 6px 4px; border-bottom: 1px solid #e2e8f0;">${t('invoicePreview.table.unitPrice')}</th>
+                  <th style="text-align:right; padding: 6px 4px; border-bottom: 1px solid #e2e8f0;">${t('invoicePreview.table.lineTotal')}</th>
+                </tr>
+              </thead>
+              <tbody>${lineItemRows}</tbody>
+              <tfoot>
+                <tr>
+                  <td colspan="4" style="padding: 6px 4px; text-align: right;">${t('invoicePreview.subtotal')}</td>
+                  <td style="padding: 6px 4px; text-align: right;">${formatCurrencyValue(subtotal)}</td>
+                </tr>
+                <tr>
+                  <td colspan="4" style="padding: 6px 4px; text-align: right;">${t('invoicePreview.taxes', { rate: '12' })}</td>
+                  <td style="padding: 6px 4px; text-align: right;">${formatCurrencyValue(taxes)}</td>
+                </tr>
+                <tr>
+                  <td colspan="4" style="padding: 6px 4px; text-align: right;">${t('invoicePreview.total')}</td>
+                  <td style="padding: 6px 4px; text-align: right;">${formatCurrencyValue(totalWithTax)}</td>
+                </tr>
+              </tfoot>
+            </table>
+          </body>
+        </html>
+      `;
+    },
+    [classificationMap, customerName, customerPhone, formatCurrencyValue, items, t],
+  );
+
+  const triggerPrintReceipt = useCallback(
+    (invoiceNumber: number | null, coordinates: string) => {
+      const html = buildReceiptHtml(invoiceNumber, coordinates);
+      const androidPrintManager = (window as unknown as { AndroidPrintManager?: { print?: (content: string) => void; printHtml?: (content: string) => void } }).AndroidPrintManager;
+
+      if (androidPrintManager?.printHtml) {
+        androidPrintManager.printHtml(html);
+        return;
+      }
+
+      if (androidPrintManager?.print) {
+        androidPrintManager.print(html);
+        return;
+      }
+
+      const printWindow = window.open('', '_blank', 'noopener,noreferrer');
+      if (printWindow) {
+        printWindow.document.write(html);
+        printWindow.document.close();
+        printWindow.focus();
+        printWindow.print();
+        printWindow.close();
+      }
+    },
+    [buildReceiptHtml],
+  );
+
   const handleConfirmPreview = async () => {
     if (previewWarnings.length > 0) {
       showToast(t('driverInvoice.messages.resolveIssues'), 'error');
       return;
     }
+    const latestCoordinates = gpsCoordinates || (await fetchGpsCoordinates());
     const payloadItems = items
       .filter((item) => item.classification_id && item.qty > 0 && item.unit)
       .map((item) => ({
@@ -299,6 +441,7 @@ const DriverInvoicePage: React.FC = () => {
         customer_phone: customerPhone || null,
         items: payloadItems,
         signature_png_b64: signatureDataUrl,
+        gps_coordinates: latestCoordinates || null,
       });
       const data: InvoiceResponse = res.data;
       setInvoiceId(data.id);
@@ -320,6 +463,7 @@ const DriverInvoicePage: React.FC = () => {
         setMessageTone('success');
         showToast(successMessage, 'success');
       }
+      triggerPrintReceipt(data.id, latestCoordinates);
       setItems([]);
       setCustomerName('');
       setCustomerPhone('');
@@ -505,6 +649,30 @@ const DriverInvoicePage: React.FC = () => {
                   className="rounded border border-slate-300 px-3 py-2 text-slate-900 transition-colors focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
                 />
               </label>
+            </div>
+            <div className="flex flex-col gap-2 text-sm">
+              <span className="font-medium text-slate-700 dark:text-slate-200">{t('driverInvoice.form.gpsCoordinatesLabel')}</span>
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+                <input
+                  type="text"
+                  readOnly
+                  value={gpsCoordinates || (isFetchingLocation ? t('driverInvoice.form.locatingLabel') : '')}
+                  placeholder={t('driverInvoice.form.gpsCoordinatesPlaceholder')}
+                  className="flex-1 rounded border border-slate-300 px-3 py-2 text-slate-900 transition-colors focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 disabled:bg-slate-100 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
+                />
+                <button
+                  type="button"
+                  onClick={() => void fetchGpsCoordinates()}
+                  disabled={isFetchingLocation}
+                  className="rounded border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-70 dark:border-slate-600 dark:text-slate-100 dark:hover:bg-slate-800"
+                >
+                  {isFetchingLocation ? t('driverInvoice.form.locatingLabel') : t('driverInvoice.form.refreshLocation')}
+                </button>
+              </div>
+              <p className="text-xs text-slate-500 dark:text-slate-400">{t('driverInvoice.form.gpsCoordinatesHelp')}</p>
+              {locationError && (
+                <p className="text-xs text-red-600 dark:text-red-400">{locationError}</p>
+              )}
             </div>
         {/* Line Items */}
         <div className="space-y-3">

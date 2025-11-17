@@ -196,7 +196,7 @@ const en = {
       },
     },
     driverInvoice: {
-      title: 'Generate Sales Invoice',
+      title: 'Generate Delivery Slip',
       statusBadge: {
         pending: 'pending approval',
         rejected: 'requires admin follow-up',
@@ -220,6 +220,13 @@ const en = {
         totalHeader: 'Total',
         actionsHeader: 'Actions',
         classificationPlaceholder: 'Select',
+        gpsCoordinatesLabel: 'GPS Coordinates',
+        gpsCoordinatesPlaceholder: 'Latitude, Longitude',
+        gpsCoordinatesHelp: 'Auto-populated from your current location.',
+        locatingLabel: 'Locating…',
+        locationUnavailable: 'GPS is not available on this device.',
+        locationError: 'Unable to fetch GPS location: {{message}}',
+        refreshLocation: 'Refresh location',
         unitTooltipWithPrices: 'Per tray: {{tray}} | Per dozen: {{dozen}}',
         unitTooltipWithoutClassification: 'Select a classification to view tray/dozen pricing',
         pricingUnavailable: 'Tray/dozen pricing unavailable.',
@@ -275,7 +282,7 @@ const en = {
       total: 'Total',
       cancel: 'Cancel',
       submitting: 'Submitting…',
-      confirmSubmit: 'Confirm & Submit',
+      confirmSubmit: 'Confirm & Print Receipt',
     },
     signaturePad: {
       clear: 'Clear',

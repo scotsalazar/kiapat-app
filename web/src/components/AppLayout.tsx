@@ -24,8 +24,8 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
     { to: '/dashboard', label: 'Dashboard', roles: ['admin'], enabled: isFullVersion },
     { to: '/inventory', label: 'Inventory', roles: ['admin'], enabled: isFullVersion },
     { to: '/vehicles', label: 'Vehicles', roles: ['admin'], enabled: isFullVersion },
-    { to: '/admin/users', label: 'Users', roles: ['admin'], enabled: true },
     { to: '/sales-invoices', label: 'Sales Invoices', roles: ['admin'], enabled: true },
+    { to: '/admin/users', label: 'Users', roles: ['admin'], enabled: true },
     { to: '/invoice', label: 'Invoice', roles: ['driver'], enabled: true },
     { to: '/invoices/history', label: 'History', roles: isFullVersion ? ['admin', 'driver'] : ['driver'], enabled: true },
   ].filter((item) => item.enabled);
