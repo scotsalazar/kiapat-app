@@ -33,14 +33,14 @@ class RoleEnum(str, enum.Enum):
 
 
 class SizeEnum(str, enum.Enum):
-    SMALL = "SMALL"
-    MEDIUM = "MEDIUM"
-    LARGE = "LARGE"
+    S = "S"
+    M = "M"
+    L = "L"
+    XL = "XL"
 
 
 class ColorEnum(str, enum.Enum):
     WHITE = "WHITE"
-    BROWN = "BROWN"
 
 
 class UnitEnum(str, enum.Enum):

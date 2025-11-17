@@ -119,14 +119,14 @@ type InventoryStreamState = {
 
 const RECENT_PRICE_CHANGE_WINDOW_MS = 1000 * 60 * 60 * 48; // 48 hours
 const SIZE_RANK: Record<string, number> = {
-  SMALL: 0,
-  MEDIUM: 1,
-  LARGE: 2,
+  S: 0,
+  M: 1,
+  L: 2,
+  XL: 3,
 };
 
 const COLOR_RANK: Record<string, number> = {
   WHITE: 0,
-  BROWN: 1,
 };
 
 const getSizeRank = (size: string) => SIZE_RANK[size] ?? Number.POSITIVE_INFINITY;
