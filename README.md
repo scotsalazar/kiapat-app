@@ -77,9 +77,13 @@ This repository contains a minimal yet functional MVP for **Kiapat**, an egg del
    ```bash
    VITE_API_BASE_URL=http://localhost:8000
    VITE_GOOGLE_MAPS_API_KEY=<demo-or-personal-key>
+   APP_VERSION=1.0
    ```
 
    The dashboard map widgets read the Google Maps API key via `import.meta.env.VITE_GOOGLE_MAPS_API_KEY`, so make sure the value is available in every environment (the repository includes `.env.example` as a reference). When running locally `VITE_API_BASE_URL` enables Vite’s proxy so that calls to `/api` are forwarded to the backend.
+
+   - Set `APP_VERSION` to `1.0` for the full experience (dashboard, inventory, vehicles, sales invoices, users).
+   - Set `APP_VERSION` to `0.1` to deploy only the driver experience and a trimmed admin view limited to Sales Invoices and Users.
 
    3. **Run the frontend**:
 
