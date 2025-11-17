@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import ThemeToggle from './ThemeToggle';
 import { useAuth } from '../hooks/useAuth';
 import { useToast } from './ToastProvider';
+import { isFullVersion } from '../config/appVersion';
 
 interface AppLayoutProps {
   children: React.ReactNode;
@@ -20,14 +21,14 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
   };
 
   const navItems = [
-    { to: '/dashboard', label: 'Dashboard', roles: ['admin'] },
-    { to: '/inventory', label: 'Inventory', roles: ['admin'] },
-    { to: '/vehicles', label: 'Vehicles', roles: ['admin'] },
-    { to: '/admin/users', label: 'Users', roles: ['admin'] },
-    { to: '/sales-invoices', label: 'Sales Invoices', roles: ['admin'] },
-    { to: '/invoice', label: 'Invoice', roles: ['driver'] },
-    { to: '/invoices/history', label: 'History', roles: ['admin', 'driver'] },
-  ];
+    { to: '/dashboard', label: 'Dashboard', roles: ['admin'], enabled: isFullVersion },
+    { to: '/inventory', label: 'Inventory', roles: ['admin'], enabled: isFullVersion },
+    { to: '/vehicles', label: 'Vehicles', roles: ['admin'], enabled: isFullVersion },
+    { to: '/admin/users', label: 'Users', roles: ['admin'], enabled: true },
+    { to: '/sales-invoices', label: 'Sales Invoices', roles: ['admin'], enabled: true },
+    { to: '/invoice', label: 'Invoice', roles: ['driver'], enabled: true },
+    { to: '/invoices/history', label: 'History', roles: isFullVersion ? ['admin', 'driver'] : ['driver'], enabled: true },
+  ].filter((item) => item.enabled);
 
   const visibleNavItems = navItems.filter((item) => (user ? item.roles.includes(user.role) : false));
 

@@ -12,9 +12,12 @@ import RequireAuth from './components/RequireAuth';
 import LoginPage from './pages/Login';
 import { useAuth, UserRole } from './hooks/useAuth';
 import SalesInvoicesPage from './pages/SalesInvoices';
+import { isFullVersion, isLiteVersion } from './config/appVersion';
 
 const App: React.FC = () => {
   const { user } = useAuth();
+  const defaultAdminPath = isLiteVersion ? '/sales-invoices' : '/dashboard';
+  const invoiceHistoryRoles: UserRole[] = isFullVersion ? ['admin', 'driver'] : ['driver'];
 
   const withLayout = (page: React.ReactNode, allowedRoles?: UserRole[]) => (
     <RequireAuth allowedRoles={allowedRoles}>
@@ -27,15 +30,15 @@ const App: React.FC = () => {
       <Routes>
         <Route
           path="/"
-          element={<Navigate to={user ? (user.role === 'driver' ? '/invoice' : '/dashboard') : '/login'} replace />}
+          element={<Navigate to={user ? (user.role === 'driver' ? '/invoice' : defaultAdminPath) : '/login'} replace />}
         />
         <Route path="/login" element={<LoginPage />} />
-        <Route path="/dashboard" element={withLayout(<DashboardPage />, ['admin'])} />
+        {isFullVersion && <Route path="/dashboard" element={withLayout(<DashboardPage />, ['admin'])} />}
         <Route path="/admin/users" element={withLayout(<AdminUsersPage />, ['admin'])} />
-        <Route path="/inventory" element={withLayout(<InventoryManagerPage />, ['admin'])} />
-        <Route path="/vehicles" element={withLayout(<VehiclesPage />, ['admin'])} />
+        {isFullVersion && <Route path="/inventory" element={withLayout(<InventoryManagerPage />, ['admin'])} />}
+        {isFullVersion && <Route path="/vehicles" element={withLayout(<VehiclesPage />, ['admin'])} />}
         <Route path="/invoice" element={withLayout(<DriverInvoicePage />, ['driver'])} />
-        <Route path="/invoices/history" element={withLayout(<InvoiceHistoryPage />, ['admin', 'driver'])} />
+        <Route path="/invoices/history" element={withLayout(<InvoiceHistoryPage />, invoiceHistoryRoles)} />
         <Route path="/sales-invoices" element={withLayout(<SalesInvoicesPage />, ['admin'])} />
       </Routes>
     </ToastProvider>
