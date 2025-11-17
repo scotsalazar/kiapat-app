@@ -15,9 +15,9 @@ from . import models, auth, utils
 def seed_database(db: Session) -> str:
     """Populate the database with initial records if no users exist.
 
-    Creates an admin and driver account, all combinations of egg size
-    and colour, and sample pricing for trays and dozens.  Returns a
-    string indicating whether seeding occurred.
+    Creates an admin and driver account, all white egg sizes, and
+    sample pricing for trays and dozens.  Returns a string indicating
+    whether seeding occurred.
     """
     if db.query(models.User).count() > 0:
         return "already-seeded"

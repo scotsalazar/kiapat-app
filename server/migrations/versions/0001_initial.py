@@ -28,8 +28,8 @@ def upgrade():
     )
     op.create_table('classifications',
         sa.Column('id', sa.Integer(), nullable=False),
-        sa.Column('size', sa.Enum('SMALL', 'MEDIUM', 'LARGE', name='sizeenum'), nullable=False),
-        sa.Column('color', sa.Enum('WHITE', 'BROWN', name='colorenum'), nullable=False),
+        sa.Column('size', sa.Enum('S', 'M', 'L', 'XL', name='sizeenum'), nullable=False),
+        sa.Column('color', sa.Enum('WHITE', name='colorenum'), nullable=False),
         sa.Column('is_active', sa.Boolean(), nullable=True),
         sa.Column('created_at', sa.DateTime(), nullable=True),
         sa.PrimaryKeyConstraint('id'),
