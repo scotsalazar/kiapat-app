@@ -7,7 +7,7 @@ import React, {
   useState,
 } from 'react';
 import { isAxiosError } from 'axios';
-import apiClient, { setAuthToken } from '../api/axios';
+import apiClient, { setAuthToken, setUnauthorizedHandler } from '../api/axios';
 
 export type UserRole = 'admin' | 'driver';
 
@@ -85,10 +85,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [token, setToken] = useState<string | null>(() => getStoredState().token);
   const [isLoading, setIsLoading] = useState(false);
 
-  useEffect(() => {
-    setAuthToken(token);
-  }, [token]);
-
   const login = useCallback(async (username: string, password: string) => {
     setIsLoading(true);
     try {
@@ -124,6 +120,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     persistState(null, null);
     setAuthToken(null);
   }, []);
+
+  useEffect(() => {
+    setAuthToken(token);
+    setUnauthorizedHandler(token ? () => logout() : null);
+    return () => setUnauthorizedHandler(null);
+  }, [token, logout]);
 
   const value = useMemo<AuthContextValue>(
     () => ({

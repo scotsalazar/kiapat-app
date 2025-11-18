@@ -50,6 +50,9 @@ export const parseApiError = (error: unknown, fallbackMessage: string): ParsedAp
   }
 
   if (typeof responseData?.detail === 'string') {
+    if (responseData.detail.toLowerCase().includes('could not validate credentials')) {
+      return { message: 'Session expired. Please sign in again.' };
+    }
     return { message: responseData.detail };
   }
 
