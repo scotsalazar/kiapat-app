@@ -3,9 +3,14 @@ import axios from 'axios';
 const baseURL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 
 let authToken: string | null = null;
+let onUnauthorized: (() => void) | null = null;
 
 export const setAuthToken = (token: string | null) => {
   authToken = token;
+};
+
+export const setUnauthorizedHandler = (handler: (() => void) | null) => {
+  onUnauthorized = handler;
 };
 
 const apiClient = axios.create({
@@ -26,5 +31,16 @@ apiClient.interceptors.request.use((config) => {
   config.headers = headers;
   return config;
 });
+
+apiClient.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    const status = error.response?.status;
+    if (status === 401) {
+      onUnauthorized?.();
+    }
+    return Promise.reject(error);
+  },
+);
 
 export default apiClient;
