@@ -159,6 +159,7 @@ class Invoice(Base):
     id = Column(Integer, primary_key=True, index=True)
     customer_name = Column(String, nullable=True)
     customer_phone = Column(String, nullable=True)
+    gps_coordinates = Column(String, nullable=True)
     total_amount = Column(Float, nullable=False)
     signature_png_path = Column(String, nullable=True)
     created_by = Column(Integer, ForeignKey("users.id"), nullable=False)

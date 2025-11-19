@@ -657,6 +657,7 @@ def create_invoice(db: Session, user: models.User, invoice_in: schemas.InvoiceCr
     invoice = models.Invoice(
         customer_name=invoice_in.customer_name,
         customer_phone=invoice_in.customer_phone,
+        gps_coordinates=invoice_in.gps_coordinates,
         total_amount=total_amount,
         signature_png_path=signature_path,
         created_by=user.id,

@@ -216,6 +216,7 @@ class InvoiceItemCreate(BaseModel):
 class InvoiceCreate(BaseModel):
     customer_name: Optional[str]
     customer_phone: Optional[str]
+    gps_coordinates: Optional[str] = None
     items: List[InvoiceItemCreate]
     signature_png_b64: Optional[str]
 
@@ -235,6 +236,7 @@ class InvoiceSummary(BaseModel):
     id: int
     customer_name: Optional[str]
     customer_phone: Optional[str]
+    gps_coordinates: Optional[str]
     total_amount: float
     status: InvoiceStatus
     created_by: int
@@ -248,6 +250,7 @@ class InvoiceOut(BaseModel):
     id: int
     customer_name: Optional[str]
     customer_phone: Optional[str]
+    gps_coordinates: Optional[str]
     total_amount: float
     signature_png_path: Optional[str]
     created_by: int

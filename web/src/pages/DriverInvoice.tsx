@@ -239,6 +239,12 @@ const DriverInvoicePage: React.FC = () => {
 
   useEffect(() => {
     void fetchGpsCoordinates();
+    const intervalId = window.setInterval(() => {
+      void fetchGpsCoordinates();
+    }, 30000);
+    return () => {
+      window.clearInterval(intervalId);
+    };
   }, [fetchGpsCoordinates]);
 
   const applyPricing = useCallback(
@@ -653,13 +659,16 @@ const DriverInvoicePage: React.FC = () => {
             <div className="flex flex-col gap-2 text-sm">
               <span className="font-medium text-slate-700 dark:text-slate-200">{t('driverInvoice.form.gpsCoordinatesLabel')}</span>
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
-                <input
-                  type="text"
-                  readOnly
-                  value={gpsCoordinates || (isFetchingLocation ? t('driverInvoice.form.locatingLabel') : '')}
-                  placeholder={t('driverInvoice.form.gpsCoordinatesPlaceholder')}
-                  className="flex-1 rounded border border-slate-300 px-3 py-2 text-slate-900 transition-colors focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 disabled:bg-slate-100 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
-                />
+                <div
+                  role="status"
+                  aria-live="polite"
+                  className="flex-1 rounded border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
+                >
+                  {gpsCoordinates ||
+                    (isFetchingLocation
+                      ? t('driverInvoice.form.locatingLabel')
+                      : t('driverInvoice.form.locationUnavailable'))}
+                </div>
                 <button
                   type="button"
                   onClick={() => void fetchGpsCoordinates()}

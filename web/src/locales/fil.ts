@@ -222,7 +222,7 @@ const fil = {
         classificationPlaceholder: 'Pumili',
         gpsCoordinatesLabel: 'GPS Coordinates',
         gpsCoordinatesPlaceholder: 'Latitude, Longitude',
-        gpsCoordinatesHelp: 'Auto-populated mula sa iyong kasalukuyang lokasyon.',
+        gpsCoordinatesHelp: 'Awtomatikong kinukuha mula sa iyong kasalukuyang lokasyon (ina-update bawat 30 segundo).',
         locatingLabel: 'Hinahanap…',
         locationUnavailable: 'Hindi available ang GPS sa device na ito.',
         locationError: 'Hindi makuha ang lokasyon ng GPS: {{message}}',

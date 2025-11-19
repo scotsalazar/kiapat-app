@@ -104,7 +104,10 @@ def test_inventory_in_flow(client):
 
 def test_driver_invoice_flow(client):
     seed_db(client)
+    admin_token = login(client, "admin", "admin123")
+    driver_token = login(client, "driver", "pass123")
     # top up stock for two classifications
+    client.headers["Authorization"] = f"Bearer {admin_token}"
     resp = client.get("/api/catalog/classifications")
     classes = resp.json()
     for cls in classes[:2]:
@@ -125,6 +128,7 @@ def test_driver_invoice_flow(client):
     invoice_payload = {
         "customer_name": "Jane Doe",
         "customer_phone": "12345678",
+        "gps_coordinates": "7.1907, 125.4553",
         "items": [
             {"classification_id": classes[0]["id"], "qty": 1, "unit": "DOZEN"},
             {"classification_id": classes[1]["id"], "qty": 1, "unit": "DOZEN"},
@@ -132,6 +136,7 @@ def test_driver_invoice_flow(client):
         # encode a small png as base64 (empty signature)
         "signature_png_b64": b64encode(b"PNG").decode(),
     }
+    client.headers["Authorization"] = f"Bearer {driver_token}"
     resp = client.post(
         "/api/sales/invoices",
         json=invoice_payload,
@@ -141,6 +146,7 @@ def test_driver_invoice_flow(client):
     assert invoice["total_amount"] > 0
     assert invoice["status"] == "COMPLETED"
     assert invoice["overrides"] == []
+    assert invoice["gps_coordinates"] == invoice_payload["gps_coordinates"]
     # inventory should decrement
     resp = client.get("/api/inventory/summary")
     summary = resp.json()
@@ -252,8 +258,11 @@ def test_inventory_summary_filters(client):
 
 def test_invoice_override_flow(client):
     seed_db(client)
+    admin_token = login(client, "admin", "admin123")
+    driver_token = login(client, "driver", "pass123")
 
     # load a single classification and add limited stock
+    client.headers["Authorization"] = f"Bearer {admin_token}"
     resp = client.get(
         "/api/catalog/classifications",
     )
@@ -283,6 +292,7 @@ def test_invoice_override_flow(client):
         ],
         "signature_png_b64": b64encode(b"PNG").decode(),
     }
+    client.headers["Authorization"] = f"Bearer {driver_token}"
     resp = client.post(
         "/api/sales/invoices",
         json=invoice_payload,
@@ -300,6 +310,7 @@ def test_invoice_override_flow(client):
     assert card["qty_pcs"] == 12
 
     # admin sees pending overrides
+    client.headers["Authorization"] = f"Bearer {admin_token}"
     resp = client.get("/api/sales/invoices/overrides/pending")
     overrides = resp.json()
     assert any(o["invoice_id"] == invoice["id"] for o in overrides)
