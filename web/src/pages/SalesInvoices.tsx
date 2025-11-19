@@ -18,6 +18,7 @@ interface Invoice {
   id: number;
   customer_name: string | null;
   customer_phone: string | null;
+  gps_coordinates: string | null;
   total_amount: number;
   created_by: number;
   created_at: string;
@@ -234,6 +235,9 @@ const SalesInvoicesPage: React.FC = () => {
                 <th className="px-4 py-2 text-left text-xs font-semibold uppercase tracking-wider">Invoice</th>
                 <th className="px-4 py-2 text-left text-xs font-semibold uppercase tracking-wider">Date</th>
                 <th className="px-4 py-2 text-left text-xs font-semibold uppercase tracking-wider">Customer</th>
+                <th className="px-4 py-2 text-left text-xs font-semibold uppercase tracking-wider">
+                  {t('driverInvoice.form.gpsCoordinatesLabel')}
+                </th>
                 <th className="px-4 py-2 text-left text-xs font-semibold uppercase tracking-wider">Driver</th>
                 <th className="px-4 py-2 text-left text-xs font-semibold uppercase tracking-wider">Status</th>
                 <th className="px-4 py-2 text-right text-xs font-semibold uppercase tracking-wider">Total</th>
@@ -242,13 +246,13 @@ const SalesInvoicesPage: React.FC = () => {
             <tbody className="divide-y divide-slate-200 bg-white dark:divide-slate-700 dark:bg-slate-900">
               {loading ? (
                 <tr>
-                  <td colSpan={6} className="px-4 py-8 text-center text-slate-500 dark:text-slate-400">
+                  <td colSpan={7} className="px-4 py-8 text-center text-slate-500 dark:text-slate-400">
                     {t('invoiceHistory.loading')}
                   </td>
                 </tr>
               ) : invoices.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-4 py-8 text-center text-slate-500 dark:text-slate-400">
+                  <td colSpan={7} className="px-4 py-8 text-center text-slate-500 dark:text-slate-400">
                     {t('invoiceHistory.empty')}
                   </td>
                 </tr>
@@ -262,6 +266,9 @@ const SalesInvoicesPage: React.FC = () => {
                       {invoice.customer_phone && (
                         <div className="text-xs text-slate-500 dark:text-slate-400">{invoice.customer_phone}</div>
                       )}
+                    </td>
+                    <td className="px-4 py-2 text-sm text-slate-700 dark:text-slate-200">
+                      {invoice.gps_coordinates || t('driverInvoice.form.locationUnavailable')}
                     </td>
                     <td className="px-4 py-2 text-sm text-slate-700 dark:text-slate-200">{renderDriverCell(invoice)}</td>
                     <td className="px-4 py-2 text-sm">{renderStatusBadge(invoice.status)}</td>
