@@ -48,19 +48,21 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
           p.classification_id === item.classification_id &&
           p.unit.toLowerCase() === item.unit.toLowerCase(),
       );
-      const unitPrice = price?.price_per_unit ?? item.unit_price ?? 0;
-      const lineTotal = unitPrice * (item.qty || 0);
+      const unitPrice = item.unit_price ?? undefined;
+      const lineTotal =
+        item.line_total ??
+        (unitPrice !== undefined ? unitPrice * (item.qty || 0) : undefined);
       return {
         ...item,
         classificationLabel: classification
           ? `${classification.size} / ${classification.color}`
-          : 'Unclassified',
+          : t('invoicePreview.unclassified'),
         unitPrice,
         lineTotal,
-        hasRealTimePrice: Boolean(price),
+        hasRealTimePrice: !item.isManualPrice && Boolean(price),
       };
     });
-  }, [classifications, items, prices]);
+  }, [classifications, items, prices, t]);
 
   const subtotal = useMemo(
     () => lineItems.reduce((sum, item) => sum + (item.lineTotal || 0), 0),
@@ -148,7 +150,7 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
                             <div className="font-medium text-slate-900 dark:text-slate-100">
                               {item.classificationLabel || t('invoicePreview.unclassified')}
                             </div>
-                            {!item.hasRealTimePrice && (
+                            {!item.hasRealTimePrice && !item.isManualPrice && (
                               <div className="text-xs text-yellow-600 dark:text-yellow-300">
                                 {t('invoicePreview.priceUnavailable')}
                               </div>
@@ -193,10 +195,14 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
                         )}
                       </td>
                       <td className="px-3 py-2 text-right font-medium text-slate-900 dark:text-slate-100">
-                        {item.unitPrice ? `₱${item.unitPrice.toFixed(2)}` : '-'}
+                        {item.unitPrice !== undefined
+                          ? `₱${item.unitPrice.toFixed(2)}`
+                          : '-'}
                       </td>
                       <td className="px-3 py-2 text-right font-semibold text-slate-900 dark:text-slate-100">
-                        {item.lineTotal ? `₱${item.lineTotal.toFixed(2)}` : '-'}
+                        {item.lineTotal !== undefined
+                          ? `₱${item.lineTotal.toFixed(2)}`
+                          : '-'}
                       </td>
                       <td className="px-3 py-2 text-right text-sm text-slate-700 dark:text-slate-200">
                         <div className="flex justify-end gap-2">

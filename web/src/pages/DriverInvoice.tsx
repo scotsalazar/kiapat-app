@@ -79,6 +79,7 @@ const DriverInvoicePage: React.FC = () => {
   const [items, setItems] = useState<InvoiceItemForm[]>([]);
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
+  const [customerAddress, setCustomerAddress] = useState('');
   const [signatureDataUrl, setSignatureDataUrl] = useState<string>('');
   const [message, setMessage] = useState<string>('');
   const [messageTone, setMessageTone] = useState<'success' | 'warning' | 'error'>('success');
@@ -243,22 +244,28 @@ const DriverInvoicePage: React.FC = () => {
 
   const applyPricing = useCallback(
     (item: InvoiceItemForm): InvoiceItemForm => {
-      if (!item.classification_id || !item.unit || !item.qty || item.qty <= 0) {
-        return { ...item, unit_price: undefined, line_total: undefined };
+      const manualPriceActive = Boolean(item.isManualPrice);
+      let unitPrice = item.unit_price;
+      if (!manualPriceActive) {
+        if (!item.classification_id || !item.unit) {
+          unitPrice = undefined;
+        } else {
+          const price = prices.find(
+            (p) =>
+              p.classification_id === item.classification_id &&
+              p.unit.toLowerCase() === item.unit.toLowerCase(),
+          );
+          unitPrice = price?.price_per_unit;
+        }
       }
-      const price = prices.find(
-        (p) =>
-          p.classification_id === item.classification_id &&
-          p.unit.toLowerCase() === item.unit.toLowerCase(),
-      );
-      if (!price) {
-        return { ...item, unit_price: undefined, line_total: undefined };
-      }
-      const unitPrice = price.price_per_unit;
+      const hasValidQuantity = item.qty && item.qty > 0;
       return {
         ...item,
         unit_price: unitPrice,
-        line_total: unitPrice * item.qty,
+        line_total:
+          unitPrice !== undefined && unitPrice !== null && hasValidQuantity
+            ? unitPrice * item.qty
+            : undefined,
       };
     },
     [prices],
@@ -278,12 +285,39 @@ const DriverInvoicePage: React.FC = () => {
           if (item.id !== id) {
             return item;
           }
-          const nextItem = applyPricing({ ...item, ...updates });
-          return nextItem;
+          const classificationChanged =
+            updates.classification_id !== undefined &&
+            updates.classification_id !== item.classification_id;
+          const unitChanged =
+            updates.unit !== undefined && updates.unit !== item.unit;
+          let nextItem: InvoiceItemForm = { ...item, ...updates };
+          if (
+            updates.isManualPrice === undefined &&
+            (classificationChanged || unitChanged)
+          ) {
+            nextItem = {
+              ...nextItem,
+              isManualPrice: false,
+              unit_price: undefined,
+            };
+          }
+          return applyPricing(nextItem);
         }),
       );
     },
     [applyPricing],
+  );
+
+  const handleManualPriceChange = useCallback(
+    (id: number, value: string) => {
+      const parsedValue = value.trim() === '' ? NaN : Number(value);
+      if (Number.isNaN(parsedValue)) {
+        updateItem(id, { unit_price: undefined, isManualPrice: false });
+        return;
+      }
+      updateItem(id, { unit_price: parsedValue, isManualPrice: true });
+    },
+    [updateItem],
   );
 
   const removeItem = useCallback((id: number) => {
@@ -356,6 +390,7 @@ const DriverInvoicePage: React.FC = () => {
             <p><strong>${t('invoicePreview.summaryHeading')}:</strong> #${invoiceNumber ?? '—'} | ${submissionTime}</p>
             <p><strong>${t('common.labels.customerName')}:</strong> ${customerName || '—'}<br />
                <strong>${t('common.labels.customerPhone')}:</strong> ${customerPhone || '—'}<br />
+               <strong>${t('common.labels.address')}:</strong> ${customerAddress || '—'}<br />
                <strong>${t('driverInvoice.form.gpsCoordinatesLabel')}:</strong> ${coordinates || t('driverInvoice.form.locationUnavailable')}</p>
             <table>
               <thead>
@@ -387,7 +422,15 @@ const DriverInvoicePage: React.FC = () => {
         </html>
       `;
     },
-    [classificationMap, customerName, customerPhone, formatCurrencyValue, items, t],
+    [
+      classificationMap,
+      customerAddress,
+      customerName,
+      customerPhone,
+      formatCurrencyValue,
+      items,
+      t,
+    ],
   );
 
   const triggerPrintReceipt = useCallback(
@@ -467,6 +510,7 @@ const DriverInvoicePage: React.FC = () => {
       setItems([]);
       setCustomerName('');
       setCustomerPhone('');
+      setCustomerAddress('');
       setSignatureDataUrl('');
       setIsPreviewOpen(false);
     } catch (err) {
@@ -511,7 +555,7 @@ const DriverInvoicePage: React.FC = () => {
       if (!item.unit) {
         warnings.push(t('driverInvoice.messages.unitRequired', { item: itemLabel }));
       }
-      if (item.classification_id && item.unit) {
+      if (item.classification_id && item.unit && !item.isManualPrice) {
         const priceMatch = prices.find(
           (p) =>
             p.classification_id === item.classification_id &&
@@ -650,6 +694,17 @@ const DriverInvoicePage: React.FC = () => {
                 />
               </label>
             </div>
+            <label className="flex flex-col text-sm">
+              <span className="font-medium text-slate-700 dark:text-slate-200">{t('common.labels.address')}</span>
+              <input
+                id="invoice-customer-address"
+                type="text"
+                placeholder={t('driverInvoice.form.customerAddressPlaceholder')}
+                value={customerAddress}
+                onChange={(e) => setCustomerAddress(e.target.value)}
+                className="rounded border border-slate-300 px-3 py-2 text-slate-900 transition-colors focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
+              />
+            </label>
             <div className="flex flex-col gap-2 text-sm">
               <span className="font-medium text-slate-700 dark:text-slate-200">{t('driverInvoice.form.gpsCoordinatesLabel')}</span>
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
@@ -862,9 +917,17 @@ const DriverInvoicePage: React.FC = () => {
                           <span className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
                             {t('driverInvoice.form.priceHeader')}
                           </span>
-                          <span className="font-medium text-slate-900 dark:text-slate-100">
-                            {formatCurrencyValue(item.unit_price)}
-                          </span>
+                          <input
+                            type="number"
+                            min={0}
+                            step="0.01"
+                            inputMode="decimal"
+                            aria-label={t('driverInvoice.form.priceHeader')}
+                            value={item.unit_price !== undefined ? item.unit_price : ''}
+                            onChange={(e) => handleManualPriceChange(item.id, e.target.value)}
+                            className="mt-1 w-32 rounded border border-slate-300 px-2 py-1 text-sm text-slate-900 transition-colors focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
+                            placeholder="0.00"
+                          />
                         </div>
                         <button
                           type="button"
@@ -1058,9 +1121,17 @@ const DriverInvoicePage: React.FC = () => {
                           </div>
                         </td>
                         <td className="px-3 py-2 text-right align-top">
-                          <span className="font-medium text-slate-900 dark:text-slate-100">
-                            {formatCurrencyValue(item.unit_price)}
-                          </span>
+                          <input
+                            type="number"
+                            min={0}
+                            step="0.01"
+                            inputMode="decimal"
+                            aria-label={t('driverInvoice.form.priceHeader')}
+                            value={item.unit_price !== undefined ? item.unit_price : ''}
+                            onChange={(e) => handleManualPriceChange(item.id, e.target.value)}
+                            className="w-28 rounded border border-slate-300 px-2 py-1 text-right text-sm text-slate-900 transition-colors focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
+                            placeholder="0.00"
+                          />
                         </td>
                         <td className="px-3 py-2 text-right align-top">
                           <span className="font-semibold text-slate-900 dark:text-slate-100">
