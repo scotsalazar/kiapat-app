@@ -239,6 +239,12 @@ const DriverInvoicePage: React.FC = () => {
 
   useEffect(() => {
     void fetchGpsCoordinates();
+    const intervalId = window.setInterval(() => {
+      void fetchGpsCoordinates();
+    }, 30000);
+    return () => {
+      window.clearInterval(intervalId);
+    };
   }, [fetchGpsCoordinates]);
 
   const applyPricing = useCallback(

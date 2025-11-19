@@ -222,7 +222,7 @@ const en = {
         classificationPlaceholder: 'Select',
         gpsCoordinatesLabel: 'GPS Coordinates',
         gpsCoordinatesPlaceholder: 'Latitude, Longitude',
-        gpsCoordinatesHelp: 'Auto-populated from your current location.',
+        gpsCoordinatesHelp: 'Auto-populated from your current location (refreshes every 30 seconds).',
         locatingLabel: 'Locating…',
         locationUnavailable: 'GPS is not available on this device.',
         locationError: 'Unable to fetch GPS location: {{message}}',
