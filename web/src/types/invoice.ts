@@ -20,4 +20,5 @@ export interface InvoiceItemForm {
   unit: string;
   unit_price?: number;
   line_total?: number;
+  isManualPrice?: boolean;
 }
