@@ -14,6 +14,9 @@ import apiClient from '../api/axios';
 const units = ['TRAY', 'DOZEN', 'PCS'] as const;
 type UnitType = (typeof units)[number];
 
+const TRAY_SIZE = 30;
+const DOZEN_SIZE = 12;
+
 const unitIconMap: Record<UnitType, { src: string; labelKey: string }> = {
   TRAY: { src: '/unit-tray.svg', labelKey: 'common.labels.tray' },
   DOZEN: { src: '/unit-dozen.svg', labelKey: 'common.labels.dozen' },
@@ -534,6 +537,24 @@ const DriverInvoicePage: React.FC = () => {
 
   const total = useMemo(
     () => items.reduce((sum, item) => sum + (item.line_total || 0), 0),
+    [items],
+  );
+
+  const totalPieces = useMemo(
+    () =>
+      items.reduce((sum, item) => {
+        const qty = Number(item.qty) || 0;
+        if (!item.unit) {
+          return sum;
+        }
+        if (item.unit === 'TRAY') {
+          return sum + qty * TRAY_SIZE;
+        }
+        if (item.unit === 'DOZEN') {
+          return sum + qty * DOZEN_SIZE;
+        }
+        return sum + qty;
+      }, 0),
     [items],
   );
 
@@ -1171,8 +1192,16 @@ const DriverInvoicePage: React.FC = () => {
             </button>
           </div>
           {/* Total */}
-          <div className="text-right text-lg font-semibold text-slate-900 dark:text-slate-100">
-            {t('driverInvoice.form.totalLabel')} {formatCurrencyValue(total)}
+          <div className="flex items-center justify-end gap-2 text-right text-lg font-semibold text-slate-900 dark:text-slate-100">
+            <span className="text-base font-normal text-slate-600 dark:text-slate-300">
+              {totalPieces.toLocaleString()} {t('common.labels.pcs')}
+            </span>
+            <span aria-hidden="true" className="text-slate-400 dark:text-slate-500">
+              •
+            </span>
+            <span>
+              {t('driverInvoice.form.totalLabel')} {formatCurrencyValue(total)}
+            </span>
           </div>
           {/* Signature */}
           <div>

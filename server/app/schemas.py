@@ -228,6 +228,7 @@ class InvoiceItemOut(BaseModel):
     qty: int
     unit_price: float
     line_total: float
+    classification: Optional[ClassificationOut] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -242,6 +243,7 @@ class InvoiceSummary(BaseModel):
     created_by: int
     created_at: datetime
     created_by_user: Optional[UserOut] = None
+    receipt_reprint_count: int
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -257,6 +259,7 @@ class InvoiceOut(BaseModel):
     created_at: datetime
     status: InvoiceStatus
     created_by_user: Optional[UserOut] = None
+    receipt_reprint_count: int
     items: List[InvoiceItemOut]
     overrides: List["InvoiceOverrideOut"] = []
 

@@ -8,7 +8,7 @@ from datetime import datetime
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from .. import auth, crud, models, schemas
 from ..database import get_db
@@ -136,9 +136,32 @@ def get_invoice(
 ):
     """Retrieve a single invoice by id."""
     auth.ensure_role(current_user, [models.RoleEnum.ADMIN, models.RoleEnum.DRIVER])
-    invoice = db.query(models.Invoice).get(invoice_id)
+    invoice = (
+        db.query(models.Invoice)
+        .options(
+            selectinload(models.Invoice.items).selectinload(models.InvoiceItem.classification),
+            selectinload(models.Invoice.created_by_user),
+            selectinload(models.Invoice.overrides),
+        )
+        .filter(models.Invoice.id == invoice_id)
+        .first()
+    )
     if not invoice:
         raise not_found("Invoice not found", code=ErrorCode.SALES_NOT_FOUND, details={"invoice_id": invoice_id})
     if current_user.role == models.RoleEnum.DRIVER and invoice.created_by != current_user.id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions")
     return invoice
+
+
+@router.post("/{invoice_id}/reprint", response_model=schemas.InvoiceOut)
+def reprint_invoice(
+    invoice_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(auth.get_current_active_user),
+):
+    """Record an invoice reprint and return the invoice details."""
+    auth.ensure_role(current_user, [models.RoleEnum.ADMIN, models.RoleEnum.DRIVER])
+    try:
+        return crud.record_invoice_reprint(db, current_user, invoice_id)
+    except AppError as exc:
+        raise app_error_to_http(exc)
