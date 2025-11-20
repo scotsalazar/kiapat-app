@@ -1,0 +1,7 @@
+<resources>
+    <color name="surface">#ffffff</color>
+    <color name="surface_muted">#f8fafc</color>
+    <color name="surface_dark">#0f172a</color>
+    <color name="surface_dark_muted">#1e293b</color>
+    <color name="accent_primary">#f59e0b</color>
+</resources>
