@@ -965,19 +965,17 @@ def reject_invoice_override(
     return invoice
 
 
-def list_invoices(
+def _build_invoice_query(
     db: Session,
     *,
-    page: int,
-    page_size: int,
     start_date: Optional[datetime] = None,
     end_date: Optional[datetime] = None,
     customer: Optional[str] = None,
     driver: Optional[str] = None,
     status: Optional[models.MovementStatus] = None,
     invoice_status: Optional[models.InvoiceStatus] = None,
-) -> Tuple[List[models.Invoice], int]:
-    """Return paginated invoices filtered by the provided criteria."""
+):
+    """Construct a reusable invoice query with common filters."""
 
     query = (
         db.query(models.Invoice)
@@ -1017,9 +1015,59 @@ def list_invoices(
     if invoice_status:
         query = query.filter(models.Invoice.status == invoice_status)
 
+    return query
+
+
+def list_invoices(
+    db: Session,
+    *,
+    page: int,
+    page_size: int,
+    start_date: Optional[datetime] = None,
+    end_date: Optional[datetime] = None,
+    customer: Optional[str] = None,
+    driver: Optional[str] = None,
+    status: Optional[models.MovementStatus] = None,
+    invoice_status: Optional[models.InvoiceStatus] = None,
+) -> Tuple[List[models.Invoice], int]:
+    """Return paginated invoices filtered by the provided criteria."""
+
+    query = _build_invoice_query(
+        db,
+        start_date=start_date,
+        end_date=end_date,
+        customer=customer,
+        driver=driver,
+        status=status,
+        invoice_status=invoice_status,
+    )
     total = query.count()
     items = query.offset((page - 1) * page_size).limit(page_size).all()
     return items, total
+
+
+def get_invoices(
+    db: Session,
+    *,
+    start_date: Optional[datetime] = None,
+    end_date: Optional[datetime] = None,
+    customer: Optional[str] = None,
+    driver: Optional[str] = None,
+    status: Optional[models.MovementStatus] = None,
+    invoice_status: Optional[models.InvoiceStatus] = None,
+) -> List[models.Invoice]:
+    """Return all invoices matching the provided filters."""
+
+    query = _build_invoice_query(
+        db,
+        start_date=start_date,
+        end_date=end_date,
+        customer=customer,
+        driver=driver,
+        status=status,
+        invoice_status=invoice_status,
+    )
+    return query.all()
 
 
 def record_invoice_reprint(db: Session, user: models.User, invoice_id: int) -> models.Invoice:
