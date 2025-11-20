@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { useToast } from '../components/ToastProvider';
+import { adminHomePath } from '../config/appVersion';
 
 const LoginPage: React.FC = () => {
   const { login, isLoading, user } = useAuth();
@@ -19,7 +20,7 @@ const LoginPage: React.FC = () => {
 
   useEffect(() => {
     if (user) {
-      const home = user.role === 'driver' ? '/invoice' : '/dashboard';
+      const home = user.role === 'driver' ? '/invoice' : adminHomePath;
       navigate(home, { replace: true });
     }
   }, [user, navigate]);
@@ -30,7 +31,7 @@ const LoginPage: React.FC = () => {
 
     try {
       const loggedInUser = await login(username, password);
-      const fallbackRoute = loggedInUser.role === 'driver' ? '/invoice' : '/dashboard';
+      const fallbackRoute = loggedInUser.role === 'driver' ? '/invoice' : adminHomePath;
       const destination = redirectTo || fallbackRoute;
       showToast(`Logged in as ${loggedInUser.name}`, 'success');
       navigate(destination, { replace: true });
