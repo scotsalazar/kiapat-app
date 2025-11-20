@@ -84,9 +84,9 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
   const navItems = [
     { to: '/dashboard', label: 'Dashboard', icon: <DashboardIcon />, roles: ['admin'], enabled: isFullVersion },
     { to: '/inventory', label: 'Inventory', icon: <InventoryIcon />, roles: ['admin'], enabled: isFullVersion },
+    { to: '/sales-invoices', label: 'Sales', icon: <SalesIcon />, roles: ['admin'], enabled: true },
     { to: '/products', label: 'Products', icon: <ProductIcon />, roles: ['admin'], enabled: true },
     { to: '/vehicles', label: 'Vehicles', icon: <VehicleIcon />, roles: ['admin'], enabled: isFullVersion },
-    { to: '/sales-invoices', label: 'Sales', icon: <SalesIcon />, roles: ['admin'], enabled: true },
     { to: '/admin/users', label: 'Users', icon: <UsersIcon />, roles: ['admin'], enabled: true },
     { to: '/invoice', label: 'Invoice', icon: <InvoiceIcon />, roles: ['driver'], enabled: true },
     { to: '/invoices/history', label: 'History', icon: <HistoryIcon />, roles: isFullVersion ? ['admin', 'driver'] : ['driver'], enabled: true },
