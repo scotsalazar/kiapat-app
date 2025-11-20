@@ -199,6 +199,39 @@ class InventoryThresholdUpdate(BaseModel):
     threshold_pcs: int = Field(..., ge=0)
 
 
+# --------------------
+# Products
+# --------------------
+
+
+class ProductBase(BaseModel):
+    size: SizeEnum
+    color: ColorEnum
+    price_per_tray: float | None = None
+    price_per_dozen: float | None = None
+    price_per_pcs: float | None = None
+    is_active: bool = True
+
+
+class ProductCreate(ProductBase):
+    pass
+
+
+class ProductUpdate(BaseModel):
+    size: SizeEnum | None = None
+    color: ColorEnum | None = None
+    price_per_tray: float | None = None
+    price_per_dozen: float | None = None
+    price_per_pcs: float | None = None
+    is_active: bool | None = None
+
+
+class ProductOut(ProductBase):
+    id: int
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 class InventoryThresholdBulkUpdate(BaseModel):
     thresholds: List[InventoryThresholdUpdate]
 

@@ -12,11 +12,12 @@ import RequireAuth from './components/RequireAuth';
 import LoginPage from './pages/Login';
 import { useAuth, UserRole } from './hooks/useAuth';
 import SalesInvoicesPage from './pages/SalesInvoices';
+import ProductsPage from './pages/Products';
 import { isFullVersion, isLiteVersion } from './config/appVersion';
 
 const App: React.FC = () => {
   const { user } = useAuth();
-  const defaultAdminPath = isLiteVersion ? '/sales-invoices' : '/dashboard';
+  const defaultAdminPath = isLiteVersion ? '/products' : '/dashboard';
   const invoiceHistoryRoles: UserRole[] = isFullVersion ? ['admin', 'driver'] : ['driver'];
 
   const withLayout = (page: React.ReactNode, allowedRoles?: UserRole[]) => (
@@ -36,6 +37,7 @@ const App: React.FC = () => {
         {isFullVersion && <Route path="/dashboard" element={withLayout(<DashboardPage />, ['admin'])} />}
         <Route path="/admin/users" element={withLayout(<AdminUsersPage />, ['admin'])} />
         {isFullVersion && <Route path="/inventory" element={withLayout(<InventoryManagerPage />, ['admin'])} />}
+        <Route path="/products" element={withLayout(<ProductsPage />, ['admin'])} />
         {isFullVersion && <Route path="/vehicles" element={withLayout(<VehiclesPage />, ['admin'])} />}
         <Route path="/invoice" element={withLayout(<DriverInvoicePage />, ['driver'])} />
         <Route path="/invoices/history" element={withLayout(<InvoiceHistoryPage />, invoiceHistoryRoles)} />

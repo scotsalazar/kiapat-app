@@ -47,6 +47,7 @@ def seed_database(db: Session) -> str:
     for cls in classifications:
         price_per_dozen = 100.0
         price_per_tray = price_per_dozen * (utils.TRAY_SIZE / utils.DOZEN_SIZE)
+        price_per_piece = price_per_dozen / utils.DOZEN_SIZE
         db.add(
             models.Price(
                 classification_id=cls.id,
@@ -60,6 +61,14 @@ def seed_database(db: Session) -> str:
                 classification_id=cls.id,
                 unit=models.UnitEnum.TRAY,
                 price_per_unit=price_per_tray,
+                effective_from=datetime.utcnow(),
+            )
+        )
+        db.add(
+            models.Price(
+                classification_id=cls.id,
+                unit=models.UnitEnum.PCS,
+                price_per_unit=price_per_piece,
                 effective_from=datetime.utcnow(),
             )
         )
