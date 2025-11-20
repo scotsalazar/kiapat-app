@@ -860,7 +860,7 @@ def list_invoices(
     query = (
         db.query(models.Invoice)
         .options(
-            selectinload(models.Invoice.items),
+            selectinload(models.Invoice.items).selectinload(models.InvoiceItem.classification),
             selectinload(models.Invoice.created_by_user),
             selectinload(models.Invoice.overrides),
         )
@@ -898,6 +898,40 @@ def list_invoices(
     total = query.count()
     items = query.offset((page - 1) * page_size).limit(page_size).all()
     return items, total
+
+
+def record_invoice_reprint(db: Session, user: models.User, invoice_id: int) -> models.Invoice:
+    invoice = (
+        db.query(models.Invoice)
+        .options(
+            selectinload(models.Invoice.items).selectinload(models.InvoiceItem.classification),
+            selectinload(models.Invoice.created_by_user),
+            selectinload(models.Invoice.overrides),
+        )
+        .filter(models.Invoice.id == invoice_id)
+        .first()
+    )
+
+    if not invoice:
+        raise AppError(
+            ErrorCode.SALES_NOT_FOUND,
+            "Invoice not found",
+            status_code=status.HTTP_404_NOT_FOUND,
+            details={"invoice_id": invoice_id},
+        )
+
+    if user.role == models.RoleEnum.DRIVER and invoice.created_by != user.id:
+        raise AppError(
+            ErrorCode.SALES_INVALID_STATE,
+            "Insufficient permissions",
+            status_code=status.HTTP_403_FORBIDDEN,
+            details={"invoice_id": invoice_id},
+        )
+
+    invoice.receipt_reprint_count = (invoice.receipt_reprint_count or 0) + 1
+    db.commit()
+    db.refresh(invoice)
+    return invoice
 
 
 def get_daily_sales_summary(

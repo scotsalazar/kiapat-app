@@ -162,6 +162,7 @@ class Invoice(Base):
     gps_coordinates = Column(String, nullable=True)
     total_amount = Column(Float, nullable=False)
     signature_png_path = Column(String, nullable=True)
+    receipt_reprint_count = Column(Integer, nullable=False, default=0)
     created_by = Column(Integer, ForeignKey("users.id"), nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
     status = Column(Enum(InvoiceStatus), nullable=False, default=InvoiceStatus.COMPLETED)

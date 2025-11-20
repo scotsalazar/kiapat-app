@@ -238,7 +238,9 @@ const SalesInvoicesPage: React.FC = () => {
                 <th className="px-4 py-2 text-left text-xs font-semibold uppercase tracking-wider">
                   {t('driverInvoice.form.gpsCoordinatesLabel')}
                 </th>
-                <th className="px-4 py-2 text-left text-xs font-semibold uppercase tracking-wider">Driver</th>
+                <th className="px-4 py-2 text-left text-xs font-semibold uppercase tracking-wider">
+                  {t('common.labels.driver')}
+                </th>
                 <th className="px-4 py-2 text-left text-xs font-semibold uppercase tracking-wider">Status</th>
                 <th className="px-4 py-2 text-right text-xs font-semibold uppercase tracking-wider">Total</th>
               </tr>
