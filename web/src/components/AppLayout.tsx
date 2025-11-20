@@ -100,7 +100,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
         <div className="mx-auto w-full max-w-7xl px-4 py-3 sm:px-6 lg:px-8">
           <div className="flex flex-col gap-3">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3 pl-2">
                 <img src="/logo.png" alt={t('common.appName', 'Kiapat Inventory')} className="h-9 w-9 rounded" />
                 <div className="leading-tight">
                   <p className="text-base font-semibold text-slate-900 dark:text-white">{t('common.appName')}</p>
