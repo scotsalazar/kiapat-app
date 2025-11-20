@@ -13,11 +13,10 @@ import LoginPage from './pages/Login';
 import { useAuth, UserRole } from './hooks/useAuth';
 import SalesInvoicesPage from './pages/SalesInvoices';
 import ProductsPage from './pages/Products';
-import { isFullVersion, isLiteVersion } from './config/appVersion';
+import { adminHomePath, isFullVersion } from './config/appVersion';
 
 const App: React.FC = () => {
   const { user } = useAuth();
-  const defaultAdminPath = isLiteVersion ? '/products' : '/dashboard';
   const invoiceHistoryRoles: UserRole[] = isFullVersion ? ['admin', 'driver'] : ['driver'];
 
   const withLayout = (page: React.ReactNode, allowedRoles?: UserRole[]) => (
@@ -31,7 +30,7 @@ const App: React.FC = () => {
       <Routes>
         <Route
           path="/"
-          element={<Navigate to={user ? (user.role === 'driver' ? '/invoice' : defaultAdminPath) : '/login'} replace />}
+          element={<Navigate to={user ? (user.role === 'driver' ? '/invoice' : adminHomePath) : '/login'} replace />}
         />
         <Route path="/login" element={<LoginPage />} />
         {isFullVersion && <Route path="/dashboard" element={withLayout(<DashboardPage />, ['admin'])} />}
