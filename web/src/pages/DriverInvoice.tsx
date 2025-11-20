@@ -712,28 +712,26 @@ const DriverInvoicePage: React.FC = () => {
               />
             </label>
             <div className="flex flex-col gap-2 text-sm">
-              <span className="font-medium text-slate-700 dark:text-slate-200">{t('driverInvoice.form.gpsCoordinatesLabel')}</span>
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
-                <div
-                  role="status"
-                  aria-live="polite"
-                  className="flex-1 rounded border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
-                >
+              <div
+                role="status"
+                aria-live="polite"
+                className="flex flex-wrap items-baseline gap-2 rounded px-3 py-2 text-sm text-slate-700 dark:text-slate-100"
+              >
+                <span className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                  {isFetchingLocation
+                    ? t('driverInvoice.form.locatingLabel')
+                    : t('driverInvoice.form.gpsCoordinatesLabel')}
+                </span>
+                <span className="font-mono">
                   {gpsCoordinates ||
                     (isFetchingLocation
                       ? t('driverInvoice.form.locatingLabel')
                       : t('driverInvoice.form.locationUnavailable'))}
-                </div>
-                <button
-                  type="button"
-                  onClick={() => void fetchGpsCoordinates()}
-                  disabled={isFetchingLocation}
-                  className="rounded border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-70 dark:border-slate-600 dark:text-slate-100 dark:hover:bg-slate-800"
-                >
-                  {isFetchingLocation ? t('driverInvoice.form.locatingLabel') : t('driverInvoice.form.refreshLocation')}
-                </button>
+                </span>
+                <span className="text-xs text-slate-500 dark:text-slate-400">
+                  ({t('driverInvoice.form.gpsCoordinatesHelp')})
+                </span>
               </div>
-              <p className="text-xs text-slate-500 dark:text-slate-400">{t('driverInvoice.form.gpsCoordinatesHelp')}</p>
               {locationError && (
                 <p className="text-xs text-red-600 dark:text-red-400">{locationError}</p>
               )}
