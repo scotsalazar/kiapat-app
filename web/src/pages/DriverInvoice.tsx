@@ -8,6 +8,7 @@ import { parseApiError } from '../utils/apiErrors';
 import useInventoryStream, { InventoryUpdateMessage } from '../hooks/useInventoryStream';
 import InvoicePreviewModal from '../components/InvoicePreviewModal';
 import type { Classification, InvoiceItemForm, Price } from '../types/invoice';
+import type { Product } from '../types/products';
 import { formatDateTime } from '../utils/dateTime';
 import apiClient from '../api/axios';
 
@@ -203,12 +204,49 @@ const DriverInvoicePage: React.FC = () => {
 
   useEffect(() => {
     if (!token) return;
-    Promise.all([
-      apiClient.get('/api/catalog/classifications'),
-      apiClient.get('/api/catalog/prices'),
-    ]).then(([clsRes, priceRes]) => {
-      setClassifications(clsRes.data);
-      setInitialPrices(priceRes.data);
+    apiClient.get<Product[]>('/api/products').then((res) => {
+      const activeProducts = res.data.filter((product) => product.is_active);
+      const classificationData: Classification[] = activeProducts.map((product) => ({
+        id: product.id,
+        size: product.size,
+        color: product.color,
+      }));
+      const priceData: Price[] = [];
+      let generatedId = 1;
+      activeProducts.forEach((product) => {
+        if (product.price_per_tray !== undefined && product.price_per_tray !== null) {
+          priceData.push({
+            id: generatedId++,
+            classification_id: product.id,
+            unit: 'TRAY',
+            price_per_unit: product.price_per_tray,
+            effective_from: new Date().toISOString(),
+            effective_to: null,
+          });
+        }
+        if (product.price_per_dozen !== undefined && product.price_per_dozen !== null) {
+          priceData.push({
+            id: generatedId++,
+            classification_id: product.id,
+            unit: 'DOZEN',
+            price_per_unit: product.price_per_dozen,
+            effective_from: new Date().toISOString(),
+            effective_to: null,
+          });
+        }
+        if (product.price_per_pcs !== undefined && product.price_per_pcs !== null) {
+          priceData.push({
+            id: generatedId++,
+            classification_id: product.id,
+            unit: 'PCS',
+            price_per_unit: product.price_per_pcs,
+            effective_from: new Date().toISOString(),
+            effective_to: null,
+          });
+        }
+      });
+      setClassifications(classificationData);
+      setInitialPrices(priceData);
     });
   }, [token]);
 

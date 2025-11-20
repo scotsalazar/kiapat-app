@@ -213,6 +213,32 @@ def list_prices(db: Session) -> List[models.Price]:
     return db.query(models.Price).all()
 
 
+def _get_price_value(db: Session, classification_id: int, unit: models.UnitEnum) -> float | None:
+    price = utils.get_current_price(db, classification_id, unit)
+    return price.price_per_unit if price else None
+
+
+def _upsert_price(
+    db: Session, classification_id: int, unit: models.UnitEnum, price_per_unit: float
+) -> models.Price:
+    now = datetime.utcnow()
+    current = utils.get_current_price(db, classification_id, unit)
+    if current and current.price_per_unit == price_per_unit and current.effective_to is None:
+        return current
+    if current and (current.effective_to is None or current.effective_to > now):
+        current.effective_to = now
+    new_price = models.Price(
+        classification_id=classification_id,
+        unit=unit,
+        price_per_unit=price_per_unit,
+        effective_from=now,
+    )
+    db.add(new_price)
+    db.commit()
+    db.refresh(new_price)
+    return new_price
+
+
 def _validate_price_range(
     db: Session,
     classification_id: int,
@@ -333,6 +359,102 @@ def delete_price(db: Session, price_id: int) -> None:
         raise AppError(ErrorCode.PRICING_NOT_FOUND, "Price not found", status_code=status.HTTP_404_NOT_FOUND)
     db.delete(price)
     db.commit()
+
+
+def _build_product_response(db: Session, classification: models.Classification) -> schemas.ProductOut:
+    return schemas.ProductOut(
+        id=classification.id,
+        size=classification.size,
+        color=classification.color,
+        is_active=classification.is_active,
+        price_per_tray=_get_price_value(db, classification.id, models.UnitEnum.TRAY),
+        price_per_dozen=_get_price_value(db, classification.id, models.UnitEnum.DOZEN),
+        price_per_pcs=_get_price_value(db, classification.id, models.UnitEnum.PCS),
+    )
+
+
+def list_products(db: Session) -> List[schemas.ProductOut]:
+    classifications = db.query(models.Classification).order_by(models.Classification.id.asc()).all()
+    return [_build_product_response(db, classification) for classification in classifications]
+
+
+def _apply_product_prices(db: Session, classification_id: int, product_in: schemas.ProductBase) -> None:
+    if product_in.price_per_tray is not None:
+        _upsert_price(db, classification_id, models.UnitEnum.TRAY, product_in.price_per_tray)
+    if product_in.price_per_dozen is not None:
+        _upsert_price(db, classification_id, models.UnitEnum.DOZEN, product_in.price_per_dozen)
+    if product_in.price_per_pcs is not None:
+        _upsert_price(db, classification_id, models.UnitEnum.PCS, product_in.price_per_pcs)
+
+
+def create_product(db: Session, product_in: schemas.ProductCreate) -> schemas.ProductOut:
+    _ensure_unique_classification(db, product_in.size, product_in.color)
+    classification = models.Classification(
+        size=product_in.size, color=product_in.color, is_active=product_in.is_active
+    )
+    db.add(classification)
+    db.commit()
+    db.refresh(classification)
+    _apply_product_prices(db, classification.id, product_in)
+    inventory_notifier.publish(_build_inventory_event(db))
+    return _build_product_response(db, classification)
+
+
+def update_product(db: Session, classification_id: int, product_in: schemas.ProductUpdate) -> schemas.ProductOut:
+    classification = db.query(models.Classification).get(classification_id)
+    if not classification:
+        raise AppError(
+            ErrorCode.CATALOG_NOT_FOUND,
+            "Product not found",
+            status_code=status.HTTP_404_NOT_FOUND,
+        )
+    data = product_in.model_dump(exclude_unset=True)
+    if "size" in data or "color" in data:
+        size = data.get("size", classification.size)
+        color = data.get("color", classification.color)
+        _ensure_unique_classification(db, size, color, exclude_id=classification.id)
+    for field, value in data.items():
+        if field in {"price_per_tray", "price_per_dozen", "price_per_pcs"}:
+            continue
+        setattr(classification, field, value)
+    db.commit()
+    db.refresh(classification)
+
+    price_data_present = any(
+        field in data for field in ("price_per_tray", "price_per_dozen", "price_per_pcs")
+    )
+    if price_data_present:
+        _apply_product_prices(
+            db,
+            classification.id,
+            schemas.ProductBase(
+                size=classification.size,
+                color=classification.color,
+                is_active=classification.is_active,
+                price_per_tray=data.get("price_per_tray"),
+                price_per_dozen=data.get("price_per_dozen"),
+                price_per_pcs=data.get("price_per_pcs"),
+            ),
+        )
+    inventory_notifier.publish(_build_inventory_event(db))
+    return _build_product_response(db, classification)
+
+
+def delete_product(db: Session, classification_id: int) -> None:
+    classification = db.query(models.Classification).get(classification_id)
+    if not classification:
+        raise AppError(
+            ErrorCode.CATALOG_NOT_FOUND,
+            "Product not found",
+            status_code=status.HTTP_404_NOT_FOUND,
+        )
+    classification.is_active = False
+    now = datetime.utcnow()
+    for price in db.query(models.Price).filter(models.Price.classification_id == classification_id).all():
+        if price.effective_to is None or price.effective_to > now:
+            price.effective_to = now
+    db.commit()
+    inventory_notifier.publish(_build_inventory_event(db))
 
 
 def get_inventory_summary(

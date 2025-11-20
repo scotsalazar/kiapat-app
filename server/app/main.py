@@ -17,6 +17,7 @@ from .routers import admin as admin_router
 from .routers import realtime as realtime_router
 from .routers import users as users_router
 from .routers import reports as reports_router
+from .routers import products as products_router
 from . import seeder
 from .database import SessionLocal
 
@@ -50,6 +51,7 @@ def create_app() -> FastAPI:
     app.include_router(realtime_router.router)
     app.include_router(users_router.router)
     app.include_router(reports_router.router)
+    app.include_router(products_router.router)
     # Automatically seed database on startup if empty
     @app.on_event("startup")
     def seed_on_startup() -> None:
