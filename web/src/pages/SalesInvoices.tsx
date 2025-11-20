@@ -50,6 +50,7 @@ const SalesInvoicesPage: React.FC = () => {
   const [endDate, setEndDate] = useState('');
   const [customer, setCustomer] = useState('');
   const [status, setStatus] = useState('');
+  const [exporting, setExporting] = useState(false);
 
   const pageCount = useMemo(() => Math.max(1, Math.ceil(total / pageSize)), [pageSize, total]);
 
@@ -59,6 +60,27 @@ const SalesInvoicesPage: React.FC = () => {
     }
   }, [page, pageCount]);
 
+  const buildFilterParams = useCallback(() => {
+    const params: Record<string, any> = {};
+
+    if (startDate) {
+      const start = new Date(`${startDate}T00:00:00`);
+      params.start_date = start.toISOString();
+    }
+    if (endDate) {
+      const end = new Date(`${endDate}T23:59:59`);
+      params.end_date = end.toISOString();
+    }
+    if (customer.trim()) {
+      params.customer = customer.trim();
+    }
+    if (status) {
+      params.status = status;
+    }
+
+    return params;
+  }, [customer, endDate, startDate, status]);
+
   const fetchInvoices = useCallback(async () => {
     if (!token) return;
 
@@ -66,22 +88,7 @@ const SalesInvoicesPage: React.FC = () => {
     setError('');
 
     try {
-      const params: Record<string, any> = { page, page_size: pageSize };
-
-      if (startDate) {
-        const start = new Date(`${startDate}T00:00:00`);
-        params.start_date = start.toISOString();
-      }
-      if (endDate) {
-        const end = new Date(`${endDate}T23:59:59`);
-        params.end_date = end.toISOString();
-      }
-      if (customer.trim()) {
-        params.customer = customer.trim();
-      }
-      if (status) {
-        params.status = status;
-      }
+      const params: Record<string, any> = { page, page_size: pageSize, ...buildFilterParams() };
 
       const res = await apiClient.get<InvoiceListResponse>('/api/sales/invoices', { params });
       setInvoices(res.data.items);
@@ -93,7 +100,7 @@ const SalesInvoicesPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [customer, endDate, page, pageSize, showToast, startDate, status, t, token]);
+  }, [buildFilterParams, page, pageSize, showToast, t, token]);
 
   useEffect(() => {
     fetchInvoices();
@@ -127,6 +134,37 @@ const SalesInvoicesPage: React.FC = () => {
     return `#${invoice.created_by}`;
   };
 
+  const handleExport = async () => {
+    if (!token) return;
+    setExporting(true);
+
+    try {
+      const params = buildFilterParams();
+      const res = await apiClient.get('/api/sales/invoices/export', {
+        params,
+        responseType: 'blob',
+      });
+
+      const blob = new Blob([res.data], {
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `sales-invoices-${new Date().toISOString().slice(0, 10)}.xlsx`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      showToast('XLSX report generated successfully', 'success');
+    } catch (err) {
+      const { message } = parseApiError(err, t('invoiceHistory.errors.load'));
+      showToast(message, 'error');
+    } finally {
+      setExporting(false);
+    }
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex flex-col gap-2">
@@ -137,6 +175,19 @@ const SalesInvoicesPage: React.FC = () => {
       </div>
 
       <div className="space-y-4 rounded border border-slate-200 bg-white p-4 shadow-sm transition-colors dark:border-slate-700 dark:bg-slate-900 dark:shadow-slate-900/40">
+        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div className="text-sm text-slate-600 dark:text-slate-300">
+            Filter invoices by date range, customer, and status to narrow results.
+          </div>
+          <button
+            type="button"
+            onClick={handleExport}
+            disabled={exporting || loading || invoices.length === 0}
+            className="inline-flex items-center justify-center gap-2 rounded bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {exporting ? 'Generating XLSX…' : 'Generate XLSX report'}
+          </button>
+        </div>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
           <label className="flex flex-col text-sm">
             <span className="font-medium text-slate-700 dark:text-slate-200">Start date</span>

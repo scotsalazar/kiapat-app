@@ -7,9 +7,12 @@ invoice creation.
 """
 
 from base64 import b64encode
+from io import BytesIO
 import os
 from datetime import datetime, timedelta
 import importlib
+from zipfile import ZipFile
+import xml.etree.ElementTree as ET
 
 import pytest
 from fastapi.testclient import TestClient
@@ -330,6 +333,82 @@ def test_invoice_override_flow(client):
     summary = resp.json()
     card = next(c for c in summary["cards"] if c["classification_id"] == cls["id"])
     assert card["qty_pcs"] == -12
+
+
+def test_sales_invoice_export(client):
+    seed_db(client)
+    admin_token = login(client, "admin", "admin123")
+    driver_token = login(client, "driver", "pass123")
+
+    client.headers["Authorization"] = f"Bearer {admin_token}"
+    classifications = client.get("/api/catalog/classifications").json()
+    cls_id = classifications[0]["id"]
+
+    resp = client.post(
+        "/api/inventory/in/create",
+        json={"classification_id": cls_id, "qty": 2, "unit": "DOZEN"},
+    )
+    movement_id = resp.json()["id"]
+    client.post("/api/inventory/in/verify", json={"movement_id": movement_id})
+    client.post("/api/inventory/in/commit", json={"movement_id": movement_id})
+
+    client.headers["Authorization"] = f"Bearer {driver_token}"
+    resp = client.post(
+        "/api/sales/invoices",
+        json={
+            "customer_name": "Export Buyer",
+            "customer_phone": "123456789",
+            "items": [
+                {"classification_id": cls_id, "qty": 1, "unit": "DOZEN"},
+            ],
+            "signature_png_b64": b64encode(b"PNG").decode(),
+        },
+    )
+    assert resp.status_code == 201
+    invoice_id = resp.json()["id"]
+
+    client.headers["Authorization"] = f"Bearer {admin_token}"
+    resp = client.get("/api/sales/invoices/export")
+    assert resp.status_code == 200
+    assert resp.headers["content-type"].startswith(
+        "application/vnd.openxmlformats-officedocument"
+    )
+
+    with ZipFile(BytesIO(resp.content)) as archive:
+        sheet_xml = archive.read("xl/worksheets/sheet1.xml")
+
+    ns = {"a": "http://schemas.openxmlformats.org/spreadsheetml/2006/main"}
+    root = ET.fromstring(sheet_xml)
+    rows = root.findall("a:sheetData/a:row", ns)
+
+    def _cell_text(cell):
+        text = cell.findtext("a:is/a:t", default="", namespaces=ns)
+        if not text:
+            text = cell.findtext("a:v", default="", namespaces=ns)
+        return text
+
+    headers = [_cell_text(cell) for cell in rows[0].findall("a:c", ns)]
+    assert headers == [
+        "Invoice ID",
+        "Created",
+        "Customer",
+        "Phone",
+        "Location",
+        "Driver",
+        "Status",
+        "Total Amount",
+    ]
+
+    exported_ids = []
+    for row in rows[1:]:
+        first_cell = row.find("a:c", ns)
+        if first_cell is None:
+            continue
+        text = _cell_text(first_cell)
+        if text:
+            exported_ids.append(int(float(text)))
+
+    assert invoice_id in exported_ids
 
 
 def test_inventory_movement_state_rules(client):
