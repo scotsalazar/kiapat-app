@@ -1,26 +1,20 @@
-plugins {
-    id("com.android.application")
-    id("org.jetbrains.kotlin.android")
-}
+// Root-level Gradle file — this MUST NOT apply Android plugins.
 
-android {
-    namespace = "com.example.kiapat"
-    compileSdk = 34
-
-    defaultConfig {
-        applicationId = "com.example.kiapat"
-        minSdk = 24
-        targetSdk = 34
-        versionCode = 1
-        versionName = "1.0"
+buildscript {
+    repositories {
+        google()
+        mavenCentral()
+        gradlePluginPortal()
+    }
+    dependencies {
+        classpath("com.android.tools.build:gradle:8.13.1")
+        classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.22")
     }
 }
 
-repositories {
-    google()
-    mavenCentral()
-}
-
-dependencies {
-    // existing Kiapat mobile app dependencies
+allprojects {
+    repositories {
+        google()
+        mavenCentral()
+    }
 }
