@@ -1,13 +1,26 @@
-// Top-level Gradle build file for the Kiapat Android app.
-buildscript {
-    repositories {
-        google()
-        mavenCentral()
+plugins {
+    id("com.android.application")
+    id("org.jetbrains.kotlin.android")
+}
+
+android {
+    namespace = "com.example.kiapat"
+    compileSdk = 34
+
+    defaultConfig {
+        applicationId = "com.example.kiapat"
+        minSdk = 24
+        targetSdk = 34
+        versionCode = 1
+        versionName = "1.0"
     }
 }
 
-plugins {
-    id("com.android.application") version "8.2.2" apply false
-    id("org.jetbrains.kotlin.android") version "1.9.22" apply false
-    id("org.jetbrains.kotlin.plugin.serialization") version "1.9.22" apply false
+repositories {
+    google()
+    mavenCentral()
+}
+
+dependencies {
+    // existing Kiapat mobile app dependencies
 }
