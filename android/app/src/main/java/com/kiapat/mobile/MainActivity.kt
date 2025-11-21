@@ -17,7 +17,9 @@ import com.kiapat.mobile.data.repository.InvoiceRepository
 import com.kiapat.mobile.ui.navigation.AppDestination
 import com.kiapat.mobile.ui.navigation.AppNavHost
 import com.kiapat.mobile.ui.screens.dashboard.DashboardViewModelFactory
+import com.kiapat.mobile.ui.screens.invoice.CreateInvoiceViewModelFactory
 import com.kiapat.mobile.ui.screens.invoice.DriverInvoiceViewModelFactory
+import com.kiapat.mobile.ui.screens.invoice.ReceiptViewModelFactory
 import com.kiapat.mobile.ui.screens.login.LoginViewModelFactory
 import com.kiapat.mobile.ui.theme.KiapatTheme
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -76,6 +78,8 @@ private fun KiapatApp(
             loginFactory = LoginViewModelFactory(authRepository),
             dashboardFactory = DashboardViewModelFactory(dashboardRepository),
             driverInvoiceFactory = DriverInvoiceViewModelFactory(invoiceRepository),
+            createInvoiceFactory = CreateInvoiceViewModelFactory(invoiceRepository),
+            receiptFactory = ReceiptViewModelFactory(invoiceRepository),
             onRoleRouted = { role ->
                 val target = if (role == RoleEnum.DRIVER) AppDestination.DriverInvoices else AppDestination.Dashboard
                 if (currentRoute != target.route) {
