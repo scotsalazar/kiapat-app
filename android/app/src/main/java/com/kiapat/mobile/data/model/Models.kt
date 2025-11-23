@@ -4,7 +4,10 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 @Serializable
-enum class RoleEnum { ADMIN, DRIVER }
+enum class RoleEnum {
+    @SerialName("admin") ADMIN,
+    @SerialName("driver") DRIVER,
+}
 
 @Serializable
 enum class SizeEnum { S, M, L, XL }
