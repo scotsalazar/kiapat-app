@@ -8,6 +8,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.navigation.compose.rememberNavController
+import com.kiapat.mobile.BuildConfig
 import com.kiapat.mobile.data.api.ApiClient
 import com.kiapat.mobile.data.local.SessionPreferences
 import com.kiapat.mobile.data.model.RoleEnum
@@ -30,7 +31,7 @@ class MainActivity : ComponentActivity() {
 
         val sessionPreferences = SessionPreferences(applicationContext)
         val tokenState = MutableStateFlow<String?>(null)
-        val api = ApiClient.build(DEFAULT_BASE_URL) { tokenState.value }
+        val api = ApiClient.build(BuildConfig.DEFAULT_BASE_URL) { tokenState.value }
         val authRepository = AuthRepository(api, sessionPreferences)
         val dashboardRepository = DashboardRepository(api)
         val invoiceRepository = InvoiceRepository(api)
@@ -45,9 +46,6 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    companion object {
-        const val DEFAULT_BASE_URL = "http://10.0.2.2:8000"
-    }
 }
 
 @Composable

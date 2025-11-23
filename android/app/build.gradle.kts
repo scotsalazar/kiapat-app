@@ -15,6 +15,8 @@ android {
         versionCode = 1
         versionName = "1.0.0"
 
+        buildConfigField("String", "DEFAULT_BASE_URL", "\"http://10.0.2.2:8000\"")
+
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
             useSupportLibrary = true
@@ -43,6 +45,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
     composeOptions {
         kotlinCompilerExtensionVersion = "1.5.10"
