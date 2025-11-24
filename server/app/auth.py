@@ -4,11 +4,12 @@ from __future__ import annotations
 
 import os
 import re
+import secrets
 from datetime import datetime, timedelta
 from typing import Iterable
 
 from fastapi import Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordBearer
+from fastapi.security import APIKeyHeader, OAuth2PasswordBearer
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 from sqlalchemy.orm import Session
@@ -23,14 +24,18 @@ pwd_context = CryptContext(
     deprecated="auto",
 )
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login", auto_error=False)
+api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
 
 SECRET_KEY = os.getenv("SECRET_KEY", "change-me")
 ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
+API_SHARED_SECRET = os.getenv("API_SHARED_SECRET")
 try:
-    ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "60"))
+    # Default to 24 hours so tokens used by the mobile app remain valid during a
+    # full day of deliveries instead of expiring after just one hour.
+    ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", str(24 * 60)))
 except ValueError:
-    ACCESS_TOKEN_EXPIRE_MINUTES = 60
+    ACCESS_TOKEN_EXPIRE_MINUTES = 24 * 60
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
@@ -86,7 +91,8 @@ def create_access_token(data: dict, expires_delta: timedelta | None = None) -> s
 
 
 def get_current_user(
-    token: str = Depends(oauth2_scheme),
+    token: str | None = Depends(oauth2_scheme),
+    api_key: str | None = Depends(api_key_header),
     db: Session = Depends(get_db),
 ) -> models.User:
     """Dependency returning the authenticated user from a bearer token."""
@@ -96,18 +102,30 @@ def get_current_user(
         detail="Could not validate credentials",
         headers={"WWW-Authenticate": "Bearer"},
     )
-    try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+
+    if token:
+        try:
+            payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        except JWTError:
+            raise credentials_exception
         username: str | None = payload.get("sub")
         if username is None:
             raise credentials_exception
         token_data = schemas.TokenData(username=username, role=payload.get("role"))
-    except JWTError:
+        user = get_user(db, token_data.username)
+        if user is None:
+            raise credentials_exception
+        return user
+
+    if API_SHARED_SECRET and api_key:
+        if secrets.compare_digest(api_key, API_SHARED_SECRET):
+            user = db.query(models.User).filter(models.User.role == models.RoleEnum.ADMIN).first()
+            if user:
+                return user
+            raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Admin user not provisioned")
         raise credentials_exception
-    user = get_user(db, token_data.username)
-    if user is None:
-        raise credentials_exception
-    return user
+
+    raise credentials_exception
 
 
 def get_current_active_user(
