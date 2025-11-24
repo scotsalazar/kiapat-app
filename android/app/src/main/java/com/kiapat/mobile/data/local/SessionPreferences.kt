@@ -7,6 +7,7 @@ import androidx.datastore.preferences.preferencesDataStore
 import com.kiapat.mobile.data.model.RoleEnum
 import com.kiapat.mobile.data.model.Token
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 
 private const val DATA_STORE_NAME = "kiapat_session"
@@ -23,10 +24,22 @@ class SessionPreferences(private val context: Context) {
         SessionState(accessToken = prefs[accessTokenKey], role = role)
     }
 
+    suspend fun getSession(): SessionState {
+        val prefs = context.dataStore.data.first()
+        val role = prefs[roleKey]?.let { runCatching { RoleEnum.valueOf(it) }.getOrNull() }
+        return SessionState(accessToken = prefs[accessTokenKey], role = role)
+    }
+
     suspend fun save(token: Token) {
         context.dataStore.edit { prefs ->
             prefs[accessTokenKey] = token.accessToken
             prefs[roleKey] = token.user.role.name
+        }
+    }
+
+    suspend fun updateRole(role: RoleEnum) {
+        context.dataStore.edit { prefs ->
+            prefs[roleKey] = role.name
         }
     }
 
