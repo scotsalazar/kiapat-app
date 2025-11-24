@@ -35,6 +35,7 @@ fun AppNavHost(
     createInvoiceFactory: CreateInvoiceViewModelFactory,
     receiptFactory: ReceiptViewModelFactory,
     onRoleRouted: (RoleEnum) -> Unit,
+    onLogout: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     NavHost(navController = navController, startDestination = startDestination.route, modifier = modifier) {
@@ -46,7 +47,7 @@ fun AppNavHost(
         }
         composable(AppDestination.Dashboard.route) {
             val vm: DashboardViewModel = viewModel(factory = dashboardFactory)
-            DashboardScreen(viewModel = vm)
+            DashboardScreen(viewModel = vm, onLogout = onLogout)
         }
         composable(AppDestination.DriverInvoices.route) {
             val vm: DriverInvoiceViewModel = viewModel(factory = driverInvoiceFactory)
@@ -56,6 +57,7 @@ fun AppNavHost(
                 onInvoiceSelected = { invoiceId ->
                     navController.navigate(AppDestination.DriverInvoiceReceipt.createRoute(invoiceId, null))
                 },
+                onLogout = onLogout,
             )
         }
         composable(AppDestination.CreateInvoice.route) {
