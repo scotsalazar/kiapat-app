@@ -16,6 +16,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Logout
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -49,6 +50,7 @@ fun DriverInvoiceScreen(
     viewModel: DriverInvoiceViewModel,
     onCreateInvoice: () -> Unit,
     onInvoiceSelected: (Int) -> Unit,
+    onLogout: () -> Unit,
 ) {
     val state by viewModel.state.collectAsState()
     val formatter = rememberCurrencyFormatter()
@@ -65,6 +67,9 @@ fun DriverInvoiceScreen(
                 actions = {
                     IconButton(onClick = { viewModel.load() }) {
                         Icon(Icons.Default.Refresh, contentDescription = "Refresh")
+                    }
+                    IconButton(onClick = onLogout) {
+                        Icon(Icons.Default.Logout, contentDescription = "Logout")
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(

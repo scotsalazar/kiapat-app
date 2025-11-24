@@ -9,6 +9,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.navigation.compose.rememberNavController
 import com.kiapat.mobile.BuildConfig
 import com.kiapat.mobile.data.api.ApiClient
@@ -26,6 +27,7 @@ import com.kiapat.mobile.ui.screens.invoice.ReceiptViewModelFactory
 import com.kiapat.mobile.ui.screens.login.LoginViewModelFactory
 import com.kiapat.mobile.ui.theme.KiapatTheme
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -59,14 +61,18 @@ private fun KiapatApp(
 ) {
     val session by authRepository.sessionFlow.collectAsState(initial = SessionPreferences.SessionState(null, null))
     val navController = rememberNavController()
-    val currentRoute = navController.currentBackStackEntry?.destination?.route
     var validatedSession by remember { mutableStateOf<SessionPreferences.SessionState?>(null) }
+    val coroutineScope = rememberCoroutineScope()
 
     LaunchedEffect(session.accessToken) {
         tokenState.value = session.accessToken
 
         if (session.accessToken == null) {
             validatedSession = null
+            navController.navigate(AppDestination.Login.route) {
+                popUpTo(navController.graph.startDestinationId) { inclusive = true }
+                launchSingleTop = true
+            }
             return@LaunchedEffect
         }
 
@@ -74,8 +80,10 @@ private fun KiapatApp(
         validatedSession = result
 
         if (result == null) {
+            tokenState.value = null
             navController.navigate(AppDestination.Login.route) {
                 popUpTo(navController.graph.startDestinationId) { inclusive = true }
+                launchSingleTop = true
             }
         }
     }
@@ -89,10 +97,23 @@ private fun KiapatApp(
     LaunchedEffect(validatedSession?.role) {
         validatedSession?.role?.let { role ->
             val target = if (role == RoleEnum.DRIVER) AppDestination.DriverInvoices else AppDestination.Dashboard
+            val currentRoute = navController.currentBackStackEntry?.destination?.route
             if (currentRoute != target.route) {
                 navController.navigate(target.route) {
                     popUpTo(AppDestination.Login.route) { inclusive = true }
                 }
+            }
+        }
+    }
+
+    val onLogout: () -> Unit = {
+        coroutineScope.launch {
+            validatedSession = null
+            authRepository.logout()
+            tokenState.value = null
+            navController.navigate(AppDestination.Login.route) {
+                popUpTo(navController.graph.startDestinationId) { inclusive = true }
+                launchSingleTop = true
             }
         }
     }
@@ -108,12 +129,14 @@ private fun KiapatApp(
             receiptFactory = ReceiptViewModelFactory(invoiceRepository),
             onRoleRouted = { role ->
                 val target = if (role == RoleEnum.DRIVER) AppDestination.DriverInvoices else AppDestination.Dashboard
+                val currentRoute = navController.currentBackStackEntry?.destination?.route
                 if (currentRoute != target.route) {
                     navController.navigate(target.route) {
                         popUpTo(AppDestination.Login.route) { inclusive = true }
                     }
                 }
             },
+            onLogout = onLogout,
         )
     }
 }
