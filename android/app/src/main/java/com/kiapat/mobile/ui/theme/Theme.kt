@@ -11,31 +11,54 @@ import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 
 private val LightColors = lightColorScheme(
-    primary = AccentPrimary,
-    secondary = AccentPrimary,
-    background = SurfaceMuted,
-    surface = Surface,
-    onSurface = SurfaceDark,
+    primary = Amber500,
+    onPrimary = Slate900,
+    primaryContainer = Color(0xFFFFF3C7),
+    onPrimaryContainer = Slate900,
+    secondary = Slate700,
+    onSecondary = SoftWhite,
+    background = LightSurfaceMuted,
+    onBackground = LightOnSurface,
+    surface = LightSurface,
+    onSurface = LightOnSurface,
+    surfaceVariant = LightSurfaceMuted,
+    onSurfaceVariant = LightOnSurfaceMuted,
+    outline = LightOutline,
+    outlineVariant = Slate100,
+    tertiary = Amber600,
+    onTertiary = Slate900,
 )
 
 private val DarkColors = darkColorScheme(
-    primary = AccentPrimary,
-    secondary = AccentPrimary,
-    background = SurfaceDark,
-    surface = SurfaceDarkMuted,
-    onSurface = Surface,
+    primary = Amber500,
+    onPrimary = Slate900,
+    primaryContainer = Amber600,
+    onPrimaryContainer = SoftWhite,
+    secondary = Slate200,
+    onSecondary = Slate900,
+    background = DarkBackground,
+    onBackground = DarkOnSurface,
+    surface = DarkSurface,
+    onSurface = DarkOnSurface,
+    surfaceVariant = DarkSurfaceMuted,
+    onSurfaceVariant = DarkOnSurfaceMuted,
+    outline = DarkOutline,
+    outlineVariant = Slate800,
+    tertiary = Amber600,
+    onTertiary = Slate900,
 )
 
 @Composable
 fun KiapatTheme(
     useDarkTheme: Boolean = isSystemInDarkTheme(),
-    dynamicColor: Boolean = true,
+    dynamicColor: Boolean = false,
     content: @Composable () -> Unit,
 ) {
     val colorScheme: ColorScheme = when {
@@ -51,7 +74,7 @@ fun KiapatTheme(
     if (!view.isInEditMode) {
         SideEffect {
             val window = (view.context as Activity).window
-            window.statusBarColor = colorScheme.primary.toArgb()
+            window.statusBarColor = colorScheme.background.toArgb()
             WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = !useDarkTheme
         }
     }
