@@ -29,7 +29,7 @@ This repository contains a minimal yet functional MVP for **Kiapat**, an egg del
 
 2. **Configure environment**:
 
-   Copy `.env.example` to `.env` and adjust values if necessary. During local dev you can leave defaults – SQLite will be created under `server/data/kiapat.db`.
+   Copy `server/.env.example` to `server/.env` and adjust values if necessary. During local dev you can leave the defaults – SQLite will be created under `server/data/kiapat.db`. Set `API_SHARED_SECRET` to any random string if you plan to authenticate using the shared key fallback (see “Mobile emulator auth” below).
 
 3. **Run the API**:
 
@@ -154,6 +154,14 @@ After deployment you should be able to:
 - **401 Unauthorized**: ensure you included the `Authorization: Bearer <token>` header. Tokens expire after 24 hours by default.
 - **CORS errors**: set `CORS_ALLOWED_ORIGINS` (server) and `VITE_API_BASE_URL` (web) to the correct domains. Use `http` vs `https` consistently.
 - **Database locked** (SQLite): avoid concurrent writes or switch to Postgres in production.
+
+### Mobile emulator auth (Android)
+
+If you’re calling the API directly from the Android emulator without going through the web UI, you can use the shared API key fallback instead of acquiring a bearer token:
+
+1. Set `API_SHARED_SECRET` in `server/.env` (any strong random string) and restart the backend so the variable is loaded.
+2. From the emulator, include the header `X-API-Key: <value-of-API_SHARED_SECRET>` on every request. The backend will map that key to the admin context and authorize protected endpoints.
+3. If you prefer bearer tokens, call `/api/auth/login` first to retrieve an access token and pass it via `Authorization: Bearer <token>`.
 
 ## Self‑QA Report
 
