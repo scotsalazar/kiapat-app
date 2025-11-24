@@ -7,6 +7,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.navigation.compose.rememberNavController
 import com.kiapat.mobile.BuildConfig
 import com.kiapat.mobile.data.api.ApiClient
@@ -58,15 +60,41 @@ private fun KiapatApp(
     val session by authRepository.sessionFlow.collectAsState(initial = SessionPreferences.SessionState(null, null))
     val navController = rememberNavController()
     val currentRoute = navController.currentBackStackEntry?.destination?.route
+    var validatedSession by remember { mutableStateOf<SessionPreferences.SessionState?>(null) }
 
     LaunchedEffect(session.accessToken) {
         tokenState.value = session.accessToken
+
+        if (session.accessToken == null) {
+            validatedSession = null
+            return@LaunchedEffect
+        }
+
+        val result = authRepository.validateSession()
+        validatedSession = result
+
+        if (result == null) {
+            navController.navigate(AppDestination.Login.route) {
+                popUpTo(navController.graph.startDestinationId) { inclusive = true }
+            }
+        }
     }
 
-    val startDestination = when {
-        session.accessToken == null -> AppDestination.Login
-        session.role == RoleEnum.DRIVER -> AppDestination.DriverInvoices
-        else -> AppDestination.Dashboard
+    val startDestination = when (validatedSession?.role) {
+        RoleEnum.DRIVER -> AppDestination.DriverInvoices
+        RoleEnum.ADMIN -> AppDestination.Dashboard
+        else -> AppDestination.Login
+    }
+
+    LaunchedEffect(validatedSession?.role) {
+        validatedSession?.role?.let { role ->
+            val target = if (role == RoleEnum.DRIVER) AppDestination.DriverInvoices else AppDestination.Dashboard
+            if (currentRoute != target.route) {
+                navController.navigate(target.route) {
+                    popUpTo(AppDestination.Login.route) { inclusive = true }
+                }
+            }
+        }
     }
 
     KiapatTheme {
