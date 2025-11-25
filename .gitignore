@@ -1,0 +1,42 @@
+# Environment Files
+.env
+.env.local
+.env.*.local
+
+# Python / FastAPI backend
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.sqlite3
+instance/
+build/
+dist/
+*.egg-info/
+*.egg
+
+# Node / Vite
+node_modules/
+dist/
+.vite/
+*.log
+
+# Android / Gradle
+*.iml
+.gradle/
+local.properties
+/.idea
+.DS_Store
+app/build/
+build/
+captures/
+*.jks
+*.keystore
+*.keystore.properties
+
+# OS / Editor
+Thumbs.db
+.DS_Store
+*.swp
+*.swo
+
