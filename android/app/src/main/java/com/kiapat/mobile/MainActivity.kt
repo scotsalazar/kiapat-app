@@ -11,7 +11,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.navigation.compose.rememberNavController
-import com.kiapat.mobile.BuildConfig
 import com.kiapat.mobile.data.api.ApiClient
 import com.kiapat.mobile.data.local.SessionPreferences
 import com.kiapat.mobile.data.model.RoleEnum
@@ -35,7 +34,7 @@ class MainActivity : ComponentActivity() {
 
         val sessionPreferences = SessionPreferences(applicationContext)
         val tokenState = MutableStateFlow<String?>(null)
-        val api = ApiClient.build(BuildConfig.DEFAULT_BASE_URL) { tokenState.value }
+        val api = ApiClient.build { tokenState.value }
         val authRepository = AuthRepository(api, sessionPreferences)
         val dashboardRepository = DashboardRepository(api)
         val invoiceRepository = InvoiceRepository(api)

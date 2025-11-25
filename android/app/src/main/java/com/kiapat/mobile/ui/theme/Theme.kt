@@ -11,48 +11,47 @@ import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 
 private val LightColors = lightColorScheme(
-    primary = Amber500,
-    onPrimary = Slate900,
-    primaryContainer = Color(0xFFFFF3C7),
-    onPrimaryContainer = Slate900,
-    secondary = Slate700,
-    onSecondary = SoftWhite,
-    background = LightSurfaceMuted,
+    primary = KiapatBlue,
+    onPrimary = LightOnPrimary,
+    primaryContainer = KiapatBlueDark,
+    onPrimaryContainer = LightOnPrimary,
+    secondary = KiapatBlueDark,
+    onSecondary = LightOnPrimary,
+    background = LightBackground,
     onBackground = LightOnSurface,
     surface = LightSurface,
     onSurface = LightOnSurface,
     surfaceVariant = LightSurfaceMuted,
-    onSurfaceVariant = LightOnSurfaceMuted,
+    onSurfaceVariant = LightOnSurfaceVariant,
     outline = LightOutline,
-    outlineVariant = Slate100,
-    tertiary = Amber600,
-    onTertiary = Slate900,
+    outlineVariant = LightOutlineStrong,
+    tertiary = Emerald,
+    onTertiary = LightOnPrimary,
 )
 
 private val DarkColors = darkColorScheme(
-    primary = Amber500,
-    onPrimary = Slate900,
-    primaryContainer = Amber600,
-    onPrimaryContainer = SoftWhite,
-    secondary = Slate200,
-    onSecondary = Slate900,
+    primary = KiapatBlue,
+    onPrimary = DarkOnPrimary,
+    primaryContainer = KiapatBlueDark,
+    onPrimaryContainer = DarkOnPrimary,
+    secondary = KiapatBlueDark,
+    onSecondary = DarkOnPrimary,
     background = DarkBackground,
     onBackground = DarkOnSurface,
     surface = DarkSurface,
     onSurface = DarkOnSurface,
     surfaceVariant = DarkSurfaceMuted,
-    onSurfaceVariant = DarkOnSurfaceMuted,
+    onSurfaceVariant = DarkOnSurfaceVariant,
     outline = DarkOutline,
-    outlineVariant = Slate800,
-    tertiary = Amber600,
-    onTertiary = Slate900,
+    outlineVariant = DarkOutlineStrong,
+    tertiary = Emerald,
+    onTertiary = DarkOnPrimary,
 )
 
 @Composable

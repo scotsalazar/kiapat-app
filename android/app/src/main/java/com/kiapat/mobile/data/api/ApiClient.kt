@@ -1,6 +1,7 @@
 package com.kiapat.mobile.data.api
 
 import com.jakewharton.retrofit2.converter.kotlinx.serialization.asConverterFactory
+import com.kiapat.mobile.BuildConfig
 import kotlinx.serialization.json.Json
 import okhttp3.Interceptor
 import okhttp3.MediaType.Companion.toMediaType
@@ -22,7 +23,7 @@ class AuthInterceptor(private val tokenProvider: () -> String?) : Interceptor {
 object ApiClient {
     private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
 
-    fun build(baseUrl: String, tokenProvider: () -> String? = { null }): KiapatApi {
+    fun build(tokenProvider: () -> String? = { null }): KiapatApi {
         val logging = HttpLoggingInterceptor().apply {
             level = HttpLoggingInterceptor.Level.BASIC
         }
@@ -33,7 +34,7 @@ object ApiClient {
 
         val contentType = "application/json".toMediaType()
         val retrofit = Retrofit.Builder()
-            .baseUrl(baseUrl)
+            .baseUrl(BuildConfig.BASE_URL.ensureTrailingSlash())
             .client(client)
             .addConverterFactory(json.asConverterFactory(contentType))
             .build()
@@ -41,3 +42,5 @@ object ApiClient {
         return retrofit.create(KiapatApi::class.java)
     }
 }
+
+private fun String.ensureTrailingSlash(): String = if (endsWith("/")) this else "$this/"

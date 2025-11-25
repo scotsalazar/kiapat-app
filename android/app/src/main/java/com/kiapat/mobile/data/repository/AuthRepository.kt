@@ -5,6 +5,7 @@ import java.nio.charset.StandardCharsets
 import com.kiapat.mobile.data.api.KiapatApi
 import com.kiapat.mobile.data.local.SessionPreferences
 import com.kiapat.mobile.data.model.Token
+import com.kiapat.mobile.data.repository.ApiErrorMapper.safeApiCall
 import kotlinx.coroutines.flow.Flow
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
@@ -16,7 +17,7 @@ class AuthRepository(
     val sessionFlow: Flow<SessionPreferences.SessionState> = preferences.session
 
     suspend fun login(username: String, password: String): Token {
-        val token = api.login(username, password)
+        val token = safeApiCall { api.login(username, password) }
         preferences.save(token)
         return token
     }
@@ -34,7 +35,7 @@ class AuthRepository(
             return null
         }
 
-        return runCatching { api.me() }
+        return runCatching { safeApiCall { api.me() } }
             .map { user ->
                 preferences.updateRole(user.role)
                 SessionPreferences.SessionState(accessToken, user.role)
