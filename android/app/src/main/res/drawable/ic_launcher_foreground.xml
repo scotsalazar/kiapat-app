@@ -4,14 +4,61 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <group
-        android:scaleX="0.9"
-        android:scaleY="0.9"
-        android:translateX="5.4"
-        android:translateY="5.4">
-        <path
-            android:fillColor="#FFFFFFFF"
-            android:fillType="nonZero"
-            android:pathData="M36,20h12l12,24l12,-24h12l-18,36l18,36h-12l-12,-24l-12,24h-12l18,-36z" />
-    </group>
+
+    <!-- Soft glow behind the delivery badge -->
+    <path
+        android:fillColor="#FCD34D"
+        android:fillAlpha="0.22"
+        android:pathData="M54,12c23.196,0 42,18.804 42,42s-18.804,42 -42,42 -42,-18.804 -42,-42 18.804,-42 42,-42z" />
+
+    <!-- Egg silhouette -->
+    <path
+        android:fillColor="#FEFCE8"
+        android:pathData="M54,24c-12,0 -22,11 -22,24 0,14 10.5,28 22,28 11.5,0 22,-14 22,-28 0,-13 -10,-24 -22,-24z" />
+
+    <!-- Warm yolk shading -->
+    <path
+        android:fillColor="#F59E0B"
+        android:fillAlpha="0.18"
+        android:pathData="M54,30c-8.5,0 -15,8 -15,16 0,10 7.5,21 15,21 7.5,0 15,-11 15,-21 0,-8 -6.5,-16 -15,-16z" />
+
+    <!-- Highlight on the shell -->
+    <path
+        android:fillColor="#FFFDF5"
+        android:pathData="M46,38c4.4,-6.8 12.8,-8 17.6,-2.4 1.2,1.4 0.9,3.5 -0.6,4.8l-10.4,9.2c-1.6,1.4 -4,1.1 -5.3,-0.6l-4.4,-6.2c-1,-1.4 -0.7,-3.3 1.1,-4.8z" />
+
+    <!-- Cart bed for delivery cue -->
+    <path
+        android:fillColor="#0F172A"
+        android:pathData="M32,64h44c3.314,0 6,2.686 6,6 0,3.314 -2.686,6 -6,6h-44c-3.314,0 -6,-2.686 -6,-6 0,-3.314 2.686,-6 6,-6z" />
+
+    <!-- Left wheel -->
+    <path
+        android:fillColor="#F59E0B"
+        android:pathData="M38,78a6,6 0 1,0 12,0a6,6 0 1,0 -12,0z" />
+    <path
+        android:fillColor="#FEFCE8"
+        android:pathData="M44,78a2,2 0 1,0 4,0a2,2 0 1,0 -4,0z" />
+
+    <!-- Right wheel -->
+    <path
+        android:fillColor="#F59E0B"
+        android:pathData="M62,78a6,6 0 1,0 12,0a6,6 0 1,0 -12,0z" />
+    <path
+        android:fillColor="#FEFCE8"
+        android:pathData="M68,78a2,2 0 1,0 4,0a2,2 0 1,0 -4,0z" />
+
+    <!-- Motion lines to hint at delivery speed -->
+    <path
+        android:fillColor="#0EA5E9"
+        android:fillAlpha="0.75"
+        android:pathData="M20,58h14v3h-14z" />
+    <path
+        android:fillColor="#0EA5E9"
+        android:fillAlpha="0.6"
+        android:pathData="M24,52h12v3h-12z" />
+    <path
+        android:fillColor="#0EA5E9"
+        android:fillAlpha="0.45"
+        android:pathData="M28,46h10v3h-10z" />
 </vector>
