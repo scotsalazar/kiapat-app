@@ -1,5 +1,11 @@
 package com.kiapat.mobile.ui.screens.invoice
 
+import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.Paint
+import android.util.Base64
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.unit.IntSize
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
@@ -9,10 +15,11 @@ import com.kiapat.mobile.data.model.InvoiceItemCreate
 import com.kiapat.mobile.data.model.InvoiceOut
 import com.kiapat.mobile.data.model.PriceOut
 import com.kiapat.mobile.data.repository.InvoiceRepository
+import java.io.ByteArrayOutputStream
+import java.util.Locale
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
-import java.util.Locale
 
 private const val VAT_RATE = 0.12
 
@@ -43,6 +50,8 @@ data class CreateInvoiceState(
     val gpsCoordinates: String = "",
     val isFetchingLocation: Boolean = false,
     val locationError: String? = null,
+    val signatureStrokes: List<List<Offset>> = emptyList(),
+    val signaturePadSize: IntSize = IntSize.Zero,
     val tenderedAmount: String = "",
     val subtotal: Double = 0.0,
     val vatAmount: Double = 0.0,
@@ -104,6 +113,23 @@ class CreateInvoiceViewModel(private val repository: InvoiceRepository) : ViewMo
         _state.value = _state.value.copy(locationError = message)
     }
 
+    fun recordSignatureStroke(points: List<Offset>) {
+        _state.value = _state.value.copy(
+            signatureStrokes = _state.value.signatureStrokes + listOf(points),
+            error = null,
+        )
+    }
+
+    fun clearSignature() {
+        _state.value = _state.value.copy(signatureStrokes = emptyList())
+    }
+
+    fun updateSignaturePadSize(size: IntSize) {
+        if (size != _state.value.signaturePadSize) {
+            _state.value = _state.value.copy(signaturePadSize = size)
+        }
+    }
+
     fun updateTenderedAmount(value: String) {
         _state.value = _state.value.copy(tenderedAmount = value)
     }
@@ -154,6 +180,15 @@ class CreateInvoiceViewModel(private val repository: InvoiceRepository) : ViewMo
                 return@launch
             }
 
+            val signatureBase64 = encodeSignature()
+            if (signatureBase64 == null) {
+                _state.value = _state.value.copy(
+                    error = "Please capture the customer's signature before creating an invoice.",
+                    isSubmitting = false,
+                )
+                return@launch
+            }
+
             _state.value = _state.value.copy(isSubmitting = true, error = null)
             try {
                 val invoice = repository.createInvoice(
@@ -162,6 +197,7 @@ class CreateInvoiceViewModel(private val repository: InvoiceRepository) : ViewMo
                         customerPhone = _state.value.customerPhone.ifBlank { null },
                         gpsCoordinates = _state.value.gpsCoordinates.ifBlank { null },
                         items = lineItems,
+                        signaturePngBase64 = signatureBase64,
                     ),
                 )
                 _state.value = _state.value.copy(createdInvoice = invoice, isSubmitting = false)
@@ -185,6 +221,45 @@ class CreateInvoiceViewModel(private val repository: InvoiceRepository) : ViewMo
         val vat = subtotal * VAT_RATE
         val total = subtotal + vat
         return copy(subtotal = subtotal, vatAmount = vat, grandTotal = total)
+    }
+
+    private fun encodeSignature(): String? {
+        val strokes = _state.value.signatureStrokes
+        val padSize = _state.value.signaturePadSize
+        if (strokes.isEmpty()) return null
+
+        val width = if (padSize.width > 0) padSize.width else 720
+        val height = if (padSize.height > 0) padSize.height else 320
+
+        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(bitmap)
+        canvas.drawColor(android.graphics.Color.WHITE)
+
+        val paint = Paint().apply {
+            color = android.graphics.Color.parseColor("#0F172A")
+            strokeWidth = 8f
+            isAntiAlias = true
+            style = Paint.Style.STROKE
+            strokeCap = Paint.Cap.ROUND
+            strokeJoin = Paint.Join.ROUND
+        }
+
+        strokes.forEach { stroke ->
+            if (stroke.isNotEmpty()) {
+                val path = android.graphics.Path().apply {
+                    moveTo(stroke.first().x, stroke.first().y)
+                    stroke.drop(1).forEach { point ->
+                        lineTo(point.x, point.y)
+                    }
+                }
+                canvas.drawPath(path, paint)
+            }
+        }
+
+        return ByteArrayOutputStream().use { stream ->
+            bitmap.compress(Bitmap.CompressFormat.PNG, 100, stream)
+            Base64.encodeToString(stream.toByteArray(), Base64.NO_WRAP)
+        }
     }
 }
 

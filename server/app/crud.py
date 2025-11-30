@@ -17,6 +17,7 @@ from sqlalchemy.orm import Session, selectinload
 from sqlalchemy.exc import IntegrityError
 
 from . import auth, models, schemas, utils
+from .timezone import now_ph, now_ph_naive
 from .errors import AppError, ErrorCode
 from .notifier import inventory_notifier
 
@@ -221,7 +222,7 @@ def _get_price_value(db: Session, classification_id: int, unit: models.UnitEnum)
 def _upsert_price(
     db: Session, classification_id: int, unit: models.UnitEnum, price_per_unit: float
 ) -> models.Price:
-    now = datetime.utcnow()
+    now = now_ph_naive()
     current = utils.get_current_price(db, classification_id, unit)
     if current and current.price_per_unit == price_per_unit and current.effective_to is None:
         return current
@@ -275,7 +276,7 @@ def _validate_price_range(
 
 
 def create_price(db: Session, price_in: schemas.PriceCreate) -> models.Price:
-    effective_from = price_in.effective_from or datetime.utcnow()
+    effective_from = price_in.effective_from or now_ph_naive()
     effective_to = price_in.effective_to
     _validate_price_range(
         db,
@@ -346,7 +347,7 @@ def deactivate_price(db: Session, price_id: int) -> models.Price:
     price = db.query(models.Price).get(price_id)
     if not price:
         raise AppError(ErrorCode.PRICING_NOT_FOUND, "Price not found", status_code=status.HTTP_404_NOT_FOUND)
-    now = datetime.utcnow()
+    now = now_ph_naive()
     price.effective_to = now if now > price.effective_from else price.effective_from
     db.commit()
     db.refresh(price)
@@ -449,7 +450,7 @@ def delete_product(db: Session, classification_id: int) -> None:
             status_code=status.HTTP_404_NOT_FOUND,
         )
     classification.is_active = False
-    now = datetime.utcnow()
+    now = now_ph_naive()
     for price in db.query(models.Price).filter(models.Price.classification_id == classification_id).all():
         if price.effective_to is None or price.effective_to > now:
             price.effective_to = now
@@ -471,7 +472,7 @@ def get_inventory_summary(
     pieces along with the current price per dozen for each
     classification.
     """
-    timestamp = datetime.utcnow()
+    timestamp = now_ph_naive()
     cards: List[schemas.InventoryCard] = []
     query = db.query(models.Classification).filter(models.Classification.is_active == True)
     if size:
@@ -655,7 +656,7 @@ def verify_movement(db: Session, user: models.User, movement_id: int) -> models.
             details=details,
         )
     m.status = models.MovementStatus.VERIFIED
-    m.committed_at = datetime.utcnow()
+    m.committed_at = now_ph_naive()
     m.by_user_id = user.id
     db.commit()
     db.refresh(m)
@@ -694,9 +695,9 @@ def commit_movement(db: Session, user: models.User, movement_id: int) -> models.
         )
         db.add(balance)
     balance.qty_pcs += m.qty_pcs
-    balance.updated_at = datetime.utcnow()
+    balance.updated_at = now_ph_naive()
     m.status = models.MovementStatus.COMMITTED
-    m.committed_at = datetime.utcnow()
+    m.committed_at = now_ph_naive()
     db.commit()
     db.refresh(m)
     inventory_notifier.publish(_build_inventory_event(db))
@@ -770,7 +771,7 @@ def create_invoice(db: Session, user: models.User, invoice_in: schemas.InvoiceCr
     if invoice_in.signature_png_b64:
         # decode base64 and write to file with unique name
         data = base64.b64decode(invoice_in.signature_png_b64.split(",")[-1])
-        filename = f"sig_{datetime.utcnow().strftime('%Y%m%d%H%M%S%f')}.png"
+        filename = f"sig_{now_ph().strftime('%Y%m%d%H%M%S%f')}.png"
         filepath = os.path.join(SIGNATURE_DIR, filename)
         with open(filepath, "wb") as f:
             f.write(data)
@@ -783,7 +784,7 @@ def create_invoice(db: Session, user: models.User, invoice_in: schemas.InvoiceCr
         total_amount=total_amount,
         signature_png_path=signature_path,
         created_by=user.id,
-        created_at=datetime.utcnow(),
+        created_at=now_ph_naive(),
         status=invoice_status,
     )
     invoice.items = [
@@ -841,7 +842,7 @@ def create_invoice(db: Session, user: models.User, invoice_in: schemas.InvoiceCr
                 )
                 db.add(bal)
             bal.qty_pcs -= mv.qty_pcs
-            bal.updated_at = datetime.utcnow()
+            bal.updated_at = now_ph_naive()
             publish_inventory = True
     db.commit()
     db.refresh(invoice)
@@ -892,8 +893,22 @@ def approve_invoice_override(
             details={"invoice_id": invoice_id, "status": invoice.status.value},
         )
 
-    now = datetime.utcnow()
+    now = now_ph_naive()
     publish_inventory = False
+
+    pending_movements = [
+        mv for mv in invoice.movements if mv.status == models.MovementStatus.PENDING_OVERRIDE
+    ]
+    classification_ids = {mv.classification_id for mv in pending_movements}
+    balances = {}
+    if classification_ids:
+        balances = {
+            bal.classification_id: bal
+            for bal in db.query(models.InventoryBalance)
+            .filter(models.InventoryBalance.classification_id.in_(classification_ids))
+            .all()
+        }
+
     for override in invoice.overrides:
         override.status = models.OverrideStatus.APPROVED
         override.decided_by_id = admin.id
@@ -901,23 +916,17 @@ def approve_invoice_override(
         if reason:
             override.decision_reason = reason
 
-    for mv in invoice.movements:
-        if mv.status == models.MovementStatus.PENDING_OVERRIDE:
-            bal = (
-                db.query(models.InventoryBalance)
-                .filter(models.InventoryBalance.classification_id == mv.classification_id)
-                .first()
-            )
-            if not bal:
-                bal = models.InventoryBalance(
-                    classification_id=mv.classification_id, qty_pcs=0
-                )
-                db.add(bal)
-            bal.qty_pcs -= mv.qty_pcs
-            bal.updated_at = now
-            mv.status = models.MovementStatus.COMMITTED
-            mv.committed_at = now
-            publish_inventory = True
+    for mv in pending_movements:
+        bal = balances.get(mv.classification_id)
+        if not bal:
+            bal = models.InventoryBalance(classification_id=mv.classification_id, qty_pcs=0)
+            balances[mv.classification_id] = bal
+            db.add(bal)
+        bal.qty_pcs -= mv.qty_pcs
+        bal.updated_at = now
+        mv.status = models.MovementStatus.COMMITTED
+        mv.committed_at = now
+        publish_inventory = True
 
     invoice.status = models.InvoiceStatus.COMPLETED
     db.commit()
@@ -947,7 +956,7 @@ def reject_invoice_override(
             details={"invoice_id": invoice_id, "status": invoice.status.value},
         )
 
-    now = datetime.utcnow()
+    now = now_ph_naive()
     for override in invoice.overrides:
         override.status = models.OverrideStatus.REJECTED
         override.decided_by_id = admin.id
