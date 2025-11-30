@@ -4,12 +4,12 @@ Utility functions for unit conversion and pricing lookup.
 
 from __future__ import annotations
 
-from datetime import datetime
 from typing import Optional
 
 from sqlalchemy.orm import Session
 
 from . import models
+from .timezone import now_ph_naive
 
 
 TRAY_SIZE = 30
@@ -43,7 +43,7 @@ def get_current_price(
     Prices are considered active if their effective_from is <= now and
     effective_to is either None or in the future.
     """
-    now = datetime.utcnow()
+    now = now_ph_naive()
     return (
         db.query(models.Price)
         .filter(

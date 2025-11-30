@@ -5,11 +5,11 @@ invoked both from the admin API endpoint and automatically on
 startup when the database is empty.
 """
 
-from datetime import datetime
 from itertools import product
 from sqlalchemy.orm import Session
 
 from . import models, auth, utils
+from .timezone import now_ph_naive
 
 
 def seed_database(db: Session) -> str:
@@ -53,7 +53,7 @@ def seed_database(db: Session) -> str:
                 classification_id=cls.id,
                 unit=models.UnitEnum.DOZEN,
                 price_per_unit=price_per_dozen,
-                effective_from=datetime.utcnow(),
+                effective_from=now_ph_naive(),
             )
         )
         db.add(
@@ -61,7 +61,7 @@ def seed_database(db: Session) -> str:
                 classification_id=cls.id,
                 unit=models.UnitEnum.TRAY,
                 price_per_unit=price_per_tray,
-                effective_from=datetime.utcnow(),
+                effective_from=now_ph_naive(),
             )
         )
         db.add(
@@ -69,7 +69,7 @@ def seed_database(db: Session) -> str:
                 classification_id=cls.id,
                 unit=models.UnitEnum.PCS,
                 price_per_unit=price_per_piece,
-                effective_from=datetime.utcnow(),
+                effective_from=now_ph_naive(),
             )
         )
     db.commit()

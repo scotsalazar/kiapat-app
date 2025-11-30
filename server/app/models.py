@@ -12,6 +12,8 @@ from __future__ import annotations
 import enum
 from datetime import datetime
 
+from .timezone import now_ph_naive
+
 from sqlalchemy import (
     Column,
     Integer,
@@ -82,7 +84,7 @@ class User(Base):
     email = Column(String, unique=True, nullable=True)
     hashed_password = Column(String, nullable=False)
     role = Column(Enum(RoleEnum), nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=now_ph_naive)
 
     movements = relationship("InventoryMovement", back_populates="by_user")
     invoices = relationship("Invoice", back_populates="created_by_user")
@@ -94,7 +96,7 @@ class Classification(Base):
     size = Column(Enum(SizeEnum), nullable=False)
     color = Column(Enum(ColorEnum), nullable=False)
     is_active = Column(Boolean, default=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=now_ph_naive)
 
     prices = relationship("Price", back_populates="classification")
     inventory_balance = relationship("InventoryBalance", uselist=False, back_populates="classification")
@@ -111,7 +113,7 @@ class Price(Base):
     classification_id = Column(Integer, ForeignKey("classifications.id"), nullable=False)
     unit = Column(Enum(UnitEnum), nullable=False)
     price_per_unit = Column(Float, nullable=False)
-    effective_from = Column(DateTime, nullable=False, default=datetime.utcnow)
+    effective_from = Column(DateTime, nullable=False, default=now_ph_naive)
     effective_to = Column(DateTime, nullable=True)
 
     classification = relationship("Classification", back_populates="prices")
@@ -121,7 +123,7 @@ class InventoryBalance(Base):
     __tablename__ = "inventory_balances"
     classification_id = Column(Integer, ForeignKey("classifications.id"), primary_key=True)
     qty_pcs = Column(Integer, nullable=False, default=0)
-    updated_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=now_ph_naive)
 
     classification = relationship("Classification", back_populates="inventory_balance")
 
@@ -130,7 +132,7 @@ class InventoryThreshold(Base):
     __tablename__ = "inventory_thresholds"
     classification_id = Column(Integer, ForeignKey("classifications.id"), primary_key=True)
     threshold_pcs = Column(Integer, nullable=False)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    updated_at = Column(DateTime, default=now_ph_naive, onupdate=now_ph_naive)
 
     classification = relationship("Classification", back_populates="threshold")
 
@@ -146,7 +148,7 @@ class InventoryMovement(Base):
     by_user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     status = Column(Enum(MovementStatus), nullable=False, default=MovementStatus.DRAFT)
     linked_invoice_id = Column(Integer, ForeignKey("invoices.id"), nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=now_ph_naive)
     committed_at = Column(DateTime, nullable=True)
 
     classification = relationship("Classification", back_populates="movements")
@@ -164,7 +166,7 @@ class Invoice(Base):
     signature_png_path = Column(String, nullable=True)
     receipt_reprint_count = Column(Integer, nullable=False, default=0)
     created_by = Column(Integer, ForeignKey("users.id"), nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=now_ph_naive)
     status = Column(Enum(InvoiceStatus), nullable=False, default=InvoiceStatus.COMPLETED)
 
     created_by_user = relationship("User", back_populates="invoices")
@@ -199,7 +201,7 @@ class InvoiceOverride(Base):
     requested_by_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     decided_by_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     decision_reason = Column(String, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=now_ph_naive)
     decided_at = Column(DateTime, nullable=True)
 
     invoice = relationship("Invoice", back_populates="overrides")

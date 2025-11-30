@@ -68,6 +68,7 @@ import com.google.android.gms.location.Priority
 import com.google.android.gms.tasks.Task
 import com.kiapat.mobile.data.model.InvoiceOut
 import com.kiapat.mobile.ui.components.PrimaryButton
+import com.kiapat.mobile.ui.components.SignaturePad
 import java.text.NumberFormat
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
@@ -306,6 +307,60 @@ fun CreateInvoiceScreen(
                             total = state.grandTotal,
                             numberFormatter = numberFormatter,
                         )
+                    }
+
+                    item {
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(16.dp),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(16.dp),
+                                verticalArrangement = Arrangement.spacedBy(12.dp),
+                            ) {
+                                Text("Client signature", style = MaterialTheme.typography.titleMedium)
+                                Text(
+                                    "Have the customer sign to confirm delivery.",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+
+                                SignaturePad(
+                                    strokes = state.signatureStrokes,
+                                    onStrokeCaptured = viewModel::recordSignatureStroke,
+                                    onPadSizeChanged = viewModel::updateSignaturePadSize,
+                                    modifier = Modifier.fillMaxWidth(),
+                                )
+
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    OutlinedButton(
+                                        onClick = viewModel::clearSignature,
+                                        enabled = state.signatureStrokes.isNotEmpty(),
+                                        shape = RoundedCornerShape(12.dp),
+                                    ) {
+                                        Text("Clear signature")
+                                    }
+
+                                    val signatureStatus = if (state.signatureStrokes.isEmpty()) {
+                                        "Signature required"
+                                    } else {
+                                        "Signature captured"
+                                    }
+
+                                    Text(
+                                        signatureStatus,
+                                        color = if (state.signatureStrokes.isEmpty()) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
+                                        style = MaterialTheme.typography.labelLarge,
+                                    )
+                                }
+                            }
+                        }
                     }
 
                     item {

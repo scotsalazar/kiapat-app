@@ -15,6 +15,7 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session, selectinload
 
 from .. import auth, crud, models, schemas
+from ..timezone import now_ph
 from ..database import get_db
 from ..errors import AppError, ErrorCode, app_error_to_http, not_found, validation_error
 
@@ -292,7 +293,7 @@ def export_invoices(
 
     sheet_xml = _build_sheet_xml(headers, rows)
     output = _build_workbook(sheet_xml)
-    filename = f"sales-invoices-{datetime.utcnow().strftime('%Y%m%d%H%M%S')}.xlsx"
+    filename = f"sales-invoices-{now_ph().strftime('%Y%m%d%H%M%S')}.xlsx"
     return StreamingResponse(
         output,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
