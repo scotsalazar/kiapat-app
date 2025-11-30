@@ -278,7 +278,7 @@ data class InvoiceOut(
     @SerialName("customer_phone") val customerPhone: String? = null,
     @SerialName("gps_coordinates") val gpsCoordinates: String? = null,
     @SerialName("total_amount") val totalAmount: Double,
-    @SerialName("signature_png_path") val signaturePngPath: String? = null,
+    @SerialName("signature_url") val signatureUrl: String? = null,
     @SerialName("created_by") val createdBy: Int,
     @SerialName("created_at") val createdAt: String,
     val status: InvoiceStatus,

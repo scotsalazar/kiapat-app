@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { Classification, InvoiceItemForm, Price } from '../types/invoice';
+import SignaturePad from './SignaturePad';
 
 const TAX_RATE = 0.12;
 
@@ -16,6 +17,7 @@ interface InvoicePreviewModalProps {
   onConfirm: () => void;
   onUpdateItem: (id: number, updates: Partial<InvoiceItemForm>) => void;
   onRemoveItem: (id: number) => void;
+  onSignatureChange: (value: string) => void;
 }
 
 const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
@@ -30,6 +32,7 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
   onConfirm,
   onUpdateItem,
   onRemoveItem,
+  onSignatureChange,
 }) => {
   const [editingItemId, setEditingItemId] = useState<number | null>(null);
   const { t } = useTranslation();
@@ -70,6 +73,14 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
   );
   const taxes = subtotal * TAX_RATE;
   const total = subtotal + taxes;
+  const isConfirmDisabled = useMemo(
+    () =>
+      validationWarnings.length > 0 ||
+      lineItems.length === 0 ||
+      isSubmitting ||
+      !signatureDataUrl,
+    [isSubmitting, lineItems.length, signatureDataUrl, validationWarnings.length],
+  );
 
   if (!isOpen) {
     return null;
@@ -236,20 +247,6 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
           </div>
 
           <div className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-3">
-              <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">{t('invoicePreview.signatureHeading')}</h3>
-              {signatureDataUrl ? (
-                <img
-                  src={signatureDataUrl}
-                  alt={t('invoicePreview.signatureAlt')}
-                  className="h-40 w-full max-w-sm rounded border border-slate-200 object-contain dark:border-slate-700"
-                />
-              ) : (
-                <div className="rounded border border-dashed border-slate-300 p-6 text-center text-sm text-slate-500 dark:border-slate-700 dark:text-slate-400">
-                  {t('invoicePreview.noSignature')}
-                </div>
-              )}
-            </div>
             <div className="space-y-2 rounded border border-slate-200 bg-slate-100 p-4 transition-colors dark:border-slate-800 dark:bg-slate-900/70">
               <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">{t('invoicePreview.summaryHeading')}</h3>
               <div className="flex justify-between text-sm text-slate-600 dark:text-slate-300">
@@ -266,6 +263,26 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
               </div>
             </div>
           </div>
+          <div className="space-y-3">
+            <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">{t('invoicePreview.signatureHeading')}</h3>
+            {signatureDataUrl ? (
+              <img
+                src={signatureDataUrl}
+                alt={t('invoicePreview.signatureAlt')}
+                className="h-40 w-full max-w-sm rounded border border-slate-200 object-contain dark:border-slate-700"
+              />
+            ) : (
+              <div className="rounded border border-dashed border-slate-300 p-6 text-center text-sm text-slate-500 dark:border-slate-700 dark:text-slate-400">
+                {t('invoicePreview.noSignature')}
+              </div>
+            )}
+            <SignaturePad onChange={onSignatureChange} />
+            {!signatureDataUrl && (
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                {t('driverInvoice.messages.signatureRequired')}
+              </p>
+            )}
+          </div>
         </div>
         <div className="flex items-center justify-end gap-3 border-t border-slate-200 bg-slate-100 px-6 py-4 dark:border-slate-800 dark:bg-slate-900/80">
           <button
@@ -279,9 +296,7 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
             type="button"
             onClick={onConfirm}
             className="rounded bg-green-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 focus:ring-offset-white disabled:cursor-not-allowed disabled:bg-green-300 dark:focus:ring-offset-slate-950"
-            disabled={
-              validationWarnings.length > 0 || lineItems.length === 0 || isSubmitting
-            }
+            disabled={isConfirmDisabled}
           >
             {isSubmitting
               ? t('invoicePreview.submitting')

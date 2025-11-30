@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../hooks/useAuth';
 import { useToast } from '../components/ToastProvider';
@@ -41,7 +41,7 @@ interface Invoice {
   customer_phone: string | null;
   gps_coordinates?: string | null;
   total_amount: number;
-  signature_png_path: string | null;
+  signature_url: string | null;
   created_by: number;
   created_at: string;
   status: string;
@@ -66,6 +66,7 @@ const InvoiceHistoryPage: React.FC = () => {
   const { showToast } = useToast();
   const { t } = useTranslation();
   const isDriver = user?.role === 'driver';
+  const isAdmin = user?.role === 'admin';
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [total, setTotal] = useState<number>(0);
   const [page, setPage] = useState<number>(1);
@@ -79,6 +80,7 @@ const InvoiceHistoryPage: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string>('');
   const [reprintingId, setReprintingId] = useState<number | null>(null);
+  const [signaturePreviews, setSignaturePreviews] = useState<Record<number, string>>({});
 
   const effectivePageSize = useMemo(() => (isDriver ? 50 : pageSize), [isDriver, pageSize]);
 
@@ -154,6 +156,7 @@ const InvoiceHistoryPage: React.FC = () => {
   }, [fetchInvoices]);
 
   const pageCount = Math.max(1, Math.ceil(total / effectivePageSize));
+  const tableColumnCount = isAdmin ? 9 : 8;
 
   useEffect(() => {
     if (!isDriver && page > pageCount) {
@@ -300,6 +303,37 @@ const InvoiceHistoryPage: React.FC = () => {
     [buildReceiptHtml, showToast, t, token, triggerPrint],
   );
 
+  const handleLoadSignature = useCallback(
+    async (invoice: Invoice) => {
+      if (!invoice.signature_url || signaturePreviews[invoice.id]) {
+        return;
+      }
+
+      try {
+        const res = await apiClient.get<Blob>(invoice.signature_url, { responseType: 'blob' });
+        const objectUrl = URL.createObjectURL(res.data);
+        setSignaturePreviews((prev) => ({ ...prev, [invoice.id]: objectUrl }));
+      } catch (err) {
+        const { message } = parseApiError(err, t('invoiceHistory.errors.load'));
+        showToast(message, 'error');
+      }
+    },
+    [signaturePreviews, showToast, t],
+  );
+
+  const signaturePreviewRef = useRef(signaturePreviews);
+
+  useEffect(() => {
+    signaturePreviewRef.current = signaturePreviews;
+  }, [signaturePreviews]);
+
+  useEffect(
+    () => () => {
+      Object.values(signaturePreviewRef.current).forEach((url) => URL.revokeObjectURL(url));
+    },
+    [],
+  );
+
   const driverView = (
     <div className="space-y-4">
       <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
@@ -339,6 +373,11 @@ const InvoiceHistoryPage: React.FC = () => {
                 <th className="px-4 py-2 text-right text-xs font-semibold uppercase tracking-wider">
                   {t('invoiceHistory.table.items')}
                 </th>
+                {isAdmin && (
+                  <th className="px-4 py-2 text-right text-xs font-semibold uppercase tracking-wider">
+                    {t('common.labels.signature')}
+                  </th>
+                )}
                 <th className="px-4 py-2 text-right text-xs font-semibold uppercase tracking-wider">
                   {t('invoiceHistory.table.reprintCount')}
                 </th>
@@ -350,13 +389,13 @@ const InvoiceHistoryPage: React.FC = () => {
             <tbody className="divide-y divide-slate-200 bg-white dark:divide-slate-700 dark:bg-slate-900">
               {loading ? (
                 <tr>
-                  <td colSpan={8} className="px-4 py-8 text-center text-slate-500 dark:text-slate-400">
+                  <td colSpan={tableColumnCount} className="px-4 py-8 text-center text-slate-500 dark:text-slate-400">
                     {t('invoiceHistory.loading')}
                   </td>
                 </tr>
               ) : invoices.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="px-4 py-8 text-center text-slate-500 dark:text-slate-400">
+                  <td colSpan={tableColumnCount} className="px-4 py-8 text-center text-slate-500 dark:text-slate-400">
                     {t('invoiceHistory.empty')}
                   </td>
                 </tr>
@@ -568,6 +607,11 @@ const InvoiceHistoryPage: React.FC = () => {
                 <th className="px-4 py-2 text-right text-xs font-semibold uppercase tracking-wider">
                   {t('invoiceHistory.table.items')}
                 </th>
+                {isAdmin && (
+                  <th className="px-4 py-2 text-right text-xs font-semibold uppercase tracking-wider">
+                    {t('common.labels.signature')}
+                  </th>
+                )}
                 <th className="px-4 py-2 text-right text-xs font-semibold uppercase tracking-wider">
                   {t('invoiceHistory.table.reprintCount')}
                 </th>
@@ -576,13 +620,13 @@ const InvoiceHistoryPage: React.FC = () => {
             <tbody className="divide-y divide-slate-200 bg-white dark:divide-slate-700 dark:bg-slate-900">
               {loading ? (
                 <tr>
-                  <td colSpan={8} className="px-4 py-8 text-center text-slate-500 dark:text-slate-400">
+                  <td colSpan={tableColumnCount} className="px-4 py-8 text-center text-slate-500 dark:text-slate-400">
                     {t('invoiceHistory.loading')}
                   </td>
                 </tr>
               ) : invoices.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="px-4 py-8 text-center text-slate-500 dark:text-slate-400">
+                  <td colSpan={tableColumnCount} className="px-4 py-8 text-center text-slate-500 dark:text-slate-400">
                     {t('invoiceHistory.empty')}
                   </td>
                 </tr>
@@ -625,6 +669,38 @@ const InvoiceHistoryPage: React.FC = () => {
                       {formatCurrencyValue(invoice.total_amount)}
                     </td>
                     <td className="px-4 py-2 text-sm text-right text-slate-700 dark:text-slate-200">{invoice.items.length}</td>
+                    {isAdmin && (
+                      <td className="px-4 py-2 text-sm text-right text-slate-700 dark:text-slate-200">
+                        {invoice.signature_url ? (
+                          signaturePreviews[invoice.id] ? (
+                            <div className="flex flex-col items-end gap-2">
+                              <img
+                                src={signaturePreviews[invoice.id]}
+                                alt={t('invoicePreview.signatureAlt')}
+                                className="h-16 w-28 rounded border border-slate-200 object-contain dark:border-slate-700"
+                              />
+                              <a
+                                href={signaturePreviews[invoice.id]}
+                                download={`invoice-${invoice.id}-signature.png`}
+                                className="text-xs font-semibold text-indigo-600 transition hover:text-indigo-700 dark:text-indigo-300 dark:hover:text-indigo-200"
+                              >
+                                {t('common.actions.download')}
+                              </a>
+                            </div>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => handleLoadSignature(invoice)}
+                              className="text-xs font-semibold text-indigo-600 transition hover:text-indigo-700 dark:text-indigo-300 dark:hover:text-indigo-200"
+                            >
+                              {t('common.actions.view')}
+                            </button>
+                          )
+                        ) : (
+                          <span className="text-xs text-slate-500 dark:text-slate-400">{t('invoicePreview.noSignature')}</span>
+                        )}
+                      </td>
+                    )}
                     <td className="px-4 py-2 text-sm text-right text-slate-700 dark:text-slate-200">
                       {invoice.receipt_reprint_count}
                     </td>
