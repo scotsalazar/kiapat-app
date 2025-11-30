@@ -4,5 +4,5 @@
     <color name="surface_dark">#0f172a</color>
     <color name="surface_dark_muted">#1e293b</color>
     <color name="accent_primary">#f59e0b</color>
-    <color name="ic_launcher_background">#0f172a</color>
+    <color name="ic_launcher_background">#fff7ed</color>
 </resources>
