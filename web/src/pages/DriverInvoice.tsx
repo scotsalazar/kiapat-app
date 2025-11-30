@@ -2,7 +2,6 @@ import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../hooks/useAuth';
-import SignaturePad from '../components/SignaturePad';
 import { useToast } from '../components/ToastProvider';
 import { parseApiError } from '../utils/apiErrors';
 import useInventoryStream, { InventoryUpdateMessage } from '../hooks/useInventoryStream';
@@ -512,6 +511,10 @@ const DriverInvoicePage: React.FC = () => {
       showToast(t('driverInvoice.messages.resolveIssues'), 'error');
       return;
     }
+    if (!signatureDataUrl) {
+      showToast(t('driverInvoice.messages.signatureRequired'), 'error');
+      return;
+    }
     const latestCoordinates = gpsCoordinates || (await fetchGpsCoordinates());
     const payloadItems = items
       .filter((item) => item.classification_id && item.qty > 0 && item.unit)
@@ -598,9 +601,6 @@ const DriverInvoicePage: React.FC = () => {
 
   const previewWarnings = useMemo(() => {
     const warnings: string[] = [];
-    if (!signatureDataUrl) {
-      warnings.push(t('driverInvoice.messages.signatureRequired'));
-    }
     if (items.length === 0) {
       warnings.push(t('driverInvoice.messages.addLineItemWarning'));
     }
@@ -637,7 +637,7 @@ const DriverInvoicePage: React.FC = () => {
       }
     });
     return warnings;
-  }, [classificationMap, items, prices, signatureDataUrl, t]);
+  }, [classificationMap, items, prices, t]);
 
   const statusCard =
     invoiceId && (
@@ -1241,11 +1241,6 @@ const DriverInvoicePage: React.FC = () => {
               {t('driverInvoice.form.totalLabel')} {formatCurrencyValue(total)}
             </span>
           </div>
-          {/* Signature */}
-          <div>
-            <h2 className="mb-1 text-xl font-semibold text-slate-900 dark:text-slate-100">{t('common.labels.signature')}</h2>
-            <SignaturePad onChange={setSignatureDataUrl} />
-          </div>
           <button
             type="submit"
             className="rounded bg-green-600 px-4 py-2 text-white transition hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 focus:ring-offset-slate-100 dark:focus:ring-offset-slate-900"
@@ -1273,6 +1268,7 @@ const DriverInvoicePage: React.FC = () => {
         onConfirm={handleConfirmPreview}
         onUpdateItem={updateItem}
         onRemoveItem={removeItem}
+        onSignatureChange={setSignatureDataUrl}
       />
     </div>
   );

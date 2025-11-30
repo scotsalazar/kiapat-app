@@ -287,7 +287,7 @@ class InvoiceOut(BaseModel):
     customer_phone: Optional[str]
     gps_coordinates: Optional[str]
     total_amount: float
-    signature_png_path: Optional[str]
+    signature_url: Optional[str]
     created_by: int
     created_at: datetime
     status: InvoiceStatus

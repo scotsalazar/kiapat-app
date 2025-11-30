@@ -7,11 +7,12 @@ now guarded by the shared API key rather than per-user roles.
 from datetime import datetime
 from io import BytesIO
 from typing import List, Optional
+import os
 from zipfile import ZIP_DEFLATED, ZipFile
 from xml.sax.saxutils import escape
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from fastapi.responses import StreamingResponse
+from fastapi.responses import FileResponse, StreamingResponse
 from sqlalchemy.orm import Session, selectinload
 
 from .. import auth, crud, models, schemas
@@ -227,6 +228,57 @@ def list_invoices(
         total=total,
         page=page,
         page_size=page_size,
+    )
+
+
+@router.get("/signatures/{identifier}", response_class=FileResponse)
+def stream_signature(
+    identifier: str,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(auth.get_current_active_user),
+):
+    """Stream a signature PNG by invoice id or filename. Admin only."""
+
+    auth.ensure_role(current_user, [models.RoleEnum.ADMIN])
+
+    safe_identifier = os.path.basename(identifier)
+    if safe_identifier != identifier:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid signature reference",
+        )
+
+    signature_path: Optional[str] = None
+    filename = safe_identifier
+
+    if identifier.isdigit():
+        invoice = (
+            db.query(models.Invoice)
+            .options(selectinload(models.Invoice.items))
+            .filter(models.Invoice.id == int(identifier))
+            .first()
+        )
+        if not invoice:
+            raise not_found(
+                "Invoice not found",
+                code=ErrorCode.SALES_NOT_FOUND,
+                details={"invoice_id": int(identifier)},
+            )
+        if invoice.signature_png_path:
+            signature_path = invoice.signature_png_path
+            filename = os.path.basename(invoice.signature_png_path)
+    else:
+        candidate = os.path.join(crud.SIGNATURE_DIR, safe_identifier)
+        if os.path.exists(candidate):
+            signature_path = candidate
+
+    if not signature_path or not os.path.exists(signature_path):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Signature not found")
+
+    return FileResponse(
+        signature_path,
+        media_type="image/png",
+        filename=filename,
     )
 
 

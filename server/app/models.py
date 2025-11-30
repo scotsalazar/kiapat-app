@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import enum
 from datetime import datetime
+import os
 
 from .timezone import now_ph_naive
 
@@ -173,6 +174,13 @@ class Invoice(Base):
     items = relationship("InvoiceItem", back_populates="invoice")
     movements = relationship("InventoryMovement", back_populates="invoice")
     overrides = relationship("InvoiceOverride", back_populates="invoice")
+
+    @property
+    def signature_url(self) -> str | None:
+        if not self.signature_png_path:
+            return None
+        filename = os.path.basename(self.signature_png_path)
+        return f"/api/sales/invoices/signatures/{filename}"
 
 
 class InvoiceItem(Base):
