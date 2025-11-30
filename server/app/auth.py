@@ -16,6 +16,7 @@ from sqlalchemy.orm import Session
 
 from . import models, schemas
 from .database import get_db
+from .timezone import now_ph_naive
 
 
 pwd_context = CryptContext(
@@ -84,7 +85,7 @@ def create_access_token(data: dict, expires_delta: timedelta | None = None) -> s
     """Encode a JWT with the provided payload."""
 
     to_encode = data.copy()
-    expire = datetime.utcnow() + (expires_delta or timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES))
+    expire = now_ph_naive() + (expires_delta or timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES))
     to_encode.update({"exp": expire})
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
