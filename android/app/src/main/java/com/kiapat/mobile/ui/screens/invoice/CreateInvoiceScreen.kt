@@ -1,5 +1,10 @@
 package com.kiapat.mobile.ui.screens.invoice
 
+import android.Manifest
+import android.content.pm.PackageManager
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import android.location.Location
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -13,6 +18,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -21,13 +27,14 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Divider
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.Icon
@@ -46,18 +53,25 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
+import com.google.android.gms.location.FusedLocationProviderClient
+import com.google.android.gms.location.LocationServices
+import com.google.android.gms.location.Priority
+import com.google.android.gms.tasks.Task
 import com.kiapat.mobile.data.model.InvoiceOut
 import com.kiapat.mobile.ui.components.PrimaryButton
-import com.kiapat.mobile.ui.screens.invoice.CreateInvoiceViewModel
-import com.kiapat.mobile.ui.screens.invoice.InvoiceLineInput
-import com.kiapat.mobile.ui.screens.invoice.PricedClassification
 import java.text.NumberFormat
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlin.coroutines.resume
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -68,9 +82,48 @@ fun CreateInvoiceScreen(
 ) {
     val state by viewModel.state.collectAsState()
     val numberFormatter = remember { NumberFormat.getCurrencyInstance() }
+    val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
+    val locationClient = remember { LocationServices.getFusedLocationProviderClient(context) }
+
+    val requestLocationPermissions = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestMultiplePermissions(),
+    ) { permissions ->
+        val granted = permissions.values.any { it }
+        if (granted) {
+            coroutineScope.launch { fetchAndSetLocation(locationClient, viewModel) }
+        } else {
+            viewModel.setLocationError("Location permission is required to attach GPS coordinates.")
+        }
+    }
+
+    val refreshLocation: () -> Unit = remember(viewModel, context) {
+        {
+            val hasFine = ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.ACCESS_FINE_LOCATION,
+            ) == PackageManager.PERMISSION_GRANTED
+            val hasCoarse = ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.ACCESS_COARSE_LOCATION,
+            ) == PackageManager.PERMISSION_GRANTED
+
+            if (hasFine || hasCoarse) {
+                coroutineScope.launch { fetchAndSetLocation(locationClient, viewModel) }
+            } else {
+                requestLocationPermissions.launch(
+                    arrayOf(
+                        Manifest.permission.ACCESS_FINE_LOCATION,
+                        Manifest.permission.ACCESS_COARSE_LOCATION,
+                    ),
+                )
+            }
+        }
+    }
 
     LaunchedEffect(Unit) {
         viewModel.loadCatalog()
+        refreshLocation()
     }
 
     LaunchedEffect(state.createdInvoice) {
@@ -160,6 +213,35 @@ fun CreateInvoiceScreen(
                                     label = { Text("Phone number") },
                                     modifier = Modifier.fillMaxWidth(),
                                     singleLine = true,
+                                    shape = RoundedCornerShape(12.dp),
+                                )
+                                OutlinedTextField(
+                                    value = state.gpsCoordinates,
+                                    onValueChange = {},
+                                    readOnly = true,
+                                    label = { Text("GPS coordinates") },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    singleLine = true,
+                                    trailingIcon = {
+                                        if (state.isFetchingLocation) {
+                                            CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                                        } else {
+                                            IconButton(onClick = refreshLocation) {
+                                                Icon(
+                                                    Icons.Default.MyLocation,
+                                                    contentDescription = "Refresh location",
+                                                )
+                                            }
+                                        }
+                                    },
+                                    supportingText = {
+                                        val message = state.locationError
+                                            ?: "Location is auto-populated when permission is granted."
+                                        Text(
+                                            message,
+                                            color = if (state.locationError != null) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+                                        )
+                                    },
                                     shape = RoundedCornerShape(12.dp),
                                 )
                             }
@@ -403,6 +485,46 @@ private fun SummarySection(subtotal: Double, vat: Double, total: Double, numberF
                 Text(numberFormatter.format(total), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
             }
         }
+    }
+}
+
+
+private suspend fun fetchAndSetLocation(
+    locationClient: FusedLocationProviderClient,
+    viewModel: CreateInvoiceViewModel,
+) {
+    viewModel.setLocationLoading(true)
+    viewModel.setLocationError(null)
+    try {
+        val coordinates = resolveCoordinates(locationClient)
+        if (coordinates != null) {
+            viewModel.updateGpsCoordinates(coordinates)
+        } else {
+            viewModel.setLocationError("Unable to determine your location right now.")
+        }
+    } catch (ex: Exception) {
+        viewModel.setLocationError(ex.message ?: "Unable to determine your location.")
+    } finally {
+        viewModel.setLocationLoading(false)
+    }
+}
+
+private suspend fun resolveCoordinates(locationClient: FusedLocationProviderClient): String? {
+    val lastLocation = locationClient.lastLocation.awaitNullableLocation()
+    val location = lastLocation ?: locationClient
+        .getCurrentLocation(Priority.PRIORITY_BALANCED_POWER_ACCURACY, null)
+        .awaitNullableLocation()
+
+    return location?.let { "${it.latitude},${it.longitude}" }
+}
+
+private suspend fun Task<Location?>.awaitNullableLocation(): Location? = suspendCancellableCoroutine { cont ->
+    try {
+        addOnSuccessListener { location -> cont.resume(location) }
+        addOnFailureListener { cont.resume(null) }
+        addOnCanceledListener { cont.cancel() }
+    } catch (_: SecurityException) {
+        cont.resume(null)
     }
 }
 

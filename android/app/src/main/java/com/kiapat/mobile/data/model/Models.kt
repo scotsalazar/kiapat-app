@@ -230,7 +230,7 @@ data class InvoiceCreate(
 @Serializable
 data class InvoiceItemOut(
     val id: Int,
-    @SerialName("invoice_id") val invoiceId: Int,
+    @SerialName("invoice_id") val invoiceId: Int? = null,
     @SerialName("classification_id") val classificationId: Int,
     val unit: UnitEnum,
     val qty: Int,
