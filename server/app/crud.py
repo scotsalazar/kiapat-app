@@ -656,7 +656,7 @@ def verify_movement(db: Session, user: models.User, movement_id: int) -> models.
             details=details,
         )
     m.status = models.MovementStatus.VERIFIED
-            m.committed_at = now_ph_naive()
+    m.committed_at = now_ph_naive()
     m.by_user_id = user.id
     db.commit()
     db.refresh(m)
