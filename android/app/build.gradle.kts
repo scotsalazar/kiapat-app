@@ -27,7 +27,7 @@ android {
             dimension = "environment"
             applicationIdSuffix = ".dev"
             versionNameSuffix = "-dev"
-            buildConfigField("String", "BASE_URL", "\"http://192.168.0.95:8000/\"")
+            buildConfigField("String", "BASE_URL", "\"http://127.0.0.1:8000/\"")
         }
         create("staging") {
             dimension = "environment"
