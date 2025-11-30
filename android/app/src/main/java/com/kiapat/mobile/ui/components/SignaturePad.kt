@@ -22,7 +22,6 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.input.pointer.consume
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.unit.IntSize
@@ -38,6 +37,9 @@ fun SignaturePad(
     val currentStroke = remember { mutableStateOf<List<Offset>>(emptyList()) }
     val backgroundColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
 
+    // Move the color declaration here, into the @Composable context
+    val strokeColor = MaterialTheme.colorScheme.onSurface
+
     Box(
         modifier = modifier
             .fillMaxWidth()
@@ -51,9 +53,7 @@ fun SignaturePad(
             .pointerInput(Unit) {
                 detectDragGestures(
                     onDragStart = { offset -> currentStroke.value = listOf(offset) },
-                    onDrag = { change, _ ->
-                        change.consume()
-                        currentStroke.value = currentStroke.value + listOf(change.position)
+                    onDrag = { change, _ -> currentStroke.value = currentStroke.value + listOf(change.position)
                     },
                     onDragEnd = {
                         if (currentStroke.value.isNotEmpty()) {
@@ -73,8 +73,8 @@ fun SignaturePad(
             .background(Color.Transparent)
             .onSizeChanged { onPadSizeChanged(it) }
         ) {
+            // This is the DrawScope
             val strokeStyle = Stroke(width = 8f, cap = StrokeCap.Round, join = StrokeJoin.Round)
-            val strokeColor = MaterialTheme.colorScheme.onSurface
 
             fun drawStroke(points: List<Offset>) {
                 if (points.isEmpty()) return
@@ -82,6 +82,7 @@ fun SignaturePad(
                     moveTo(points.first().x, points.first().y)
                     points.drop(1).forEach { lineTo(it.x, it.y) }
                 }
+                // Use the strokeColor variable that was declared outside
                 drawPath(path = path, color = strokeColor, style = strokeStyle)
             }
 
