@@ -40,6 +40,9 @@ data class CreateInvoiceState(
     val items: List<InvoiceLineInput> = emptyList(),
     val customerName: String = "",
     val customerPhone: String = "",
+    val gpsCoordinates: String = "",
+    val isFetchingLocation: Boolean = false,
+    val locationError: String? = null,
     val tenderedAmount: String = "",
     val subtotal: Double = 0.0,
     val vatAmount: Double = 0.0,
@@ -87,6 +90,18 @@ class CreateInvoiceViewModel(private val repository: InvoiceRepository) : ViewMo
 
     fun updateCustomerPhone(value: String) {
         _state.value = _state.value.copy(customerPhone = value)
+    }
+
+    fun updateGpsCoordinates(value: String?) {
+        _state.value = _state.value.copy(gpsCoordinates = value.orEmpty(), locationError = null)
+    }
+
+    fun setLocationLoading(loading: Boolean) {
+        _state.value = _state.value.copy(isFetchingLocation = loading)
+    }
+
+    fun setLocationError(message: String?) {
+        _state.value = _state.value.copy(locationError = message)
     }
 
     fun updateTenderedAmount(value: String) {
@@ -145,6 +160,7 @@ class CreateInvoiceViewModel(private val repository: InvoiceRepository) : ViewMo
                     InvoiceCreate(
                         customerName = _state.value.customerName.ifBlank { null },
                         customerPhone = _state.value.customerPhone.ifBlank { null },
+                        gpsCoordinates = _state.value.gpsCoordinates.ifBlank { null },
                         items = lineItems,
                     ),
                 )
