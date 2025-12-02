@@ -350,7 +350,6 @@ private fun InvoiceDetailsPage(
         item {
             SummarySection(
                 subtotal = state.subtotal,
-                vat = state.vatAmount,
                 total = state.grandTotal,
                 numberFormatter = numberFormatter,
             )
@@ -663,7 +662,7 @@ private fun InvoiceLineCard(
 }
 
 @Composable
-private fun SummarySection(subtotal: Double, vat: Double, total: Double, numberFormatter: NumberFormat) {
+private fun SummarySection(subtotal: Double, total: Double, numberFormatter: NumberFormat) {
     Card(
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
@@ -681,10 +680,6 @@ private fun SummarySection(subtotal: Double, vat: Double, total: Double, numberF
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Text("Subtotal", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Text(numberFormatter.format(subtotal))
-            }
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text("VAT (12%)", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Text(numberFormatter.format(vat))
             }
             Divider()
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -733,41 +728,68 @@ private fun InvoicePreviewCard(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             } else {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(
+                                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
+                                shape = RoundedCornerShape(8.dp),
+                            )
+                            .padding(horizontal = 12.dp, vertical = 8.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                    ) {
+                        Text(
+                            "Item",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Text(
+                            "Amount",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+
                     items.forEachIndexed { index, item ->
                         val priced = item.selectedPriceId?.let { pricedMap[it] }
                         val qty = item.quantity.toIntOrNull() ?: 0
                         val lineTotal = priced?.price?.pricePerUnit?.times(qty) ?: 0.0
-                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 4.dp),
+                            verticalArrangement = Arrangement.spacedBy(4.dp),
+                        ) {
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.SpaceBetween,
                             ) {
-                                Text(
-                                    priced?.label ?: "Item ${index + 1}",
-                                    style = MaterialTheme.typography.bodyLarge,
-                                    fontWeight = FontWeight.Medium,
-                                )
-                                Text(
-                                    numberFormatter.format(lineTotal),
-                                    style = MaterialTheme.typography.bodyLarge,
-                                )
-                            }
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                            ) {
-                                Text(
-                                    if (priced != null) "Qty $qty @ ${numberFormatter.format(priced.price.pricePerUnit)}" else "Pending selection",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                                if (priced == null || qty <= 0) {
+                                Column(modifier = Modifier.weight(1f)) {
                                     Text(
-                                        "Incomplete",
-                                        style = MaterialTheme.typography.labelMedium,
-                                        color = MaterialTheme.colorScheme.error,
+                                        priced?.label ?: "Item ${index + 1}",
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        fontWeight = FontWeight.SemiBold,
                                     )
+                                    Text(
+                                        if (priced != null) "Qty $qty @ ${numberFormatter.format(priced.price.pricePerUnit)}" else "Pending selection",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+                                Column(horizontalAlignment = Alignment.End) {
+                                    Text(
+                                        numberFormatter.format(lineTotal),
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.Bold,
+                                    )
+                                    if (priced == null || qty <= 0) {
+                                        Text(
+                                            "Incomplete",
+                                            style = MaterialTheme.typography.labelMedium,
+                                            color = MaterialTheme.colorScheme.error,
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -780,16 +802,25 @@ private fun InvoicePreviewCard(
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Text(
-                            "Total to collect",
-                            style = MaterialTheme.typography.bodyLarge,
-                            fontWeight = FontWeight.SemiBold,
-                        )
+                        Column {
+                            Text(
+                                "Total to collect",
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.Medium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            Text(
+                                "Share this total with the customer before signing.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
                         Text(
                             numberFormatter.format(grandTotal),
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
+                            style = MaterialTheme.typography.headlineSmall,
+                            fontWeight = FontWeight.ExtraBold,
                         )
                     }
                 }

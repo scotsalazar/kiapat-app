@@ -21,8 +21,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 
-private const val VAT_RATE = 0.12
-
 data class PricedClassification(
     val priceId: Int,
     val classification: ClassificationOut,
@@ -54,7 +52,6 @@ data class CreateInvoiceState(
     val signaturePadSize: IntSize = IntSize.Zero,
     val tenderedAmount: String = "",
     val subtotal: Double = 0.0,
-    val vatAmount: Double = 0.0,
     val grandTotal: Double = 0.0,
     val isLoading: Boolean = false,
     val isSubmitting: Boolean = false,
@@ -244,9 +241,7 @@ class CreateInvoiceViewModel(private val repository: InvoiceRepository) : ViewMo
             val price = line.selectedPriceId?.let { pricedMap[it]?.price?.pricePerUnit } ?: 0.0
             qty * price
         }
-        val vat = subtotal * VAT_RATE
-        val total = subtotal + vat
-        return copy(subtotal = subtotal, vatAmount = vat, grandTotal = total)
+        return copy(subtotal = subtotal, grandTotal = subtotal)
     }
 
     private fun encodeSignature(): String? {
