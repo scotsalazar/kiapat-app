@@ -310,6 +310,15 @@ fun CreateInvoiceScreen(
                     }
 
                     item {
+                        InvoicePreviewCard(
+                            items = state.items,
+                            pricedClassifications = state.pricedClassifications,
+                            numberFormatter = numberFormatter,
+                            grandTotal = state.grandTotal,
+                        )
+                    }
+
+                    item {
                         Card(
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(16.dp),
@@ -322,7 +331,7 @@ fun CreateInvoiceScreen(
                             ) {
                                 Text("Client signature", style = MaterialTheme.typography.titleMedium)
                                 Text(
-                                    "Have the customer sign to confirm delivery.",
+                                    "Ask the customer to review the preview above, then sign to confirm the items delivered.",
                                     style = MaterialTheme.typography.bodyMedium,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
@@ -538,6 +547,109 @@ private fun SummarySection(subtotal: Double, vat: Double, total: Double, numberF
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Text("Total", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                 Text(numberFormatter.format(total), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            }
+        }
+    }
+}
+
+@Composable
+private fun InvoicePreviewCard(
+    items: List<InvoiceLineInput>,
+    pricedClassifications: List<PricedClassification>,
+    numberFormatter: NumberFormat,
+    grandTotal: Double,
+) {
+    val pricedMap = remember(pricedClassifications) { pricedClassifications.associateBy { it.priceId } }
+    Card(
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .border(
+                width = 1.dp,
+                color = MaterialTheme.colorScheme.outline.copy(alpha = 0.7f),
+                shape = RoundedCornerShape(16.dp),
+            ),
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Text("Invoice preview", style = MaterialTheme.typography.titleMedium)
+            Text(
+                "Show this preview to the customer before capturing their signature.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+
+            if (items.isEmpty()) {
+                Text(
+                    "Add items to see a preview of the invoice.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            } else {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    items.forEachIndexed { index, item ->
+                        val priced = item.selectedPriceId?.let { pricedMap[it] }
+                        val qty = item.quantity.toIntOrNull() ?: 0
+                        val lineTotal = priced?.price?.pricePerUnit?.times(qty) ?: 0.0
+                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                            ) {
+                                Text(
+                                    priced?.label ?: "Item ${index + 1}",
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    fontWeight = FontWeight.Medium,
+                                )
+                                Text(
+                                    numberFormatter.format(lineTotal),
+                                    style = MaterialTheme.typography.bodyLarge,
+                                )
+                            }
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                            ) {
+                                Text(
+                                    if (priced != null) "Qty $qty @ ${numberFormatter.format(priced.price.pricePerUnit)}" else "Pending selection",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                                if (priced == null || qty <= 0) {
+                                    Text(
+                                        "Incomplete",
+                                        style = MaterialTheme.typography.labelMedium,
+                                        color = MaterialTheme.colorScheme.error,
+                                    )
+                                }
+                            }
+                        }
+                        if (index < items.lastIndex) {
+                            Divider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
+                        }
+                    }
+
+                    Divider()
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                    ) {
+                        Text(
+                            "Total to collect",
+                            style = MaterialTheme.typography.bodyLarge,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                        Text(
+                            numberFormatter.format(grandTotal),
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                        )
+                    }
+                }
             }
         }
     }
