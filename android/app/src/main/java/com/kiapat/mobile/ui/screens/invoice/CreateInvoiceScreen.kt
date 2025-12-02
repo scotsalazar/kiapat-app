@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -57,10 +58,12 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.IntSize
 import androidx.core.content.ContextCompat
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationServices
@@ -167,249 +170,389 @@ fun CreateInvoiceScreen(
                     Text("Loading prices and classifications…", style = MaterialTheme.typography.bodyMedium)
                 }
             } else {
-                LazyColumn(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(horizontal = 16.dp, vertical = 12.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                when (state.step) {
+                    InvoiceStep.Details -> InvoiceDetailsPage(
+                        state = state,
+                        numberFormatter = numberFormatter,
+                        onAddLine = viewModel::addLine,
+                        onRemoveLine = viewModel::removeLine,
+                        onUpdateLineSelection = viewModel::updateLineSelection,
+                        onUpdateLineQuantity = viewModel::updateLineQuantity,
+                        onUpdateCustomerName = viewModel::updateCustomerName,
+                        onUpdateCustomerPhone = viewModel::updateCustomerPhone,
+                        onProceed = viewModel::proceedToPreview,
+                        refreshLocation = refreshLocation,
+                    )
+
+                    InvoiceStep.Preview -> InvoicePreviewPage(
+                        state = state,
+                        numberFormatter = numberFormatter,
+                        onEditDetails = viewModel::editDetails,
+                        onRecordSignatureStroke = viewModel::recordSignatureStroke,
+                        onUpdatePadSize = viewModel::updateSignaturePadSize,
+                        onClearSignature = viewModel::clearSignature,
+                        onSubmit = viewModel::submit,
+                        onUpdateTender = viewModel::updateTenderedAmount,
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun InvoiceDetailsPage(
+    state: CreateInvoiceState,
+    numberFormatter: NumberFormat,
+    onAddLine: () -> Unit,
+    onRemoveLine: (Int) -> Unit,
+    onUpdateLineSelection: (Int, Int) -> Unit,
+    onUpdateLineQuantity: (Int, String) -> Unit,
+    onUpdateCustomerName: (String) -> Unit,
+    onUpdateCustomerPhone: (String) -> Unit,
+    onProceed: () -> Unit,
+    refreshLocation: () -> Unit,
+) {
+    LazyColumn(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
+    ) {
+        item {
+            StepHeader(currentStep = 1)
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text(
+                    "Customer & items",
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold,
+                )
+                Text(
+                    "Fill in customer info, location, and the items bought before previewing the receipt.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+
+        item {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
-                    item {
-                        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                            Text(
-                                "Build invoice",
-                                style = MaterialTheme.typography.headlineSmall,
-                                fontWeight = FontWeight.Bold,
-                            )
-                            Text(
-                                "Add customer details and select egg packs to create a polished receipt.",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                    }
-
-                    item {
-                        Card(
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(16.dp),
-                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                            elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
-                        ) {
-                            Column(
-                                modifier = Modifier.padding(16.dp),
-                                verticalArrangement = Arrangement.spacedBy(12.dp),
-                            ) {
-                                Text("Customer", style = MaterialTheme.typography.titleMedium)
-                                OutlinedTextField(
-                                    value = state.customerName,
-                                    onValueChange = viewModel::updateCustomerName,
-                                    label = { Text("Name (optional)") },
-                                    modifier = Modifier.fillMaxWidth(),
-                                    singleLine = true,
-                                    shape = RoundedCornerShape(12.dp),
-                                )
-                                OutlinedTextField(
-                                    value = state.customerPhone,
-                                    onValueChange = viewModel::updateCustomerPhone,
-                                    label = { Text("Phone number") },
-                                    modifier = Modifier.fillMaxWidth(),
-                                    singleLine = true,
-                                    shape = RoundedCornerShape(12.dp),
-                                )
-                                OutlinedTextField(
-                                    value = state.gpsCoordinates,
-                                    onValueChange = {},
-                                    readOnly = true,
-                                    label = { Text("GPS coordinates") },
-                                    modifier = Modifier.fillMaxWidth(),
-                                    singleLine = true,
-                                    trailingIcon = {
-                                        if (state.isFetchingLocation) {
-                                            CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
-                                        } else {
-                                            IconButton(onClick = refreshLocation) {
-                                                Icon(
-                                                    Icons.Default.MyLocation,
-                                                    contentDescription = "Refresh location",
-                                                )
-                                            }
-                                        }
-                                    },
-                                    supportingText = {
-                                        val message = state.locationError
-                                            ?: "Location is auto-populated when permission is granted."
-                                        Text(
-                                            message,
-                                            color = if (state.locationError != null) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
-                                        )
-                                    },
-                                    shape = RoundedCornerShape(12.dp),
-                                )
-                            }
-                        }
-                    }
-
-                    if (state.pricedClassifications.isEmpty()) {
-                        item {
-                            Card(
-                                modifier = Modifier.fillMaxWidth(),
-                                shape = RoundedCornerShape(16.dp),
-                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
-                            ) {
-                                Column(
-                                    modifier = Modifier.padding(16.dp),
-                                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                                ) {
-                                    Text("No active prices", style = MaterialTheme.typography.titleMedium)
-                                    Text(
-                                        "Add price records from the admin console before creating an invoice.",
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    Text("Customer", style = MaterialTheme.typography.titleMedium)
+                    OutlinedTextField(
+                        value = state.customerName,
+                        onValueChange = onUpdateCustomerName,
+                        label = { Text("Name (optional)") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        shape = RoundedCornerShape(12.dp),
+                    )
+                    OutlinedTextField(
+                        value = state.customerPhone,
+                        onValueChange = onUpdateCustomerPhone,
+                        label = { Text("Phone number") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        shape = RoundedCornerShape(12.dp),
+                    )
+                    OutlinedTextField(
+                        value = state.gpsCoordinates,
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("GPS coordinates") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        trailingIcon = {
+                            if (state.isFetchingLocation) {
+                                CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                            } else {
+                                IconButton(onClick = refreshLocation) {
+                                    Icon(
+                                        Icons.Default.MyLocation,
+                                        contentDescription = "Refresh location",
                                     )
                                 }
                             }
-                        }
-                    } else {
-                        itemsIndexed(state.items) { index, line ->
-                            InvoiceLineCard(
-                                index = index,
-                                line = line,
-                                pricedClassifications = state.pricedClassifications,
-                                onSelect = { priceId -> viewModel.updateLineSelection(index, priceId) },
-                                onQuantityChange = { qty -> viewModel.updateLineQuantity(index, qty) },
-                                onRemove = { if (state.items.size > 1) viewModel.removeLine(index) },
-                                currencyFormatter = numberFormatter,
+                        },
+                        supportingText = {
+                            val message = state.locationError
+                                ?: "Location is auto-populated when permission is granted."
+                            Text(
+                                message,
+                                color = if (state.locationError != null) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
                             )
-                        }
-                    }
+                        },
+                        shape = RoundedCornerShape(12.dp),
+                    )
+                }
+            }
+        }
 
-                    item {
+        if (state.pricedClassifications.isEmpty()) {
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+                ) {
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        Text("No active prices", style = MaterialTheme.typography.titleMedium)
+                        Text(
+                            "Add price records from the admin console before creating an invoice.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+            }
+        } else {
+            itemsIndexed(state.items) { index, line ->
+                InvoiceLineCard(
+                    index = index,
+                    line = line,
+                    pricedClassifications = state.pricedClassifications,
+                    onSelect = { priceId -> onUpdateLineSelection(index, priceId) },
+                    onQuantityChange = { qty -> onUpdateLineQuantity(index, qty) },
+                    onRemove = { if (state.items.size > 1) onRemoveLine(index) },
+                    currencyFormatter = numberFormatter,
+                )
+            }
+        }
+
+        item {
+            OutlinedButton(
+                onClick = onAddLine,
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp),
+                border = BorderStroke(
+                    width = 1.dp,
+                    color = MaterialTheme.colorScheme.outline.copy(alpha = 0.7f),
+                ),
+            ) {
+                Icon(Icons.Default.Add, contentDescription = null)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Add another item", style = MaterialTheme.typography.labelLarge)
+            }
+        }
+
+        item {
+            SummarySection(
+                subtotal = state.subtotal,
+                vat = state.vatAmount,
+                total = state.grandTotal,
+                numberFormatter = numberFormatter,
+            )
+        }
+
+        item {
+            PrimaryButton(
+                text = "Preview invoice",
+                onClick = onProceed,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            if (state.error != null) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    state.error ?: "",
+                    color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun InvoicePreviewPage(
+    state: CreateInvoiceState,
+    numberFormatter: NumberFormat,
+    onEditDetails: () -> Unit,
+    onRecordSignatureStroke: (List<Offset>) -> Unit,
+    onUpdatePadSize: (IntSize) -> Unit,
+    onClearSignature: () -> Unit,
+    onSubmit: () -> Unit,
+    onUpdateTender: (String) -> Unit,
+) {
+    LazyColumn(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
+    ) {
+        item {
+            StepHeader(currentStep = 2)
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text(
+                    "Preview & signature",
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold,
+                )
+                Text(
+                    "Confirm the items with the customer, capture their signature, and print the receipt.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+
+        item {
+            InvoicePreviewCard(
+                items = state.items,
+                pricedClassifications = state.pricedClassifications,
+                numberFormatter = numberFormatter,
+                grandTotal = state.grandTotal,
+            )
+        }
+
+        item {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    Text("Client signature", style = MaterialTheme.typography.titleMedium)
+                    Text(
+                        "Show this preview to the customer before they sign.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+
+                    SignaturePad(
+                        strokes = state.signatureStrokes,
+                        onStrokeCaptured = onRecordSignatureStroke,
+                        onPadSizeChanged = onUpdatePadSize,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
                         OutlinedButton(
-                            onClick = viewModel::addLine,
-                            modifier = Modifier.fillMaxWidth(),
+                            onClick = onClearSignature,
+                            enabled = state.signatureStrokes.isNotEmpty(),
                             shape = RoundedCornerShape(12.dp),
-                            border = BorderStroke(
-                                width = 1.dp,
-                                color = MaterialTheme.colorScheme.outline.copy(alpha = 0.7f),
-                            ),
                         ) {
-                            Icon(Icons.Default.Add, contentDescription = null)
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text("Add another item", style = MaterialTheme.typography.labelLarge)
+                            Text("Clear signature")
                         }
-                    }
 
-                    item {
-                        SummarySection(
-                            subtotal = state.subtotal,
-                            vat = state.vatAmount,
-                            total = state.grandTotal,
-                            numberFormatter = numberFormatter,
+                        val signatureStatus = if (state.signatureStrokes.isEmpty()) {
+                            "Signature required"
+                        } else {
+                            "Signature captured"
+                        }
+
+                        Text(
+                            signatureStatus,
+                            color = if (state.signatureStrokes.isEmpty()) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
+                            style = MaterialTheme.typography.labelLarge,
                         )
-                    }
-
-                    item {
-                        InvoicePreviewCard(
-                            items = state.items,
-                            pricedClassifications = state.pricedClassifications,
-                            numberFormatter = numberFormatter,
-                            grandTotal = state.grandTotal,
-                        )
-                    }
-
-                    item {
-                        Card(
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(16.dp),
-                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                            elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
-                        ) {
-                            Column(
-                                modifier = Modifier.padding(16.dp),
-                                verticalArrangement = Arrangement.spacedBy(12.dp),
-                            ) {
-                                Text("Client signature", style = MaterialTheme.typography.titleMedium)
-                                Text(
-                                    "Ask the customer to review the preview above, then sign to confirm the items delivered.",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-
-                                SignaturePad(
-                                    strokes = state.signatureStrokes,
-                                    onStrokeCaptured = viewModel::recordSignatureStroke,
-                                    onPadSizeChanged = viewModel::updateSignaturePadSize,
-                                    modifier = Modifier.fillMaxWidth(),
-                                )
-
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically,
-                                ) {
-                                    OutlinedButton(
-                                        onClick = viewModel::clearSignature,
-                                        enabled = state.signatureStrokes.isNotEmpty(),
-                                        shape = RoundedCornerShape(12.dp),
-                                    ) {
-                                        Text("Clear signature")
-                                    }
-
-                                    val signatureStatus = if (state.signatureStrokes.isEmpty()) {
-                                        "Signature required"
-                                    } else {
-                                        "Signature captured"
-                                    }
-
-                                    Text(
-                                        signatureStatus,
-                                        color = if (state.signatureStrokes.isEmpty()) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
-                                        style = MaterialTheme.typography.labelLarge,
-                                    )
-                                }
-                            }
-                        }
-                    }
-
-                    item {
-                        Card(
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(16.dp),
-                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                            elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
-                        ) {
-                            Column(
-                                modifier = Modifier.padding(16.dp),
-                                verticalArrangement = Arrangement.spacedBy(12.dp),
-                            ) {
-                                OutlinedTextField(
-                                    value = state.tenderedAmount,
-                                    onValueChange = viewModel::updateTenderedAmount,
-                                    label = { Text("Amount tendered (for change)") },
-                                    modifier = Modifier.fillMaxWidth(),
-                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                                    shape = RoundedCornerShape(12.dp),
-                                )
-                                PrimaryButton(
-                                    text = "Create invoice",
-                                    onClick = viewModel::submit,
-                                    modifier = Modifier.fillMaxWidth(),
-                                    loading = state.isSubmitting,
-                                )
-                                if (state.error != null) {
-                                    Text(
-                                        state.error ?: "",
-                                        color = MaterialTheme.colorScheme.error,
-                                        style = MaterialTheme.typography.bodySmall,
-                                    )
-                                }
-                            }
-                        }
                     }
                 }
             }
         }
+
+        item {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    OutlinedTextField(
+                        value = state.tenderedAmount,
+                        onValueChange = onUpdateTender,
+                        label = { Text("Amount tendered (for change)") },
+                        modifier = Modifier.fillMaxWidth(),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        shape = RoundedCornerShape(12.dp),
+                    )
+                    PrimaryButton(
+                        text = "Confirm & print receipt",
+                        onClick = onSubmit,
+                        modifier = Modifier.fillMaxWidth(),
+                        loading = state.isSubmitting,
+                    )
+                    if (state.error != null) {
+                        Text(
+                            state.error ?: "",
+                            color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                    }
+                }
+            }
+        }
+
+        item {
+            OutlinedButton(
+                onClick = onEditDetails,
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.7f)),
+            ) {
+                Text("Back to edit details")
+            }
+        }
+    }
+}
+
+@Composable
+private fun StepHeader(currentStep: Int) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(bottom = 8.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            StepBadge(number = 1, active = currentStep == 1)
+            StepBadge(number = 2, active = currentStep == 2)
+        }
+        Text(
+            text = "Step $currentStep of 2",
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.wrapContentWidth(),
+        )
+    }
+}
+
+@Composable
+private fun StepBadge(number: Int, active: Boolean) {
+    val background = if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant
+    val contentColor = if (active) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+    Box(
+        modifier = Modifier
+            .size(34.dp)
+            .background(background, shape = RoundedCornerShape(10.dp))
+            .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.6f), shape = RoundedCornerShape(10.dp)),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(text = "$number", color = contentColor, style = MaterialTheme.typography.labelLarge)
     }
 }
 

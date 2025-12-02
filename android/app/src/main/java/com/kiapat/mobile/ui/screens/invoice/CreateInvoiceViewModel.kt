@@ -60,7 +60,10 @@ data class CreateInvoiceState(
     val isSubmitting: Boolean = false,
     val error: String? = null,
     val createdInvoice: InvoiceOut? = null,
+    val step: InvoiceStep = InvoiceStep.Details,
 )
+
+enum class InvoiceStep { Details, Preview }
 
 class CreateInvoiceViewModel(private val repository: InvoiceRepository) : ViewModel() {
     private val _state = MutableStateFlow(CreateInvoiceState())
@@ -132,6 +135,29 @@ class CreateInvoiceViewModel(private val repository: InvoiceRepository) : ViewMo
 
     fun updateTenderedAmount(value: String) {
         _state.value = _state.value.copy(tenderedAmount = value)
+    }
+
+    fun proceedToPreview() {
+        val pricedMap = _state.value.pricedClassifications.associateBy { it.priceId }
+        val hasValidLine = _state.value.items.any { line ->
+            val price = line.selectedPriceId?.let { pricedMap[it] }
+            val qty = line.quantity.toIntOrNull() ?: 0
+            price != null && qty > 0
+        }
+
+        if (!hasValidLine) {
+            _state.value = _state.value.copy(
+                error = "Add at least one item with a quantity greater than zero",
+                step = InvoiceStep.Details,
+            )
+            return
+        }
+
+        _state.value = _state.value.copy(step = InvoiceStep.Preview, error = null)
+    }
+
+    fun editDetails() {
+        _state.value = _state.value.copy(step = InvoiceStep.Details)
     }
 
     fun addLine() {
