@@ -135,7 +135,6 @@ fun ReceiptContent(invoice: InvoiceOut, tenderedAmount: Double?, modifier: Modif
     val currencyFormatter = rememberCurrencyFormatter()
     val tendered = tenderedAmount ?: invoice.totalAmount
     val subtotal = invoice.items.sumOf { it.lineTotal }
-    val vatAmount = (invoice.totalAmount - subtotal).takeIf { it > 0 } ?: subtotal * 0.12
     val change = (tendered - invoice.totalAmount).coerceAtLeast(0.0)
     val dateText = formatDate(invoice.createdAt)
 
@@ -182,7 +181,6 @@ fun ReceiptContent(invoice: InvoiceOut, tenderedAmount: Double?, modifier: Modif
             Divider()
 
             TotalsRow(label = "Subtotal", value = currencyFormatter.format(subtotal))
-            TotalsRow(label = "VAT", value = currencyFormatter.format(vatAmount))
             TotalsRow(label = "Total", value = currencyFormatter.format(invoice.totalAmount), emphasize = true)
             TotalsRow(label = "Tendered", value = currencyFormatter.format(tendered))
             TotalsRow(label = "Change", value = currencyFormatter.format(change), emphasize = true)
