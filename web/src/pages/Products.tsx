@@ -7,25 +7,16 @@ import { useToast } from '../components/ToastProvider';
 import { parseApiError } from '../utils/apiErrors';
 import type { Product, ProductPayload } from '../types/products';
 
-const SIZE_OPTIONS = ['S', 'M', 'L', 'XL'];
-const COLOR_OPTIONS = ['WHITE'];
-
 interface ProductFormState {
-  size: string;
-  color: string;
   price_per_pcs: string;
   price_per_dozen: string;
   price_per_tray: string;
-  is_active: boolean;
 }
 
 const defaultFormState: ProductFormState = {
-  size: 'S',
-  color: 'WHITE',
   price_per_pcs: '',
   price_per_dozen: '',
   price_per_tray: '',
-  is_active: true,
 };
 
 const ProductsPage: React.FC = () => {
@@ -80,23 +71,23 @@ const ProductsPage: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError(null);
+    if (!editingProduct) {
+      setFormError('Select a product to edit prices.');
+      return;
+    }
+
     const payload: ProductPayload = {
-      size: formState.size,
-      color: formState.color,
+      size: editingProduct.size,
+      color: editingProduct.color,
       price_per_pcs: formState.price_per_pcs ? Number(formState.price_per_pcs) : null,
       price_per_dozen: formState.price_per_dozen ? Number(formState.price_per_dozen) : null,
       price_per_tray: formState.price_per_tray ? Number(formState.price_per_tray) : null,
-      is_active: formState.is_active,
+      is_active: editingProduct.is_active,
     };
 
     try {
-      if (editingProduct) {
-        await apiClient.put(`/api/products/${editingProduct.id}`, payload);
-        showToast('Product updated', 'success');
-      } else {
-        await apiClient.post('/api/products', payload);
-        showToast('Product created', 'success');
-      }
+      await apiClient.put(`/api/products/${editingProduct.id}`, payload);
+      showToast('Product updated', 'success');
       resetForm();
       loadProducts();
     } catch (err) {
@@ -109,28 +100,10 @@ const ProductsPage: React.FC = () => {
   const startEdit = (product: Product) => {
     setEditingProduct(product);
     setFormState({
-      size: product.size,
-      color: product.color,
       price_per_dozen: product.price_per_dozen?.toString() ?? '',
       price_per_pcs: product.price_per_pcs?.toString() ?? '',
       price_per_tray: product.price_per_tray?.toString() ?? '',
-      is_active: product.is_active,
     });
-  };
-
-  const deleteProduct = async (product: Product) => {
-    if (!window.confirm(`Deactivate ${product.size} ${product.color}?`)) return;
-    try {
-      await apiClient.delete(`/api/products/${product.id}`);
-      showToast('Product removed', 'info');
-      if (editingProduct?.id === product.id) {
-        resetForm();
-      }
-      loadProducts();
-    } catch (err) {
-      const { message } = parseApiError(err, 'Unable to delete product');
-      showToast(message, 'error');
-    }
   };
 
   const renderPrice = (value?: number | null) =>
@@ -202,14 +175,7 @@ const ProductsPage: React.FC = () => {
                             onClick={() => startEdit(product)}
                             className="rounded-md border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-700 transition hover:bg-slate-100 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
                           >
-                            Edit
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => deleteProduct(product)}
-                            className="rounded-md border border-red-200 px-3 py-1 text-xs font-semibold text-red-600 transition hover:bg-red-50 dark:border-red-800 dark:text-red-300 dark:hover:bg-red-900/30"
-                          >
-                            Delete
+                            Edit price
                           </button>
                         </div>
                       </td>
@@ -231,7 +197,7 @@ const ProductsPage: React.FC = () => {
         <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900">
           <div className="flex items-center justify-between pb-3">
             <div>
-              <h2 className="text-lg font-semibold text-slate-900 dark:text-white">{editingProduct ? 'Edit product' : 'Add product'}</h2>
+              <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Edit product prices</h2>
               {formError && <p className="text-sm text-red-500">{formError}</p>}
             </div>
             {editingProduct && (
@@ -240,95 +206,51 @@ const ProductsPage: React.FC = () => {
                 onClick={resetForm}
                 className="text-xs font-semibold text-blue-600 hover:text-blue-700 dark:text-blue-300 dark:hover:text-blue-200"
               >
-                New
+                Clear
               </button>
             )}
           </div>
-          <form className="space-y-4" onSubmit={handleSubmit}>
-            <div className="grid grid-cols-2 gap-3">
-              <label className="text-sm font-semibold text-slate-700 dark:text-slate-200">
-                Size
-                <select
-                  className="mt-1 w-full rounded-md border border-slate-200 px-3 py-2 text-sm text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
-                  value={formState.size}
-                  onChange={(e) => setFormState((prev) => ({ ...prev, size: e.target.value }))}
-                  required
-                >
-                  {SIZE_OPTIONS.map((size) => (
-                    <option key={size} value={size}>
-                      {size}
-                    </option>
-                  ))}
-                </select>
-              </label>
+          {editingProduct ? (
+            <form className="space-y-4" onSubmit={handleSubmit}>
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+                <label className="text-sm font-semibold text-slate-700 dark:text-slate-200">
+                  Price per piece (PHP)
+                  <input
+                    type="number"
+                    step="0.01"
+                    className="mt-1 w-full rounded-md border border-slate-200 px-3 py-2 text-sm text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+                    value={formState.price_per_pcs}
+                    onChange={(e) => setFormState((prev) => ({ ...prev, price_per_pcs: e.target.value }))}
+                    placeholder="e.g. 8.50"
+                  />
+                </label>
 
-              <label className="text-sm font-semibold text-slate-700 dark:text-slate-200">
-                Color
-                <select
-                  className="mt-1 w-full rounded-md border border-slate-200 px-3 py-2 text-sm text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
-                  value={formState.color}
-                  onChange={(e) => setFormState((prev) => ({ ...prev, color: e.target.value }))}
-                  required
-                >
-                  {COLOR_OPTIONS.map((color) => (
-                    <option key={color} value={color}>
-                      {color}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </div>
+                <label className="text-sm font-semibold text-slate-700 dark:text-slate-200">
+                  Price per dozen (PHP)
+                  <input
+                    type="number"
+                    step="0.01"
+                    className="mt-1 w-full rounded-md border border-slate-200 px-3 py-2 text-sm text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+                    value={formState.price_per_dozen}
+                    onChange={(e) => setFormState((prev) => ({ ...prev, price_per_dozen: e.target.value }))}
+                    placeholder="e.g. 100"
+                  />
+                </label>
 
-            <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-              <label className="text-sm font-semibold text-slate-700 dark:text-slate-200">
-                Price per piece (PHP)
-                <input
-                  type="number"
-                  step="0.01"
-                  className="mt-1 w-full rounded-md border border-slate-200 px-3 py-2 text-sm text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
-                  value={formState.price_per_pcs}
-                  onChange={(e) => setFormState((prev) => ({ ...prev, price_per_pcs: e.target.value }))}
-                  placeholder="e.g. 8.50"
-                />
-              </label>
+                <label className="text-sm font-semibold text-slate-700 dark:text-slate-200">
+                  Price per tray (PHP)
+                  <input
+                    type="number"
+                    step="0.01"
+                    className="mt-1 w-full rounded-md border border-slate-200 px-3 py-2 text-sm text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+                    value={formState.price_per_tray}
+                    onChange={(e) => setFormState((prev) => ({ ...prev, price_per_tray: e.target.value }))}
+                    placeholder="e.g. 250"
+                  />
+                </label>
+              </div>
 
-              <label className="text-sm font-semibold text-slate-700 dark:text-slate-200">
-                Price per dozen (PHP)
-                <input
-                  type="number"
-                  step="0.01"
-                  className="mt-1 w-full rounded-md border border-slate-200 px-3 py-2 text-sm text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
-                  value={formState.price_per_dozen}
-                  onChange={(e) => setFormState((prev) => ({ ...prev, price_per_dozen: e.target.value }))}
-                  placeholder="e.g. 100"
-                />
-              </label>
-
-              <label className="text-sm font-semibold text-slate-700 dark:text-slate-200">
-                Price per tray (PHP)
-                <input
-                  type="number"
-                  step="0.01"
-                  className="mt-1 w-full rounded-md border border-slate-200 px-3 py-2 text-sm text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
-                  value={formState.price_per_tray}
-                  onChange={(e) => setFormState((prev) => ({ ...prev, price_per_tray: e.target.value }))}
-                  placeholder="e.g. 250"
-                />
-              </label>
-            </div>
-
-            <label className="flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-slate-200">
-              <input
-                type="checkbox"
-                checked={formState.is_active}
-                onChange={(e) => setFormState((prev) => ({ ...prev, is_active: e.target.checked }))}
-                className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
-              />
-              Active
-            </label>
-
-            <div className="flex items-center justify-end gap-2">
-              {editingProduct && (
+              <div className="flex items-center justify-end gap-2">
                 <button
                   type="button"
                   onClick={resetForm}
@@ -336,15 +258,19 @@ const ProductsPage: React.FC = () => {
                 >
                   Cancel
                 </button>
-              )}
-              <button
-                type="submit"
-                className="rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-              >
-                {editingProduct ? 'Save changes' : 'Add product'}
-              </button>
+                <button
+                  type="submit"
+                  className="rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                >
+                  Save prices
+                </button>
+              </div>
+            </form>
+          ) : (
+            <div className="rounded-md border border-dashed border-slate-200 p-4 text-sm text-slate-600 dark:border-slate-700 dark:text-slate-300">
+              Select a product from the list to edit its prices. Only existing sizes (S, M, L, XL) can be updated.
             </div>
-          </form>
+          )}
         </div>
       </div>
     </div>
