@@ -36,6 +36,7 @@ fun SignaturePad(
 ) {
     val currentStroke = remember { mutableStateOf<List<Offset>>(emptyList()) }
     val backgroundColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
+    val padSizeState = remember { mutableStateOf(IntSize.Zero) }
 
     // Move the color declaration here, into the @Composable context
     val strokeColor = MaterialTheme.colorScheme.onSurface
@@ -52,8 +53,11 @@ fun SignaturePad(
             .background(backgroundColor, RoundedCornerShape(12.dp))
             .pointerInput(Unit) {
                 detectDragGestures(
-                    onDragStart = { offset -> currentStroke.value = listOf(offset) },
-                    onDrag = { change, _ -> currentStroke.value = currentStroke.value + listOf(change.position)
+                    onDragStart = { offset ->
+                        currentStroke.value = listOf(offset.clampWithin(padSizeState.value))
+                    },
+                    onDrag = { change, _ ->
+                        currentStroke.value = currentStroke.value + listOf(change.position.clampWithin(padSizeState.value))
                     },
                     onDragEnd = {
                         if (currentStroke.value.isNotEmpty()) {
@@ -71,7 +75,10 @@ fun SignaturePad(
             .height(200.dp)
             .padding(8.dp)
             .background(Color.Transparent)
-            .onSizeChanged { onPadSizeChanged(it) }
+            .onSizeChanged {
+                padSizeState.value = it
+                onPadSizeChanged(it)
+            }
         ) {
             // This is the DrawScope
             val strokeStyle = Stroke(width = 8f, cap = StrokeCap.Round, join = StrokeJoin.Round)
@@ -98,4 +105,11 @@ fun SignaturePad(
             )
         }
     }
+}
+
+private fun Offset.clampWithin(bounds: IntSize): Offset {
+    if (bounds == IntSize.Zero) return this
+    val xClamped = x.coerceIn(0f, bounds.width.toFloat())
+    val yClamped = y.coerceIn(0f, bounds.height.toFloat())
+    return copy(x = xClamped, y = yClamped)
 }

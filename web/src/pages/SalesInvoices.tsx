@@ -52,10 +52,12 @@ interface InvoiceListResponse {
 }
 
 const INVOICE_STATUSES = ['COMPLETED', 'PENDING_OVERRIDE', 'REJECTED'];
+const TRAY_SIZE = 30;
+const DOZEN_SIZE = 12;
 
 const SalesInvoicesPage: React.FC = () => {
   const { t } = useTranslation();
-  const { token } = useAuth();
+  const { token, user } = useAuth();
   const { showToast } = useToast();
 
   const [invoices, setInvoices] = useState<Invoice[]>([]);
@@ -74,6 +76,8 @@ const SalesInvoicesPage: React.FC = () => {
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState('');
   const [signaturePreviews, setSignaturePreviews] = useState<Record<number, string>>({});
+  const [signatureLoading, setSignatureLoading] = useState<Record<number, boolean>>({});
+  const [decisionLoading, setDecisionLoading] = useState(false);
 
   const signaturePreviewRef = useRef(signaturePreviews);
 
@@ -155,7 +159,11 @@ const SalesInvoicesPage: React.FC = () => {
   const renderStatusBadge = (invoiceStatus: string) => {
     const base = 'inline-flex items-center px-2 py-0.5 rounded text-xs font-medium';
     if (invoiceStatus === 'PENDING_OVERRIDE') {
-      return <span className={`${base} bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-200`}>Pending override</span>;
+      return (
+        <span className={`${base} bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-200`}>
+          Pending approval
+        </span>
+      );
     }
     if (invoiceStatus === 'REJECTED') {
       return <span className={`${base} bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-200`}>Rejected</span>;
@@ -235,6 +243,7 @@ const SalesInvoicesPage: React.FC = () => {
         return;
       }
 
+      setSignatureLoading((prev) => ({ ...prev, [invoiceId]: true }));
       try {
         const res = await apiClient.get<Blob>(detail.signature_url, { responseType: 'blob' });
         const objectUrl = URL.createObjectURL(res.data);
@@ -242,9 +251,47 @@ const SalesInvoicesPage: React.FC = () => {
       } catch (err) {
         const { message } = parseApiError(err, t('invoiceHistory.errors.load'));
         showToast(message, 'error');
+      } finally {
+        setSignatureLoading((prev) => ({ ...prev, [invoiceId]: false }));
       }
     },
     [invoiceDetails, signaturePreviews, showToast, t],
+  );
+
+  const handleApproveOverride = useCallback(
+    async (invoiceId: number) => {
+      setDecisionLoading(true);
+      try {
+        const res = await apiClient.post<InvoiceDetail>(`/api/sales/invoices/${invoiceId}/override/approve`);
+        setInvoiceDetails((prev) => ({ ...prev, [invoiceId]: res.data }));
+        setInvoices((prev) => prev.map((inv) => (inv.id === invoiceId ? { ...inv, status: res.data.status } : inv)));
+        showToast('Invoice approved', 'success');
+      } catch (err) {
+        const { message } = parseApiError(err, 'Unable to approve invoice');
+        showToast(message, 'error');
+      } finally {
+        setDecisionLoading(false);
+      }
+    },
+    [showToast],
+  );
+
+  const handleRejectOverride = useCallback(
+    async (invoiceId: number) => {
+      setDecisionLoading(true);
+      try {
+        const res = await apiClient.post<InvoiceDetail>(`/api/sales/invoices/${invoiceId}/override/reject`);
+        setInvoiceDetails((prev) => ({ ...prev, [invoiceId]: res.data }));
+        setInvoices((prev) => prev.map((inv) => (inv.id === invoiceId ? { ...inv, status: res.data.status } : inv)));
+        showToast('Invoice marked as rejected', 'info');
+      } catch (err) {
+        const { message } = parseApiError(err, 'Unable to reject invoice');
+        showToast(message, 'error');
+      } finally {
+        setDecisionLoading(false);
+      }
+    },
+    [showToast],
   );
 
   const closeModal = () => {
@@ -272,6 +319,28 @@ const SalesInvoicesPage: React.FC = () => {
     () => new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }),
     [],
   );
+
+  const totalPieces = useMemo(() => {
+    if (!selectedInvoice || !('items' in selectedInvoice)) return 0;
+    return selectedInvoice.items.reduce((sum, item) => {
+      if (item.unit === 'TRAY') return sum + item.qty * TRAY_SIZE;
+      if (item.unit === 'DOZEN') return sum + item.qty * DOZEN_SIZE;
+      return sum + item.qty;
+    }, 0);
+  }, [selectedInvoice]);
+
+  useEffect(() => {
+    if (selectedInvoice?.signature_url && selectedInvoiceId && !signaturePreviews[selectedInvoiceId]) {
+      void handleLoadSignature(selectedInvoiceId);
+    }
+  }, [handleLoadSignature, selectedInvoice?.signature_url, selectedInvoiceId, signaturePreviews]);
+
+  const formatStatusLabel = (statusValue: string) => {
+    if (statusValue === 'PENDING_OVERRIDE') {
+      return 'Pending approval';
+    }
+    return statusValue.replace('_', ' ').toLowerCase().replace(/^./, (c) => c.toUpperCase());
+  };
 
   return (
     <div className="space-y-4">
@@ -496,6 +565,30 @@ const SalesInvoicesPage: React.FC = () => {
                 </div>
               )}
 
+              {selectedInvoice.status === 'PENDING_OVERRIDE' && user?.role === 'admin' && (
+                <div className="mb-4 rounded border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-600 dark:bg-amber-900/40 dark:text-amber-50">
+                  <div className="mb-2 font-semibold">Pending approval</div>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      disabled={decisionLoading}
+                      onClick={() => handleApproveOverride(selectedInvoice.id)}
+                      className="rounded bg-green-600 px-3 py-1.5 text-sm font-semibold text-white transition hover:bg-green-700 disabled:opacity-60"
+                    >
+                      Approve invoice
+                    </button>
+                    <button
+                      type="button"
+                      disabled={decisionLoading}
+                      onClick={() => handleRejectOverride(selectedInvoice.id)}
+                      className="rounded bg-red-600 px-3 py-1.5 text-sm font-semibold text-white transition hover:bg-red-700 disabled:opacity-60"
+                    >
+                      Reject
+                    </button>
+                  </div>
+                </div>
+              )}
+
               <div className="grid gap-4 md:grid-cols-3">
                 <div className="space-y-2 rounded border border-slate-200 p-4 dark:border-slate-700">
                   <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-300">
@@ -514,7 +607,7 @@ const SalesInvoicesPage: React.FC = () => {
                   </div>
                   <div className="text-sm text-slate-700 dark:text-slate-200">
                     <div className="font-medium text-slate-900 dark:text-slate-100">{t('common.labels.status')}</div>
-                    <div>{selectedInvoice.status.replace('_', ' ').toLowerCase().replace(/^./, (c) => c.toUpperCase())}</div>
+                    <div>{formatStatusLabel(selectedInvoice.status)}</div>
                   </div>
                   <div className="text-sm text-slate-700 dark:text-slate-200">
                     <div className="font-medium text-slate-900 dark:text-slate-100">{t('common.labels.driver')}</div>
@@ -550,6 +643,10 @@ const SalesInvoicesPage: React.FC = () => {
                       )}
                     </span>
                   </div>
+                  <div className="flex items-center justify-between text-sm text-slate-700 dark:text-slate-200">
+                    <span>Total pieces</span>
+                    <span>{totalPieces.toLocaleString()}</span>
+                  </div>
                   <div className="flex items-center justify-between text-sm font-semibold text-slate-900 dark:text-slate-100">
                     <span>{t('common.labels.total')}</span>
                     <span>{formatCurrencyValue.format(selectedInvoice.total_amount)}</span>
@@ -576,14 +673,10 @@ const SalesInvoicesPage: React.FC = () => {
                           {t('salesInvoices.details.downloadSignature')}
                         </a>
                       </div>
+                    ) : signatureLoading[selectedInvoice.id] ? (
+                      <div className="text-sm text-slate-600 dark:text-slate-300">Loading signature…</div>
                     ) : (
-                      <button
-                        type="button"
-                        onClick={() => handleLoadSignature(selectedInvoice.id)}
-                        className="rounded bg-indigo-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:ring-offset-white dark:focus:ring-offset-slate-900"
-                      >
-                        {t('salesInvoices.details.signaturePreview')}
-                      </button>
+                      <div className="text-sm text-slate-600 dark:text-slate-300">Preparing signature preview…</div>
                     )
                   ) : (
                     <div className="text-sm text-slate-500 dark:text-slate-400">{t('invoicePreview.noSignature')}</div>
