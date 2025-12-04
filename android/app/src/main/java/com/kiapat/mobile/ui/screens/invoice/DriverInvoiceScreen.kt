@@ -253,12 +253,14 @@ fun DriverInvoiceScreen(
                 }
 
                 state.selectedInvoice != null -> {
-                    InvoiceDetailContent(
-                        invoice = state.selectedInvoice,
-                        formatter = formatter,
-                        onViewReceipt = onViewReceipt,
-                        onDismiss = { viewModel.closeInvoice() },
-                    )
+                    state.selectedInvoice?.let { invoice ->
+                        InvoiceDetailContent(
+                            invoice = invoice, // 'invoice' is now guaranteed to be non-nullable (InvoiceOut)
+                            formatter = formatter,
+                            onViewReceipt = onViewReceipt,
+                            onDismiss = { viewModel.closeInvoice() },
+                        )
+                    }
                 }
             }
         }
@@ -409,11 +411,12 @@ private fun InvoiceDetailContent(
 
 @Composable
 private fun InvoiceLineItem(item: InvoiceItemOut, formatter: NumberFormat) {
+    val productName = item.classification?.let { "${it.size} - ${it.color}" } ?: ""
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Text(
-            text = item.classification?.name ?: stringResource(R.string.invoice_item_unknown),
-            style = MaterialTheme.typography.bodyLarge,
-            fontWeight = FontWeight.SemiBold,
+            text = productName, // <-- FIX: Use 'name' instead
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
         )
         Text(
             text = stringResource(R.string.invoice_item_qty_label, item.qty, item.unit.name.lowercase()),
