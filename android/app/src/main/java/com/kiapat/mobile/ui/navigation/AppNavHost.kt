@@ -54,7 +54,7 @@ fun AppNavHost(
             DriverInvoiceScreen(
                 viewModel = vm,
                 onCreateInvoice = { navController.navigate(AppDestination.CreateInvoice.route) },
-                onInvoiceSelected = { invoiceId ->
+                onViewReceipt = { invoiceId ->
                     navController.navigate(AppDestination.DriverInvoiceReceipt.createRoute(invoiceId, null))
                 },
                 onLogout = onLogout,

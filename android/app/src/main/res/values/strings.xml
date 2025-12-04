@@ -1,3 +1,27 @@
 <resources>
     <string name="app_name">Kiapat Mobile</string>
+    <string name="close">Close</string>
+    <string name="try_again">Try again</string>
+    <string name="view_receipt">View receipt</string>
+    <string name="invoice_loading_details">Loading invoice details…</string>
+    <string name="invoice_detail_error_title">Unable to load invoice</string>
+    <string name="invoice_details_title">Invoice #%1$d details</string>
+    <string name="invoice_status_value">Status: %1$s</string>
+    <string name="invoice_customer_label">Customer</string>
+    <string name="invoice_walk_in_placeholder">Walk-in</string>
+    <string name="invoice_phone_label">Phone</string>
+    <string name="invoice_gps_label">GPS coordinates</string>
+    <string name="invoice_total_label">Total</string>
+    <string name="invoice_items_title">Line items</string>
+    <string name="invoice_items_empty">No line items recorded for this invoice.</string>
+    <string name="invoice_signature_title">Signature</string>
+    <string name="invoice_signature_content_description">Captured customer signature</string>
+    <string name="invoice_signature_download">Download signature</string>
+    <string name="invoice_signature_missing">No signature attached.</string>
+    <string name="invoice_signature_download_description">Saving signature to Downloads</string>
+    <string name="invoice_signature_download_unavailable">Download manager is unavailable.</string>
+    <string name="signature_download_started">Downloading signature…</string>
+    <string name="invoice_item_unknown">Unknown item</string>
+    <string name="invoice_item_qty_label">Quantity: %1$d %2$s</string>
+    <string name="invoice_item_price_label">Unit: %1$s • Line total: %2$s</string>
 </resources>
