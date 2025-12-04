@@ -1,10 +1,11 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import apiClient from '../api/axios';
 import { useAuth } from '../hooks/useAuth';
 import { useToast } from '../components/ToastProvider';
 import { parseApiError } from '../utils/apiErrors';
 import { formatDateTime } from '../utils/dateTime';
+import type { Classification } from '../types/invoice';
 
 interface UserSummary {
   id: number;
@@ -24,6 +25,23 @@ interface Invoice {
   created_at: string;
   status: string;
   created_by_user?: UserSummary | null;
+}
+
+interface InvoiceItem {
+  id: number;
+  classification_id: number;
+  unit: string;
+  qty: number;
+  unit_price: number;
+  line_total: number;
+  classification?: Classification | null;
+}
+
+interface InvoiceDetail extends Invoice {
+  signature_url: string | null;
+  items: InvoiceItem[];
+  subtotal_amount?: number;
+  tax_amount?: number;
 }
 
 interface InvoiceListResponse {
@@ -51,6 +69,13 @@ const SalesInvoicesPage: React.FC = () => {
   const [customer, setCustomer] = useState('');
   const [status, setStatus] = useState('');
   const [exporting, setExporting] = useState(false);
+  const [selectedInvoiceId, setSelectedInvoiceId] = useState<number | null>(null);
+  const [invoiceDetails, setInvoiceDetails] = useState<Record<number, InvoiceDetail>>({});
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [detailError, setDetailError] = useState('');
+  const [signaturePreviews, setSignaturePreviews] = useState<Record<number, string>>({});
+
+  const signaturePreviewRef = useRef(signaturePreviews);
 
   const pageCount = useMemo(() => Math.max(1, Math.ceil(total / pageSize)), [pageSize, total]);
 
@@ -59,6 +84,17 @@ const SalesInvoicesPage: React.FC = () => {
       setPage(pageCount);
     }
   }, [page, pageCount]);
+
+  useEffect(() => {
+    signaturePreviewRef.current = signaturePreviews;
+  }, [signaturePreviews]);
+
+  useEffect(
+    () => () => {
+      Object.values(signaturePreviewRef.current).forEach((url) => URL.revokeObjectURL(url));
+    },
+    [],
+  );
 
   const buildFilterParams = useCallback(() => {
     const params: Record<string, any> = {};
@@ -164,6 +200,78 @@ const SalesInvoicesPage: React.FC = () => {
       setExporting(false);
     }
   };
+
+  const handleSelectInvoice = (invoiceId: number) => {
+    setSelectedInvoiceId(invoiceId);
+    if (!invoiceDetails[invoiceId]) {
+      void fetchInvoiceDetail(invoiceId);
+    }
+  };
+
+  const fetchInvoiceDetail = useCallback(
+    async (invoiceId: number) => {
+      if (!token) return;
+      setDetailLoading(true);
+      setDetailError('');
+
+      try {
+        const res = await apiClient.get<InvoiceDetail>(`/api/sales/invoices/${invoiceId}`);
+        setInvoiceDetails((prev) => ({ ...prev, [invoiceId]: res.data }));
+      } catch (err) {
+        const { message } = parseApiError(err, t('invoiceHistory.errors.load'));
+        setDetailError(message);
+        showToast(message, 'error');
+      } finally {
+        setDetailLoading(false);
+      }
+    },
+    [showToast, t, token],
+  );
+
+  const handleLoadSignature = useCallback(
+    async (invoiceId: number) => {
+      const detail = invoiceDetails[invoiceId];
+      if (!detail?.signature_url || signaturePreviews[invoiceId]) {
+        return;
+      }
+
+      try {
+        const res = await apiClient.get<Blob>(detail.signature_url, { responseType: 'blob' });
+        const objectUrl = URL.createObjectURL(res.data);
+        setSignaturePreviews((prev) => ({ ...prev, [invoiceId]: objectUrl }));
+      } catch (err) {
+        const { message } = parseApiError(err, t('invoiceHistory.errors.load'));
+        showToast(message, 'error');
+      }
+    },
+    [invoiceDetails, signaturePreviews, showToast, t],
+  );
+
+  const closeModal = () => {
+    setSelectedInvoiceId(null);
+    setDetailError('');
+  };
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && selectedInvoiceId !== null) {
+        closeModal();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [selectedInvoiceId]);
+
+  const selectedInvoice = useMemo(() => {
+    if (selectedInvoiceId === null) return null;
+    return invoiceDetails[selectedInvoiceId] || invoices.find((inv) => inv.id === selectedInvoiceId) || null;
+  }, [invoiceDetails, invoices, selectedInvoiceId]);
+
+  const formatCurrencyValue = useMemo(
+    () => new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }),
+    [],
+  );
 
   return (
     <div className="space-y-4">
@@ -311,7 +419,18 @@ const SalesInvoicesPage: React.FC = () => {
                 </tr>
               ) : (
                 invoices.map((invoice) => (
-                  <tr key={invoice.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50">
+                  <tr
+                    key={invoice.id}
+                    onClick={() => handleSelectInvoice(invoice.id)}
+                    className="cursor-pointer hover:bg-slate-50 focus-within:bg-slate-50 dark:hover:bg-slate-800/50 dark:focus-within:bg-slate-800/50"
+                    tabIndex={0}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        handleSelectInvoice(invoice.id);
+                      }
+                    }}
+                  >
                     <td className="px-4 py-2 text-sm font-medium text-slate-900 dark:text-slate-100">#{invoice.id}</td>
                     <td className="px-4 py-2 text-sm text-slate-700 dark:text-slate-300">{formatDateTime(invoice.created_at)}</td>
                     <td className="px-4 py-2 text-sm text-slate-700 dark:text-slate-200">
@@ -335,6 +454,192 @@ const SalesInvoicesPage: React.FC = () => {
           </table>
         </div>
       </div>
+
+      {selectedInvoiceId !== null && selectedInvoice && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="invoice-details-title"
+          onClick={(e) => {
+            if (e.currentTarget === e.target) {
+              closeModal();
+            }
+          }}
+        >
+          <div className="w-full max-w-4xl rounded-lg bg-white shadow-xl transition-colors dark:bg-slate-900" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-start justify-between border-b border-slate-200 px-6 py-4 dark:border-slate-800">
+              <div>
+                <h2 id="invoice-details-title" className="text-xl font-semibold text-slate-900 dark:text-slate-100">
+                  {t('salesInvoices.details.title', { id: selectedInvoice.id })}
+                </h2>
+                <p className="text-sm text-slate-600 dark:text-slate-300">{t('salesInvoices.details.description')}</p>
+              </div>
+              <button
+                type="button"
+                onClick={closeModal}
+                className="rounded bg-slate-100 px-3 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
+              >
+                {t('common.actions.close')}
+              </button>
+            </div>
+
+            <div className="max-h-[80vh] overflow-y-auto p-6">
+              {detailLoading && (
+                <div className="mb-4 rounded border border-slate-200 bg-slate-50 p-3 text-sm text-slate-600 dark:border-slate-800 dark:bg-slate-800 dark:text-slate-200">
+                  {t('salesInvoices.details.loading')}
+                </div>
+              )}
+              {detailError && (
+                <div className="mb-4 rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-red-800 dark:bg-red-900/40 dark:text-red-200">
+                  {detailError}
+                </div>
+              )}
+
+              <div className="grid gap-4 md:grid-cols-3">
+                <div className="space-y-2 rounded border border-slate-200 p-4 dark:border-slate-700">
+                  <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-300">
+                    {t('salesInvoices.details.summary')}
+                  </h3>
+                  <div className="text-sm text-slate-700 dark:text-slate-200">
+                    <div className="font-medium text-slate-900 dark:text-slate-100">{t('common.labels.customer')}</div>
+                    <div>{selectedInvoice.customer_name || t('common.messages.walkIn')}</div>
+                    {selectedInvoice.customer_phone && (
+                      <div className="text-xs text-slate-500 dark:text-slate-400">{selectedInvoice.customer_phone}</div>
+                    )}
+                  </div>
+                  <div className="text-sm text-slate-700 dark:text-slate-200">
+                    <div className="font-medium text-slate-900 dark:text-slate-100">{t('salesInvoices.details.gps')}</div>
+                    <div>{selectedInvoice.gps_coordinates || t('driverInvoice.form.locationUnavailable')}</div>
+                  </div>
+                  <div className="text-sm text-slate-700 dark:text-slate-200">
+                    <div className="font-medium text-slate-900 dark:text-slate-100">{t('common.labels.status')}</div>
+                    <div>{selectedInvoice.status.replace('_', ' ').toLowerCase().replace(/^./, (c) => c.toUpperCase())}</div>
+                  </div>
+                  <div className="text-sm text-slate-700 dark:text-slate-200">
+                    <div className="font-medium text-slate-900 dark:text-slate-100">{t('common.labels.driver')}</div>
+                    <div>{renderDriverCell(selectedInvoice)}</div>
+                  </div>
+                  <div className="text-sm text-slate-700 dark:text-slate-200">
+                    <div className="font-medium text-slate-900 dark:text-slate-100">{t('common.labels.created')}</div>
+                    <div>{formatDateTime(selectedInvoice.created_at)}</div>
+                  </div>
+                </div>
+
+                <div className="space-y-2 rounded border border-slate-200 p-4 dark:border-slate-700">
+                  <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-300">
+                    {t('salesInvoices.details.totals')}
+                  </h3>
+                  <div className="flex items-center justify-between text-sm text-slate-700 dark:text-slate-200">
+                    <span>{t('common.labels.subtotal')}</span>
+                    <span>
+                      {formatCurrencyValue.format(
+                        'subtotal_amount' in selectedInvoice && selectedInvoice.subtotal_amount !== undefined
+                          ? selectedInvoice.subtotal_amount
+                          : selectedInvoice.total_amount,
+                      )}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between text-sm text-slate-700 dark:text-slate-200">
+                    <span>{t('common.labels.taxes')}</span>
+                    <span>
+                      {formatCurrencyValue.format(
+                        'tax_amount' in selectedInvoice && selectedInvoice.tax_amount !== undefined
+                          ? selectedInvoice.tax_amount
+                          : 0,
+                      )}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between text-sm font-semibold text-slate-900 dark:text-slate-100">
+                    <span>{t('common.labels.total')}</span>
+                    <span>{formatCurrencyValue.format(selectedInvoice.total_amount)}</span>
+                  </div>
+                </div>
+
+                <div className="space-y-2 rounded border border-slate-200 p-4 dark:border-slate-700">
+                  <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-300">
+                    {t('salesInvoices.details.signature')}
+                  </h3>
+                  {selectedInvoice.signature_url ? (
+                    signaturePreviews[selectedInvoice.id] ? (
+                      <div className="flex flex-col items-start gap-3">
+                        <img
+                          src={signaturePreviews[selectedInvoice.id]}
+                          alt={t('invoicePreview.signatureAlt')}
+                          className="h-28 w-auto rounded border border-slate-200 object-contain dark:border-slate-700"
+                        />
+                        <a
+                          href={signaturePreviews[selectedInvoice.id]}
+                          download={`invoice-${selectedInvoice.id}-signature.png`}
+                          className="text-sm font-semibold text-indigo-600 transition hover:text-indigo-700 dark:text-indigo-300 dark:hover:text-indigo-200"
+                        >
+                          {t('salesInvoices.details.downloadSignature')}
+                        </a>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => handleLoadSignature(selectedInvoice.id)}
+                        className="rounded bg-indigo-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:ring-offset-white dark:focus:ring-offset-slate-900"
+                      >
+                        {t('salesInvoices.details.signaturePreview')}
+                      </button>
+                    )
+                  ) : (
+                    <div className="text-sm text-slate-500 dark:text-slate-400">{t('invoicePreview.noSignature')}</div>
+                  )}
+                </div>
+              </div>
+
+              <div className="mt-4 rounded border border-slate-200 dark:border-slate-700">
+                <div className="border-b border-slate-200 bg-slate-50 px-4 py-2 text-sm font-semibold uppercase text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
+                  {t('salesInvoices.details.items')}
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-slate-200 text-sm dark:divide-slate-700">
+                    <thead className="bg-slate-100 text-slate-600 dark:bg-slate-900 dark:text-slate-300">
+                      <tr>
+                        <th className="px-4 py-2 text-left font-semibold">{t('invoicePreview.table.classification')}</th>
+                        <th className="px-4 py-2 text-right font-semibold">{t('invoicePreview.table.quantity')}</th>
+                        <th className="px-4 py-2 text-right font-semibold">{t('invoicePreview.table.unit')}</th>
+                        <th className="px-4 py-2 text-right font-semibold">{t('invoicePreview.table.unitPrice')}</th>
+                        <th className="px-4 py-2 text-right font-semibold">{t('invoicePreview.table.lineTotal')}</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-200 bg-white dark:divide-slate-700 dark:bg-slate-900">
+                      {'items' in selectedInvoice && selectedInvoice.items.length > 0 ? (
+                        selectedInvoice.items.map((item) => (
+                          <tr key={item.id}>
+                            <td className="px-4 py-2 text-sm text-slate-700 dark:text-slate-200">
+                              {item.classification
+                                ? `${item.classification.size} ${item.classification.color}`
+                                : t('invoicePreview.unclassified')}
+                            </td>
+                            <td className="px-4 py-2 text-right text-sm text-slate-700 dark:text-slate-200">{item.qty}</td>
+                            <td className="px-4 py-2 text-right text-sm text-slate-700 dark:text-slate-200">{item.unit}</td>
+                            <td className="px-4 py-2 text-right text-sm text-slate-700 dark:text-slate-200">
+                              ₱{item.unit_price.toFixed(2)}
+                            </td>
+                            <td className="px-4 py-2 text-right text-sm font-semibold text-slate-900 dark:text-slate-100">
+                              ₱{item.line_total.toFixed(2)}
+                            </td>
+                          </tr>
+                        ))
+                      ) : (
+                        <tr>
+                          <td colSpan={5} className="px-4 py-6 text-center text-sm text-slate-500 dark:text-slate-400">
+                            {t('salesInvoices.details.noItems')}
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

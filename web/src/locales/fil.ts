@@ -387,6 +387,21 @@ const fil = {
         reprint: 'Nabigong i-reprint ang resibo',
       },
     },
+    salesInvoices: {
+      details: {
+        title: 'Mga detalye ng resibo #{{id}}',
+        description: 'Suriin ang napiling resibo kasama ang impormasyon ng kustomer, kabuuan, at mga item.',
+        summary: 'Mga detalye',
+        gps: 'GPS',
+        totals: 'Mga kabuuan',
+        signature: 'Lagda',
+        signaturePreview: 'Paunang tingin ng lagda',
+        downloadSignature: 'I-download ang lagda',
+        items: 'Mga item sa linya',
+        noItems: 'Walang mga item na nakita para sa resibong ito.',
+        loading: 'Naglo-load ng mga detalye ng resibo…',
+      },
+    },
   },
 } as const;
 

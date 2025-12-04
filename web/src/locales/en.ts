@@ -387,6 +387,21 @@ const en = {
         reprint: 'Failed to reprint invoice',
       },
     },
+    salesInvoices: {
+      details: {
+        title: 'Invoice #{{id}} details',
+        description: 'Review the selected invoice with customer info, totals, and captured items.',
+        summary: 'Details',
+        gps: 'GPS',
+        totals: 'Totals',
+        signature: 'Signature',
+        signaturePreview: 'Signature preview',
+        downloadSignature: 'Download signature',
+        items: 'Line items',
+        noItems: 'No line items found for this invoice.',
+        loading: 'Loading invoice details…',
+      },
+    },
   },
 } as const;
 
