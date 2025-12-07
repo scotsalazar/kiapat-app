@@ -11,6 +11,7 @@
     <string name="invoice_walk_in_placeholder">Walk-in</string>
     <string name="invoice_phone_label">Phone</string>
     <string name="invoice_gps_label">GPS coordinates</string>
+    <string name="invoice_order_date_label">Order date</string>
     <string name="invoice_total_label">Total</string>
     <string name="invoice_items_title">Line items</string>
     <string name="invoice_items_empty">No line items recorded for this invoice.</string>

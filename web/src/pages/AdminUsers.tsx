@@ -86,6 +86,18 @@ const AdminUsersPage: React.FC = () => {
     setCreateError(null);
     setCreateSuccess(null);
     setStatusMessage(null);
+
+    const password = createForm.password;
+    const hasUppercase = /[A-Z]/.test(password);
+    const hasLowercase = /[a-z]/.test(password);
+    const hasNumber = /\d/.test(password);
+    if (password.length < 8 || !hasUppercase || !hasLowercase || !hasNumber) {
+      const validationMessage =
+        'Password must be at least 8 characters and include uppercase, lowercase, and a number.';
+      setCreateError(validationMessage);
+      showToast(validationMessage, 'error');
+      return;
+    }
     try {
       await apiClient.post('/api/users', {
         name: createForm.name,

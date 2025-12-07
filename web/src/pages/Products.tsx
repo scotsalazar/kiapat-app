@@ -11,12 +11,14 @@ interface ProductFormState {
   price_per_pcs: string;
   price_per_dozen: string;
   price_per_tray: string;
+  is_active: boolean;
 }
 
 const defaultFormState: ProductFormState = {
   price_per_pcs: '',
   price_per_dozen: '',
   price_per_tray: '',
+  is_active: true,
 };
 
 const ProductsPage: React.FC = () => {
@@ -82,7 +84,7 @@ const ProductsPage: React.FC = () => {
       price_per_pcs: formState.price_per_pcs ? Number(formState.price_per_pcs) : null,
       price_per_dozen: formState.price_per_dozen ? Number(formState.price_per_dozen) : null,
       price_per_tray: formState.price_per_tray ? Number(formState.price_per_tray) : null,
-      is_active: editingProduct.is_active,
+      is_active: formState.is_active,
     };
 
     try {
@@ -103,6 +105,7 @@ const ProductsPage: React.FC = () => {
       price_per_dozen: product.price_per_dozen?.toString() ?? '',
       price_per_pcs: product.price_per_pcs?.toString() ?? '',
       price_per_tray: product.price_per_tray?.toString() ?? '',
+      is_active: product.is_active,
     });
   };
 
@@ -175,7 +178,7 @@ const ProductsPage: React.FC = () => {
                             onClick={() => startEdit(product)}
                             className="rounded-md border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-700 transition hover:bg-slate-100 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
                           >
-                            Edit price
+                            Edit
                           </button>
                         </div>
                       </td>
@@ -247,6 +250,22 @@ const ProductsPage: React.FC = () => {
                     onChange={(e) => setFormState((prev) => ({ ...prev, price_per_tray: e.target.value }))}
                     placeholder="e.g. 250"
                   />
+                </label>
+              </div>
+
+              <div className="flex items-center justify-between rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800/50">
+                <div className="flex flex-col">
+                  <span className="font-semibold text-slate-800 dark:text-slate-100">Status</span>
+                  <span className="text-xs text-slate-600 dark:text-slate-300">Toggle whether this product is active.</span>
+                </div>
+                <label className="flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-slate-100">
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 dark:border-slate-600"
+                    checked={formState.is_active}
+                    onChange={(e) => setFormState((prev) => ({ ...prev, is_active: e.target.checked }))}
+                  />
+                  {formState.is_active ? 'Active' : 'Inactive'}
                 </label>
               </div>
 
