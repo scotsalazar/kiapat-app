@@ -46,22 +46,25 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
+import coil.request.ImageRequest
+import com.kiapat.mobile.BuildConfig
 import com.kiapat.mobile.data.model.InvoiceOut
 import java.text.NumberFormat
+import java.time.Instant
+import java.time.LocalDateTime
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.time.format.FormatStyle
 import java.util.Locale
 import com.kiapat.mobile.R
 import com.kiapat.mobile.data.model.InvoiceItemOut
-import android.app.DownloadManager
-import android.content.Context
-import android.net.Uri
-import android.os.Environment
-import android.widget.Toast
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -307,6 +310,8 @@ private fun InvoiceDetailContent(
         .replace('_', ' ')
         .lowercase(Locale.getDefault())
         .replaceFirstChar { it.titlecase(Locale.getDefault()) }
+    val formattedOrderDate = remember(invoice.createdAt) { formatOrderDate(invoice.createdAt) }
+    val signatureImageUrl = remember(invoice.signatureUrl) { invoice.signatureUrl?.let { toAbsoluteUrl(it) } }
 
     Column(
         modifier = Modifier
@@ -352,6 +357,11 @@ private fun InvoiceDetailContent(
         }
 
         InfoRow(
+            label = stringResource(R.string.invoice_order_date_label),
+            value = formattedOrderDate,
+        )
+
+        InfoRow(
             label = stringResource(R.string.invoice_total_label),
             value = formatter.format(invoice.totalAmount),
         )
@@ -382,29 +392,24 @@ private fun InvoiceDetailContent(
             fontWeight = FontWeight.SemiBold,
         )
 
-        if (invoice.signatureUrl != null) {
+        if (signatureImageUrl != null) {
             AsyncImage(
-                model = invoice.signatureUrl,
+                model = ImageRequest.Builder(context)
+                    .data(signatureImageUrl)
+                    .crossfade(true)
+                    .build(),
                 contentDescription = stringResource(R.string.invoice_signature_content_description),
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(180.dp),
+                contentScale = ContentScale.Fit,
             )
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                TextButton(onClick = { downloadSignature(context, invoice.signatureUrl, invoice.id) }) {
-                    Text(stringResource(R.string.invoice_signature_download))
-                }
-                TextButton(onClick = onDismiss) {
-                    Text(stringResource(R.string.close))
-                }
-            }
         } else {
             Text(
                 text = stringResource(R.string.invoice_signature_missing),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            TextButton(onClick = onDismiss) { Text(stringResource(R.string.close)) }
         }
     }
 }
@@ -442,28 +447,29 @@ private fun InfoRow(label: String, value: String) {
     }
 }
 
-private fun downloadSignature(context: Context, signatureUrl: String, invoiceId: Int) {
-    val request = DownloadManager.Request(Uri.parse(signatureUrl))
-        .setTitle("invoice_${invoiceId}_signature.png")
-        .setDescription(context.getString(R.string.invoice_signature_download_description))
-        .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
-        .setDestinationInExternalPublicDir(
-            Environment.DIRECTORY_DOWNLOADS,
-            "invoice_${invoiceId}_signature.png",
-        )
-        .setAllowedOverMetered(true)
-
-    val downloadManager = context.getSystemService(Context.DOWNLOAD_SERVICE) as? DownloadManager
-    if (downloadManager != null) {
-        downloadManager.enqueue(request)
-        Toast.makeText(context, R.string.signature_download_started, Toast.LENGTH_SHORT).show()
-    } else {
-        Toast.makeText(context, R.string.invoice_signature_download_unavailable, Toast.LENGTH_SHORT).show()
-    }
-}
-
 @Composable
 private fun rememberCurrencyFormatter(): NumberFormat {
     val locale = java.util.Locale.getDefault()
     return androidx.compose.runtime.remember(locale) { NumberFormat.getCurrencyInstance(locale) }
+}
+
+private fun toAbsoluteUrl(path: String): String =
+    if (path.startsWith("http")) {
+        path
+    } else {
+        BuildConfig.BASE_URL.ensureTrailingSlash() + path.removePrefix("/")
+    }
+
+private fun String.ensureTrailingSlash(): String = if (endsWith("/")) this else "$this/"
+
+private fun formatOrderDate(raw: String): String {
+    val formatter = DateTimeFormatter.ofLocalizedDateTime(FormatStyle.MEDIUM)
+        .withLocale(Locale.getDefault())
+
+    return runCatching {
+        Instant.parse(raw).atZone(ZoneId.systemDefault()).format(formatter)
+    }.recoverCatching {
+        LocalDateTime.parse(raw, DateTimeFormatter.ISO_DATE_TIME).atZone(ZoneId.systemDefault())
+            .format(formatter)
+    }.getOrDefault(raw)
 }
