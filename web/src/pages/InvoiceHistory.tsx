@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useAuth } from '../hooks/useAuth';
 import { useToast } from '../components/ToastProvider';
 import { parseApiError } from '../utils/apiErrors';
+import { ensureReceiptHtml, triggerUnifiedPrint } from '../utils/print';
 import { formatDateTime } from '../utils/dateTime';
 import apiClient from '../api/axios';
 import type { Classification } from '../types/invoice';
@@ -207,7 +208,7 @@ const InvoiceHistoryPage: React.FC = () => {
         })
         .join('');
 
-      return `
+      return ensureReceiptHtml(`
         <html>
           <head>
             <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -254,36 +255,27 @@ const InvoiceHistoryPage: React.FC = () => {
             </table>
           </body>
         </html>
-      `;
+      `);
     },
     [formatCurrencyValue, t],
   );
 
-  const triggerPrint = useCallback((html: string) => {
-    const androidPrintManager = (
-      window as unknown as {
-        AndroidPrintManager?: { print?: (content: string) => void; printHtml?: (content: string) => void };
-      }
-    ).AndroidPrintManager;
+    const triggerPrint = useCallback(
+      (html: string, invoice: Invoice) => {
+        const receiptPayload = {
+          invoiceNumber: invoice.id,
+          gpsCoordinates: invoice.gps_coordinates,
+          customerName: invoice.customer_name,
+          customerPhone: invoice.customer_phone,
+          items: invoice.line_items,
+        };
 
-    if (androidPrintManager?.printHtml) {
-      androidPrintManager.printHtml(html);
-      return;
-    }
-    if (androidPrintManager?.print) {
-      androidPrintManager.print(html);
-      return;
-    }
-
-    const printWindow = window.open('', '_blank', 'noopener,noreferrer');
-    if (printWindow) {
-      printWindow.document.write(html);
-      printWindow.document.close();
-      printWindow.focus();
-      printWindow.print();
-      printWindow.close();
-    }
-  }, []);
+        triggerUnifiedPrint(receiptPayload, html, () => {
+          showToast('Please allow pop-ups to print receipts', 'error');
+        });
+      },
+      [showToast],
+    );
 
   const handleReprint = useCallback(
     async (invoiceId: number) => {
@@ -291,7 +283,7 @@ const InvoiceHistoryPage: React.FC = () => {
       setReprintingId(invoiceId);
       try {
         const res = await apiClient.post<Invoice>(`/api/sales/invoices/${invoiceId}/reprint`);
-        triggerPrint(buildReceiptHtml(res.data));
+        triggerPrint(buildReceiptHtml(res.data), res.data);
         setInvoices((prev) => prev.map((inv) => (inv.id === invoiceId ? res.data : inv)));
       } catch (err) {
         const { message } = parseApiError(err, t('invoiceHistory.errors.reprint'));

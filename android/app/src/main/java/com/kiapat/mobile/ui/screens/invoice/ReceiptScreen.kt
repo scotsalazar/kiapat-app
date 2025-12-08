@@ -1,8 +1,9 @@
 package com.kiapat.mobile.ui.screens.invoice
 
 import android.content.Context
-import android.print.PrintManager
 import android.print.PrintAttributes
+import android.print.PrintManager
+import android.widget.Toast
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -76,7 +77,7 @@ fun ReceiptScreen(
                 actions = {
                     val invoice = state.invoice
                     if (invoice != null) {
-                        IconButton(onClick = { triggerPrint(context, invoice, state.tenderedAmount) }) {
+                        IconButton(onClick = { triggerReceiptPrint(context, invoice, state.tenderedAmount) }) {
                             Icon(Icons.Default.Print, contentDescription = "Print receipt")
                         }
                     }
@@ -222,10 +223,24 @@ private fun TotalsRow(label: String, value: String, emphasize: Boolean = false) 
     }
 }
 
-private fun triggerPrint(context: Context, invoice: InvoiceOut, tenderedAmount: Double?) {
-    val printManager = context.getSystemService(Context.PRINT_SERVICE) as PrintManager
+fun triggerReceiptPrint(context: Context, invoice: InvoiceOut, tenderedAmount: Double?) {
+    val printManager = context.getSystemService(Context.PRINT_SERVICE) as? PrintManager
+    if (printManager == null) {
+        Toast.makeText(context, "Printing is not available on this device", Toast.LENGTH_LONG).show()
+        return
+    }
+
+    val attributes = PrintAttributes.Builder()
+        .setMediaSize(PrintAttributes.MediaSize.NA_LETTER)
+        .build()
     val adapter = ReceiptPrintAdapter(context, invoice, tenderedAmount)
-    printManager.print("Invoice ${invoice.id}", adapter, PrintAttributes.Builder().build())
+    adapter.prepareForPrint(attributes)
+
+    runCatching {
+        printManager.print("Kiapat Receipt", adapter, attributes)
+    }.onFailure { error ->
+        Toast.makeText(context, "Unable to start printing: ${error.message ?: "Unknown error"}", Toast.LENGTH_LONG).show()
+    }
 }
 
 @Composable
