@@ -28,16 +28,16 @@ class ReceiptPrintAdapter(
 
     private var pageWidth: Int = 0
     private var pageHeight: Int = 0
+    private var preparedAttributes: PrintAttributes? = null
     private lateinit var composeView: ComposeView
 
-    override fun onLayout(
-        oldAttributes: PrintAttributes?,
-        newAttributes: PrintAttributes,
-        cancellationSignal: CancellationSignal,
-        callback: LayoutResultCallback,
-        extras: android.os.Bundle?,
-    ) {
-        val widthMils = newAttributes.mediaSize?.widthMils ?: 6120
+    fun prepareForPrint(attributes: PrintAttributes) {
+        preparedAttributes = attributes
+        setupComposeView(attributes)
+    }
+
+    private fun setupComposeView(attributes: PrintAttributes) {
+        val widthMils = attributes.mediaSize?.widthMils ?: 6120
         pageWidth = (widthMils / 1000f * 72).toInt()
 
         composeView = ComposeView(context).apply {
@@ -59,6 +59,16 @@ class ReceiptPrintAdapter(
             View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED),
         )
         pageHeight = composeView.measuredHeight
+    }
+
+    override fun onLayout(
+        oldAttributes: PrintAttributes?,
+        newAttributes: PrintAttributes,
+        cancellationSignal: CancellationSignal,
+        callback: LayoutResultCallback,
+        extras: android.os.Bundle?,
+    ) {
+        setupComposeView(preparedAttributes ?: newAttributes)
 
         val info = PrintDocumentInfo.Builder("invoice_${invoice.id}.pdf")
             .setContentType(PrintDocumentInfo.CONTENT_TYPE_DOCUMENT)
