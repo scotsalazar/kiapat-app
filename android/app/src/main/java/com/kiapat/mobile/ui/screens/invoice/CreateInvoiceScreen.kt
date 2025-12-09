@@ -132,6 +132,7 @@ fun CreateInvoiceScreen(
 
     LaunchedEffect(state.createdInvoice) {
         val invoice = state.createdInvoice ?: return@LaunchedEffect
+        triggerReceiptPrint(context, invoice, state.tenderedAmount.toDoubleOrNull())
         onInvoiceCreated(InvoiceOutWithTender(invoice, state.tenderedAmount.toDoubleOrNull()))
         viewModel.consumeCreatedInvoice()
     }

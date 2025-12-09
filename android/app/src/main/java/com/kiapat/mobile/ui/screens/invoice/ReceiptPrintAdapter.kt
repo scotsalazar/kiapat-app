@@ -19,6 +19,7 @@ import androidx.compose.ui.unit.dp
 import com.kiapat.mobile.data.model.InvoiceOut
 import com.kiapat.mobile.ui.theme.KiapatTheme
 import java.io.FileOutputStream
+import java.io.OutputStream
 
 class ReceiptPrintAdapter(
     private val context: Context,
@@ -28,16 +29,16 @@ class ReceiptPrintAdapter(
 
     private var pageWidth: Int = 0
     private var pageHeight: Int = 0
+    private var preparedAttributes: PrintAttributes? = null
     private lateinit var composeView: ComposeView
 
-    override fun onLayout(
-        oldAttributes: PrintAttributes?,
-        newAttributes: PrintAttributes,
-        cancellationSignal: CancellationSignal,
-        callback: LayoutResultCallback,
-        extras: android.os.Bundle?,
-    ) {
-        val widthMils = newAttributes.mediaSize?.widthMils ?: 6120
+    fun prepareForPrint(attributes: PrintAttributes) {
+        preparedAttributes = attributes
+        setupComposeView(attributes)
+    }
+
+    private fun setupComposeView(attributes: PrintAttributes) {
+        val widthMils = attributes.mediaSize?.widthMils ?: 6120
         pageWidth = (widthMils / 1000f * 72).toInt()
 
         composeView = ComposeView(context).apply {
@@ -59,6 +60,16 @@ class ReceiptPrintAdapter(
             View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED),
         )
         pageHeight = composeView.measuredHeight
+    }
+
+    override fun onLayout(
+        oldAttributes: PrintAttributes?,
+        newAttributes: PrintAttributes,
+        cancellationSignal: CancellationSignal,
+        callback: LayoutResultCallback,
+        extras: android.os.Bundle?,
+    ) {
+        setupComposeView(preparedAttributes ?: newAttributes)
 
         val info = PrintDocumentInfo.Builder("invoice_${invoice.id}.pdf")
             .setContentType(PrintDocumentInfo.CONTENT_TYPE_DOCUMENT)
@@ -74,10 +85,15 @@ class ReceiptPrintAdapter(
         cancellationSignal: CancellationSignal,
         callback: WriteResultCallback,
     ) {
-        try {
+        renderToPdf(FileOutputStream(destination.fileDescriptor))
+            .onSuccess { callback.onWriteFinished(arrayOf(PageRange.ALL_PAGES)) }
+            .onFailure { callback.onWriteFailed(it.message) }
+    }
+
+    fun renderToPdf(outputStream: OutputStream): Result<Unit> {
+        return runCatching {
             if (!::composeView.isInitialized) {
-                callback.onWriteFailed("Receipt content is not ready")
-                return
+                callbackMissingContent()
             }
             if (pageWidth == 0 || pageHeight == 0) {
                 pageWidth = 612
@@ -96,11 +112,12 @@ class ReceiptPrintAdapter(
             page.canvas.drawBitmap(bitmap, 0f, 0f, null)
             pdfDocument.finishPage(page)
 
-            pdfDocument.writeTo(FileOutputStream(destination.fileDescriptor))
+            pdfDocument.writeTo(outputStream)
             pdfDocument.close()
-            callback.onWriteFinished(arrayOf(PageRange.ALL_PAGES))
-        } catch (ex: Exception) {
-            callback.onWriteFailed(ex.message)
         }
+    }
+
+    private fun callbackMissingContent() {
+        throw IllegalStateException("Receipt content is not ready")
     }
 }

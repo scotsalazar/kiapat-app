@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { useAuth } from '../hooks/useAuth';
 import { useToast } from '../components/ToastProvider';
 import { parseApiError } from '../utils/apiErrors';
+import { ensureReceiptHtml, triggerUnifiedPrint } from '../utils/print';
 import useInventoryStream, { InventoryUpdateMessage } from '../hooks/useInventoryStream';
 import InvoicePreviewModal from '../components/InvoicePreviewModal';
 import type { Classification, InvoiceItemForm, Price } from '../types/invoice';
@@ -419,54 +420,54 @@ const DriverInvoicePage: React.FC = () => {
         })
         .join('');
 
-      return `
-        <html>
-          <head>
-            <meta name="viewport" content="width=device-width, initial-scale=1" />
-            <title>Sales Invoice Receipt</title>
-            <style>
-              body { font-family: Arial, sans-serif; color: #0f172a; padding: 16px; }
-              h1 { font-size: 18px; margin-bottom: 8px; }
-              table { width: 100%; border-collapse: collapse; margin-top: 12px; }
-              tfoot td { font-weight: bold; }
-            </style>
-          </head>
-          <body>
-            <h1>${t('driverInvoice.title')}</h1>
-            <p><strong>${t('invoicePreview.summaryHeading')}:</strong> #${invoiceNumber ?? '—'} | ${submissionTime}</p>
-            <p><strong>${t('common.labels.customerName')}:</strong> ${customerName || '—'}<br />
-               <strong>${t('common.labels.customerPhone')}:</strong> ${customerPhone || '—'}<br />
-               <strong>${t('common.labels.address')}:</strong> ${customerAddress || '—'}<br />
-               <strong>${t('driverInvoice.form.gpsCoordinatesLabel')}:</strong> ${coordinates || t('driverInvoice.form.locationUnavailable')}</p>
-            <table>
-              <thead>
-                <tr>
-                  <th style="text-align:left; padding: 6px 4px; border-bottom: 1px solid #e2e8f0;">${t('invoicePreview.table.classification')}</th>
-                  <th style="text-align:right; padding: 6px 4px; border-bottom: 1px solid #e2e8f0;">${t('invoicePreview.table.quantity')}</th>
-                  <th style="text-align:right; padding: 6px 4px; border-bottom: 1px solid #e2e8f0;">${t('invoicePreview.table.unit')}</th>
-                  <th style="text-align:right; padding: 6px 4px; border-bottom: 1px solid #e2e8f0;">${t('invoicePreview.table.unitPrice')}</th>
-                  <th style="text-align:right; padding: 6px 4px; border-bottom: 1px solid #e2e8f0;">${t('invoicePreview.table.lineTotal')}</th>
-                </tr>
-              </thead>
-              <tbody>${lineItemRows}</tbody>
-              <tfoot>
-                <tr>
-                  <td colspan="4" style="padding: 6px 4px; text-align: right;">${t('invoicePreview.subtotal')}</td>
-                  <td style="padding: 6px 4px; text-align: right;">${formatCurrencyValue(subtotal)}</td>
-                </tr>
-                <tr>
-                  <td colspan="4" style="padding: 6px 4px; text-align: right;">${t('invoicePreview.taxes', { rate: '12' })}</td>
-                  <td style="padding: 6px 4px; text-align: right;">${formatCurrencyValue(taxes)}</td>
-                </tr>
-                <tr>
-                  <td colspan="4" style="padding: 6px 4px; text-align: right;">${t('invoicePreview.total')}</td>
-                  <td style="padding: 6px 4px; text-align: right;">${formatCurrencyValue(totalWithTax)}</td>
-                </tr>
-              </tfoot>
-            </table>
-          </body>
-        </html>
-      `;
+    return ensureReceiptHtml(`
+      <html>
+        <head>
+          <meta name="viewport" content="width=device-width, initial-scale=1" />
+          <title>Sales Invoice Receipt</title>
+          <style>
+            body { font-family: Arial, sans-serif; color: #0f172a; padding: 16px; }
+            h1 { font-size: 18px; margin-bottom: 8px; }
+            table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+            tfoot td { font-weight: bold; }
+          </style>
+        </head>
+        <body>
+          <h1>${t('driverInvoice.title')}</h1>
+          <p><strong>${t('invoicePreview.summaryHeading')}:</strong> #${invoiceNumber ?? '—'} | ${submissionTime}</p>
+          <p><strong>${t('common.labels.customerName')}:</strong> ${customerName || '—'}<br />
+             <strong>${t('common.labels.customerPhone')}:</strong> ${customerPhone || '—'}<br />
+             <strong>${t('common.labels.address')}:</strong> ${customerAddress || '—'}<br />
+             <strong>${t('driverInvoice.form.gpsCoordinatesLabel')}:</strong> ${coordinates || t('driverInvoice.form.locationUnavailable')}</p>
+          <table>
+            <thead>
+              <tr>
+                <th style="text-align:left; padding: 6px 4px; border-bottom: 1px solid #e2e8f0;">${t('invoicePreview.table.classification')}</th>
+                <th style="text-align:right; padding: 6px 4px; border-bottom: 1px solid #e2e8f0;">${t('invoicePreview.table.quantity')}</th>
+                <th style="text-align:right; padding: 6px 4px; border-bottom: 1px solid #e2e8f0;">${t('invoicePreview.table.unit')}</th>
+                <th style="text-align:right; padding: 6px 4px; border-bottom: 1px solid #e2e8f0;">${t('invoicePreview.table.unitPrice')}</th>
+                <th style="text-align:right; padding: 6px 4px; border-bottom: 1px solid #e2e8f0;">${t('invoicePreview.table.lineTotal')}</th>
+              </tr>
+            </thead>
+            <tbody>${lineItemRows}</tbody>
+            <tfoot>
+              <tr>
+                <td colspan="4" style="padding: 6px 4px; text-align: right;">${t('invoicePreview.subtotal')}</td>
+                <td style="padding: 6px 4px; text-align: right;">${formatCurrencyValue(subtotal)}</td>
+              </tr>
+              <tr>
+                <td colspan="4" style="padding: 6px 4px; text-align: right;">${t('invoicePreview.taxes', { rate: '12' })}</td>
+                <td style="padding: 6px 4px; text-align: right;">${formatCurrencyValue(taxes)}</td>
+              </tr>
+              <tr>
+                <td colspan="4" style="padding: 6px 4px; text-align: right;">${t('invoicePreview.total')}</td>
+                <td style="padding: 6px 4px; text-align: right;">${formatCurrencyValue(totalWithTax)}</td>
+              </tr>
+            </tfoot>
+          </table>
+        </body>
+      </html>
+      `);
     },
     [
       classificationMap,
@@ -482,28 +483,20 @@ const DriverInvoicePage: React.FC = () => {
   const triggerPrintReceipt = useCallback(
     (invoiceNumber: number | null, coordinates: string) => {
       const html = buildReceiptHtml(invoiceNumber, coordinates);
-      const androidPrintManager = (window as unknown as { AndroidPrintManager?: { print?: (content: string) => void; printHtml?: (content: string) => void } }).AndroidPrintManager;
+      const receiptPayload = {
+        invoiceNumber,
+        coordinates,
+        customerName,
+        customerPhone,
+        customerAddress,
+        items,
+      };
 
-      if (androidPrintManager?.printHtml) {
-        androidPrintManager.printHtml(html);
-        return;
-      }
-
-      if (androidPrintManager?.print) {
-        androidPrintManager.print(html);
-        return;
-      }
-
-      const printWindow = window.open('', '_blank', 'noopener,noreferrer');
-      if (printWindow) {
-        printWindow.document.write(html);
-        printWindow.document.close();
-        printWindow.focus();
-        printWindow.print();
-        printWindow.close();
-      }
+      triggerUnifiedPrint(receiptPayload, html, () => {
+        showToast('Please allow pop-ups to print receipts', 'error');
+      });
     },
-    [buildReceiptHtml],
+    [buildReceiptHtml, customerAddress, customerName, customerPhone, items, showToast],
   );
 
   const handleConfirmPreview = async () => {
