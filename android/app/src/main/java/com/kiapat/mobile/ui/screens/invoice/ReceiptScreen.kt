@@ -1,9 +1,14 @@
 package com.kiapat.mobile.ui.screens.invoice
 
+import android.app.Activity
 import android.content.Context
+import android.content.ContextWrapper
+import android.content.Intent
+import android.net.Uri
 import android.print.PrintAttributes
 import android.print.PrintManager
 import android.widget.Toast
+import androidx.core.content.FileProvider
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -45,6 +50,8 @@ import androidx.compose.ui.unit.dp
 import com.kiapat.mobile.data.model.InvoiceItemOut
 import com.kiapat.mobile.data.model.InvoiceOut
 import com.kiapat.mobile.data.model.SizeEnum
+import java.io.File
+import java.io.FileOutputStream
 import java.text.NumberFormat
 import java.time.OffsetDateTime
 import java.time.format.DateTimeFormatter
@@ -224,23 +231,71 @@ private fun TotalsRow(label: String, value: String, emphasize: Boolean = false) 
 }
 
 fun triggerReceiptPrint(context: Context, invoice: InvoiceOut, tenderedAmount: Double?) {
-    val printManager = context.getSystemService(Context.PRINT_SERVICE) as? PrintManager
-    if (printManager == null) {
-        Toast.makeText(context, "Printing is not available on this device", Toast.LENGTH_LONG).show()
-        return
-    }
-
+    val activity = context.findActivity()
+    val printManager = (activity ?: context).getSystemService(Context.PRINT_SERVICE) as? PrintManager
     val attributes = PrintAttributes.Builder()
         .setMediaSize(PrintAttributes.MediaSize.NA_LETTER)
         .build()
     val adapter = ReceiptPrintAdapter(context, invoice, tenderedAmount)
     adapter.prepareForPrint(attributes)
 
-    runCatching {
+    val printResult = runCatching {
+        if (printManager == null) error("Printing is not available on this device")
         printManager.print("Kiapat Receipt", adapter, attributes)
-    }.onFailure { error ->
-        Toast.makeText(context, "Unable to start printing: ${error.message ?: "Unknown error"}", Toast.LENGTH_LONG).show()
     }
+
+    if (printResult.isSuccess) {
+        return
+    }
+
+    val fallbackStarted = shareReceiptPdf(context, adapter, invoice.id)
+    if (fallbackStarted) {
+        Toast.makeText(
+            context,
+            "Printing unavailable. Opened PDF so you can print via local/Wi‑Fi.",
+            Toast.LENGTH_LONG,
+        ).show()
+    } else {
+        val errorMessage = printResult.exceptionOrNull()?.message ?: "Unknown error"
+        Toast.makeText(context, "Unable to start printing: $errorMessage", Toast.LENGTH_LONG).show()
+    }
+}
+
+private fun shareReceiptPdf(
+    context: Context,
+    adapter: ReceiptPrintAdapter,
+    invoiceId: Int,
+): Boolean {
+    return runCatching {
+        val cacheDir = File(context.cacheDir, "receipts").apply { mkdirs() }
+        val pdfFile = File(cacheDir, "receipt_${invoiceId}.pdf")
+        FileOutputStream(pdfFile).use { outputStream ->
+            adapter.renderToPdf(outputStream).getOrThrow()
+        }
+
+        val uri: Uri = FileProvider.getUriForFile(
+            context,
+            "${context.packageName}.fileprovider",
+            pdfFile,
+        )
+
+        val openPdfIntent = Intent(Intent.ACTION_VIEW).apply {
+            setDataAndType(uri, "application/pdf")
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+
+        val chooser = Intent.createChooser(openPdfIntent, "Open receipt PDF")
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+
+        context.startActivity(chooser)
+        true
+    }.getOrElse { false }
+}
+
+private tailrec fun Context.findActivity(): Activity? = when (this) {
+    is Activity -> this
+    is ContextWrapper -> baseContext.findActivity()
+    else -> null
 }
 
 @Composable

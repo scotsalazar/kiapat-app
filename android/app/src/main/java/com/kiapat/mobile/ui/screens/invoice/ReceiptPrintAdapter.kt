@@ -19,6 +19,7 @@ import androidx.compose.ui.unit.dp
 import com.kiapat.mobile.data.model.InvoiceOut
 import com.kiapat.mobile.ui.theme.KiapatTheme
 import java.io.FileOutputStream
+import java.io.OutputStream
 
 class ReceiptPrintAdapter(
     private val context: Context,
@@ -84,10 +85,15 @@ class ReceiptPrintAdapter(
         cancellationSignal: CancellationSignal,
         callback: WriteResultCallback,
     ) {
-        try {
+        renderToPdf(FileOutputStream(destination.fileDescriptor))
+            .onSuccess { callback.onWriteFinished(arrayOf(PageRange.ALL_PAGES)) }
+            .onFailure { callback.onWriteFailed(it.message) }
+    }
+
+    fun renderToPdf(outputStream: OutputStream): Result<Unit> {
+        return runCatching {
             if (!::composeView.isInitialized) {
-                callback.onWriteFailed("Receipt content is not ready")
-                return
+                callbackMissingContent()
             }
             if (pageWidth == 0 || pageHeight == 0) {
                 pageWidth = 612
@@ -106,11 +112,12 @@ class ReceiptPrintAdapter(
             page.canvas.drawBitmap(bitmap, 0f, 0f, null)
             pdfDocument.finishPage(page)
 
-            pdfDocument.writeTo(FileOutputStream(destination.fileDescriptor))
+            pdfDocument.writeTo(outputStream)
             pdfDocument.close()
-            callback.onWriteFinished(arrayOf(PageRange.ALL_PAGES))
-        } catch (ex: Exception) {
-            callback.onWriteFailed(ex.message)
         }
+    }
+
+    private fun callbackMissingContent() {
+        throw IllegalStateException("Receipt content is not ready")
     }
 }
